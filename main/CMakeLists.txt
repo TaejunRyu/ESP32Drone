@@ -18,6 +18,7 @@ idf_component_register(
                 esp_timer 
                 bootloader_support  
                 esp_pm 
+                freertos
                 
                 
     #PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!

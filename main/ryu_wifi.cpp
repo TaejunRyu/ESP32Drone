@@ -2,14 +2,9 @@
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
 
-//ESP-NOW 전용
-
 namespace WIFI
 {   
-
 esp_now_peer_info_t peer_info = {}; 
-//static mavlink_status_t esp_now_status;
-//static mavlink_message_t esp_now_msg;
 
 //ESP-NOW 전용
 void init_wifi(){
@@ -70,22 +65,10 @@ void init_esp_now(void) {
         // 해당 설정시 _LR모드와 공존할수 없다.
         esp_now_set_peer_rate_config(bridge_mac, &rate_config); 
     }
-    
     ESP_LOGI("WIFI", "Bridge peer 등록 성공: %02x:%02x:%02x:%02x:%02x:%02x",
                  bridge_mac[0], bridge_mac[1], bridge_mac[2],
-                 bridge_mac[3], bridge_mac[4], bridge_mac[5]);
-    
+                 bridge_mac[3], bridge_mac[4], bridge_mac[5]);    
     ESP_LOGI("WIFI", "ESP-NOW 초기화 완료");
-
-    // //callback 함수가 데이터를 받아서 mavlink의 데이터 처리를 하기 때문에 콜백함수를 반드시 등록해야함.
-    // esp_err_t err = esp_now_register_recv_cb(on_esp_now_recv);
-    // if (err != ESP_OK) {
-    //     ESP_LOGE("ESP_NOW", "recv callback 등록 실패: %s", esp_err_to_name(err));
-    // }
-    // err = esp_now_register_send_cb(on_esp_now_send);
-    // if (err != ESP_OK) {
-    //     ESP_LOGE("ESP_NOW", "send callback 등록 실패: %s", esp_err_to_name(err));
-    // }
 }
 
 void connect_callback(){
@@ -140,6 +123,7 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
     uint32_t msgid =    (uint32_t)data[7]        | 
                         ((uint32_t)data[8] << 8) | 
                         ((uint32_t)data[9] << 16);
+
     // qgc에서 virtual joystik 운영시 packet을  어디로 보낼까?
     if (msgid == MAVLINK_MSG_ID_MANUAL_CONTROL){
         //  일단 보류 어떻게 할것인가는 추후 설정
@@ -179,7 +163,8 @@ void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t stat
 }
 
 esp_err_t send_esp_now(const uint8_t *data, size_t len) {
-    if (data == nullptr || len == 0) return ESP_ERR_INVALID_ARG;
+    if (data == nullptr || len == 0) 
+        return ESP_ERR_INVALID_ARG;
     
     // 1. ESP-NOW 최대 크기 체크 (안전 장치)
     if (len > 250) {
@@ -288,8 +273,6 @@ void dispatch_mavlink_msg(mavlink_message_t *msg) {
         xQueueSend(mavlink_tx_queue, &pkt, 0/*portMAX_DELAY */);
     }
 }
-
-
 
 }
 
