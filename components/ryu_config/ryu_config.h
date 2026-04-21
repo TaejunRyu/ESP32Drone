@@ -1,12 +1,12 @@
 #pragma once
-
+#include <array>
+#include <string_view>
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
 #include <lwip/sockets.h>   // ESP-IDF 전용 소켓 라이브러리
 #include <esp_adc/adc_oneshot.h>
-//#include <common/mavlink.h>
 #include <c_library_v2/common/mavlink.h>
-#include "ryu_common_std.h"
+//#include "ryu_common_std.h"
 #include "ryu_bmp388.h"
 //#include "error_proc.h"
 
@@ -34,12 +34,12 @@ inline constexpr uint8_t  RR =  3;
 
 
 // 현재 사용하는 센서 이름을 상수로 정의하여 코드 가독성 향상
-const std::string IMU_NAME_MAIN     ="ICM20948";
-const std::string IMU_NAME_SUB      ="ICM20948";
-const std::string MAG_NAME_MAIN     ="IST8310";
-const std::string MAG_NAME_SUB      ="AK09916";
-const std::string BARO_NAME_MAIN    ="BMP388";
-const std::string BARO_NAME_SUB     ="BMP388";
+inline constexpr char IMU_NAME_MAIN[]     ="ICM20948";
+inline constexpr char IMU_NAME_SUB[]      ="ICM20948";
+inline constexpr char MAG_NAME_MAIN[]     ="IST8310";
+inline constexpr char MAG_NAME_SUB[]      ="AK09916";
+inline constexpr char BARO_NAME_MAIN[]    ="BMP388";
+inline constexpr char BARO_NAME_SUB[]     ="BMP388";
 
 
 inline constexpr uint32_t   I2C_SPEED   = 400000;

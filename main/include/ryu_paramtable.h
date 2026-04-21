@@ -11,8 +11,6 @@
 //#include <common/mavlink.h>
 #include <c_library_v2/common/mavlink.h>
 
-
-#include "ryu_common_std.h"
 #include "ryu_config.h" // drone_pid_t 및 전역 PID 변수를 사용하기 위해 포함
 
 namespace PARAM {

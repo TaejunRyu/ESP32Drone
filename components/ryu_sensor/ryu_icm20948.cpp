@@ -1,5 +1,5 @@
 #include "ryu_icm20948.h"
-
+#include <tuple>
 
 namespace ICM20948{
 
@@ -107,7 +107,7 @@ esp_err_t enable_mag_bypass(i2c_master_dev_handle_t handle) {
 }
 
 
-extern "C" std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
+std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
         read_raw_data(i2c_master_dev_handle_t handle){
     if (handle == NULL) 
         return {ESP_FAIL, {0.0f, 0.0f, 0.0f},{0.0f,0.0f,0.0f}};
@@ -185,6 +185,36 @@ std::tuple<std::array<float,3>,std::array<float,3>> calibrate( i2c_master_dev_ha
     }
     
     return {{sum_acc[X],sum_acc[Y],sum_acc[Z]},{sum_gyro[X],sum_gyro[Y],sum_gyro[Z]}};
+}
+
+
+/**
+ * @brief  원시 데이터의 모든 설정값을 조건에 맞게 설정하여 반환한다. 
+ *      
+ * @param handle       
+ * @param offset_acc    시스템 시작시 캘리브레이션으로 얻은 acc  offset이다.
+ * @param offset_gyro   시스템 시작시 캘리브레이션으로 얻은 gyro offset이다.
+ * @return std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
+ */
+std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
+        read_with_offset(i2c_master_dev_handle_t handle,std::array<float,3> offset_acc,std::array<float,3> offset_gyro){
+    auto [ret,acc,gyro] = read_raw_data(handle);
+    acc[X]  = acc[X]  - offset_acc[X];
+    acc[Y]  = acc[Y]  - offset_acc[Y];
+    acc[Z]  = acc[Z]  - offset_acc[Z];
+    gyro[X] = gyro[X] - offset_gyro[X];
+    gyro[Y] = gyro[Y] - offset_gyro[Y];
+    gyro[Z] = gyro[Z] - offset_gyro[Z];
+
+    // ICM20948에서 부호를 반대로 설정해놨어요. 논리 대로 처리 간다~~~~  
+    // qgc의 roll , pitch에 (-) 부호처리 일단함.
+    // 오른손법칙에 어긋나는 부분 교정하여 Mahony에 입력한다 
+    acc[Y]  *=  -1.0f;
+    gyro[X] *=  -1.0f;
+
+    // 오른쪽으로 회전시 (-)부호로 값은 커진다. (즉 값이 작아진다는 것이다)
+    gyro[Z] *=  -1.0f;
+    return {ret,acc,gyro};
 }
 
 

@@ -6,8 +6,6 @@
 #include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-
-#include "ryu_common_std.h"
 #include "ryu_error_proc.h"
 #include "ryu_config.h"
 

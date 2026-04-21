@@ -1,5 +1,5 @@
 #include "ryu_pid.h"
-
+#include <algorithm>
 namespace PID
 {
 // PID 리셋: 적분값과 이전 오차를 초기화

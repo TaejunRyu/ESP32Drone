@@ -1,4 +1,6 @@
 #include "ryu_mavlink.h"
+#include <cmath>   // float, double용 std::abs
+
 /**
  * @brief MAVLink 메시지 전송 함수
  * 

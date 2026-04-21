@@ -1,5 +1,5 @@
 #include "ryu_ist8310.h"
-
+#include <tuple>
 namespace IST8310
 {
     // cross axis 적용시 

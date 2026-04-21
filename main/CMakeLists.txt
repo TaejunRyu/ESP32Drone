@@ -25,5 +25,5 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -O3
     -ffast-math
     -fno-finite-math-only
-    -std=gnu++23 
+    -std=gnu++23
 )
