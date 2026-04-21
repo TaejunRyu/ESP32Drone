@@ -1,11 +1,11 @@
 # This file was automatically generated for projects
 # without default 'CMakeLists.txt' file.
 
-FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.*)
+FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 idf_component_register(
     SRCS ${app_sources}
-    INCLUDE_DIRS "." "include"
+    INCLUDE_DIRS "include"
     REQUIRES     
                 esp_adc             esp_wifi            nvs_flash 
                 esp_driver_uart     esp_driver_gpio     esp_driver_mcpwm 
