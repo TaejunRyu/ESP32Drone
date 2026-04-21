@@ -1,4 +1,4 @@
-#include "sensor/ryu_ist8310.h"
+#include "ryu_ist8310.h"
 
 namespace IST8310
 {

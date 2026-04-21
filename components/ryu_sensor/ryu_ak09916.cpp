@@ -1,4 +1,4 @@
-#include "sensor/ryu_ak09916.h"
+#include "ryu_ak09916.h"
 
 
 namespace AK09916

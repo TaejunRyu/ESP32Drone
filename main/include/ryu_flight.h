@@ -21,15 +21,15 @@
 #include "ryu_common_std.h"
 #include "ryu_error_proc.h"
 
-#include "sensor/ryu_i2c.h"
+#include "ryu_i2c.h"
 // 첫번째 센서로 
 // icm20948, ak09916, bmp388 위의 센서 교체.
-#include "sensor/ryu_icm20948.h"
-#include "sensor/ryu_ak09916.h"
-#include "sensor/ryu_bmp388.h"   
+#include "ryu_icm20948.h"
+#include "ryu_ak09916.h"
+#include "ryu_bmp388.h"   
 
 // gps에 있는 지자계센서.
-#include "sensor/ryu_ist8310.h"
+#include "ryu_ist8310.h"
 #include "ryu_servo.h"
 
 

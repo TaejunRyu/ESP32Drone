@@ -1,4 +1,4 @@
-#include "sensor/ryu_i2c.h"
+#include "ryu_i2c.h"
 namespace I2C{
 /**
  * @brief I2C 마스터 버스를 초기화하고 핸들을 반환합니다.

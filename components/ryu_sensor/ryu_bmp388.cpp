@@ -1,4 +1,4 @@
-#include "sensor/ryu_bmp388.h"
+#include "ryu_bmp388.h"
 
 esp_err_t  CBMP388::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address)   
 {

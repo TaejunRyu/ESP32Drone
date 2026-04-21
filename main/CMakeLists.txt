@@ -6,22 +6,15 @@ FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.*)
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS "." "include"
-    REQUIRES    mavlink 
-                esp_adc 
-                esp_wifi 
-                nvs_flash 
-                esp_driver_uart 
-                esp_driver_gpio 
-                esp_driver_mcpwm 
-                esp_driver_i2c 
-                esp_driver_ledc
-                esp_timer 
-                bootloader_support  
-                esp_pm 
-                freertos
+    REQUIRES     
+                esp_adc             esp_wifi            nvs_flash 
+                esp_driver_uart     esp_driver_gpio     esp_driver_mcpwm 
+                esp_driver_i2c      esp_driver_ledc     esp_timer 
+                bootloader_support  esp_pm              freertos
+                esp_system          lwip                mavlink
+                ryu_sensor          ryu_config
                 
-                
-    #PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
+    PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
 )
 
 # 3. 컴파일 옵션 설정
@@ -32,5 +25,5 @@ target_compile_options(${COMPONENT_LIB} PRIVATE
     -O3
     -ffast-math
     -fno-finite-math-only
-#    -std=gnu++23 
+    -std=gnu++23 
 )

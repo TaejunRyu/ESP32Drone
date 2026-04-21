@@ -7,7 +7,7 @@
 //#include <common/mavlink.h>
 #include <c_library_v2/common/mavlink.h>
 #include "ryu_common_std.h"
-#include "sensor/ryu_bmp388.h"
+#include "ryu_bmp388.h"
 //#include "error_proc.h"
 
 #ifdef __cplusplus

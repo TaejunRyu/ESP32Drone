@@ -1,4 +1,4 @@
-#include "sensor/ryu_icm20948.h"
+#include "ryu_icm20948.h"
 
 
 namespace ICM20948{

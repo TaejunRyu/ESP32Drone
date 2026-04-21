@@ -3,6 +3,8 @@
 #include <driver/i2c_master.h>
 #include <esp_log.h>
 #include "ryu_config.h"
+
+
 namespace AK09916
 {
 // AK09916의 주소는 영구적으로 고정되어 있음.    
