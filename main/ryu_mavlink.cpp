@@ -75,8 +75,9 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                              par.name.data(), val_to_send, par.type, PARAM::count, i);
                 WIFI::dispatch_mavlink_msg(&msg);
-                // 너무 빠르게 보내면 QGC가 못받을 수 있어서 약간 딜레이 
-                vTaskDelay(pdMS_TO_TICKS(1));
+                // pdMS_TO_TICKS(1) : 1또는 2개가 버퍼 를 넘긴다 
+                // pdMS_TO_TICKS(2) : 에러가 나지 않는다.
+                vTaskDelay(pdMS_TO_TICKS(2));
                 i++;
             }
             break;

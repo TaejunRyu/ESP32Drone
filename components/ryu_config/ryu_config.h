@@ -6,7 +6,6 @@
 #include <lwip/sockets.h>   // ESP-IDF 전용 소켓 라이브러리
 #include <esp_adc/adc_oneshot.h>
 #include <c_library_v2/common/mavlink.h>
-//#include "ryu_common_std.h"
 #include "ryu_bmp388.h"
 //#include "error_proc.h"
 
