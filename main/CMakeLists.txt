@@ -6,7 +6,7 @@ FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 idf_component_register(
     SRCS ${app_sources}
     INCLUDE_DIRS "include"
-    REQUIRES     
+    REQUIRES                   
                 esp_adc             esp_wifi            nvs_flash 
                 esp_driver_uart     esp_driver_gpio     esp_driver_mcpwm 
                 esp_driver_i2c      esp_driver_ledc     esp_timer 
