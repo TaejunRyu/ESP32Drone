@@ -21,9 +21,7 @@ static void vDroneTimerCallback(TimerHandle_t xTimer) {
     static gps_data_t m_gps={};
     static uint32_t last_itow = 0;     // 마지막으로 전송한 iTOW 저장
 
-
-
- {
+    {
         // 1. RC 채널 데이터 가상 생성 (1000~2000 사이의 값)
         uint16_t channels[18] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 
                                 UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
@@ -56,34 +54,9 @@ static void vDroneTimerCallback(TimerHandle_t xTimer) {
         );
         WIFI::dispatch_mavlink_msg(&msg);
         //break;                        
-}
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    
     switch(step){
 
         case 1: case 8: case 9:{
