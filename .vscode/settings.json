@@ -1,0 +1,11 @@
+{
+    "idf.currentSetup": "/home/ryuwillow/.espressif/v6.0/esp-idf",
+    "idf.port": "/dev/ttyUSB0",
+    "idf.flashType": "UART",
+    "idf.customExtraVars": {
+        "IDF_TARGET": "esp32"
+    },
+    "idf.openOcdConfigs": [
+        "board/esp32-wrover-kit-3.3v.cfg"
+    ]    
+}

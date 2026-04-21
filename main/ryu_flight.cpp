@@ -1,0 +1,558 @@
+#include "ryu_flight.h"
+
+namespace FLIGHT
+{
+
+class PerfMonitor part_timer;
+
+uint8_t imu_error_cnt = 0;
+uint8_t mag_error_cnt = 0;
+uint8_t baro_error_cnt =0;
+uint8_t imu_active_index = 0;
+uint8_t mag_active_index = 0;
+uint8_t baro_active_index = 0;
+
+uint64_t  total_us  =0;
+float calculated_dt = 0.0f;
+    
+void flight_task(void *pv) {
+    
+    uint32_t loop_cnt = 0;
+    int64_t  last_time = esp_timer_get_time();
+
+    //Watch Dog 등록.  
+    esp_task_wdt_add(NULL);     
+
+    while(true) {
+        int64_t now = esp_timer_get_time();
+        calculated_dt = (now- last_time);
+        last_time = now; 
+     
+        //Watch Dog에게 "나 살아 있어!"" 라고 알린다.  
+        esp_task_wdt_reset(); 
+        
+        if (++loop_cnt >= 400) 
+            loop_cnt = 0; // 1초 주기로 초기화
+
+        // if (loop_cnt == 200) {
+        //     static bool led_state = false;
+        //     gpio_set_level(GPIO_NUM_2, (led_state = !led_state));
+        // }
+
+        // 연속적인 데이터 읽기 실패를 체크한다.
+        esp_err_t ret_code = ESP_FAIL;
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&    
+// imu_active_index = 1;
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+ 
+        static float   calculation_acc_x  = 0.0f,  calculation_acc_y  = 0.0f,  calculation_acc_z  = 0.0f;
+        static float   calculation_gyro_x = 0.0f,  calculation_gyro_y = 0.0f,  calculation_gyro_z = 0.0f;
+        if (imu_error_cnt < ERROR_MAX_NUM+1){
+            switch(imu_active_index){
+                case 0:{
+                    auto [ret,macc,mgyro] = ICM20948::read_with_offset(imu_handle[imu_active_index],
+                                                                                g_imu_offset[imu_active_index].acc,
+                                                                                g_imu_offset[imu_active_index].gyro);
+                    g_imu.acc   = macc;
+                    g_imu.gyro  = mgyro;
+                    ret_code    = ret;
+                    }
+                    break;
+                
+                case 1:{
+                    auto [ret,macc,mgyro]   = ICM20948::read_with_offset(imu_handle[imu_active_index],
+                                                                                    g_imu_offset[imu_active_index].acc,
+                                                                                    g_imu_offset[imu_active_index].gyro);
+                    g_imu.acc   = macc;
+                    g_imu.gyro  = mgyro;
+                    ret_code    = ret;
+                    }
+                    break;
+            }
+            if(ret_code == ESP_OK)[[likely]]{
+                imu_error_cnt = 0;
+                calculation_acc_x  = g_imu.acc[X] ;
+                calculation_acc_y  = g_imu.acc[Y] ;
+                calculation_acc_z  = g_imu.acc[Z] ;
+                calculation_gyro_x = g_imu.gyro[X] ;
+                calculation_gyro_y = g_imu.gyro[Y] ;
+                calculation_gyro_z = g_imu.gyro[Z] ;
+            }else{
+                imu_error_cnt++;
+                if( imu_error_cnt > ERROR_CNT_NUM ){
+                    imu_active_index = (imu_active_index == 0) ? 1 : 0;
+                    ESP_LOGW("IMU", "Primary IMU failed %d times, trying Backup (IMU %d)",imu_error_cnt, imu_active_index);
+                    imu_error_cnt = 0;
+                }
+            }     
+            if (imu_error_cnt ==ERROR_MAX_NUM){
+                xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                g_sys.error_hold_mode = true;
+                imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
+            }
+        }  
+
+        // 두 지자계의 기본 차이값을 저장하여 main을 기준으로 sub의 값을 변경.
+        // 고정 상태에서 측정하여 차이만큼 보정
+        const float diff_x = 0.2784f;
+        const float diff_y = -0.1175f;
+        const float diff_z = -0.1285;
+
+        static float calulation_mag_x=0.0f, calulation_mag_y=0.0f, calulation_mag_z=0.0f;
+
+        //20 hz단위로 처리. (전체루프는 400hz이다)
+        if ((loop_cnt % 20 == 0) && (mag_error_cnt < ERROR_MAX_NUM + 1)) [[likely]] { // 0. 치명적 에러 시 읽기 시도 방지 (11 이상이면 스킵)
+ 
+            // AK09916를 테스트하기 위하여 강제로 인덱스를 1로 고정 (완료되면 삭제할것)                
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+//            mag_active_index = 1;
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+            // 1.인덱스별로  main과 sub별 실행을 분리한다.     
+            switch(mag_active_index){
+                case 0:{
+                    auto [ret, mag_main] = IST8310::read_with_offset(mag_handle[mag_active_index]);
+                    g_imu.mag = mag_main;
+                    ret_code = ret;
+                    }
+                    break;
+                case 1:{
+                    auto [ret, mag_sub] = AK09916::read_with_offset(mag_handle[mag_active_index]);
+                    g_imu.mag = mag_sub;
+                    ret_code = ret;
+                    }
+                    break;
+            }
+
+            if(ret_code == ESP_OK)[[likely]]{
+                mag_error_cnt = 0;
+                // main과 격차를 줄이기위하여 보정한다.
+                calulation_mag_x = g_imu.mag[X] + ((mag_active_index == 1) ?  diff_x : 0.0f);
+                calulation_mag_y = g_imu.mag[Y] + ((mag_active_index == 1) ?  diff_y : 0.0f);
+                calulation_mag_z = g_imu.mag[Z] + ((mag_active_index == 1) ?  diff_z : 0.0f);
+            }else{
+                mag_error_cnt++;
+                if (mag_error_cnt > ERROR_CNT_NUM) {
+                    mag_active_index = (mag_active_index == 0) ? 1 : 0;
+                    ESP_LOGW("MAG", "Primary MAG failed %d times, trying Backup (MAG %d)",mag_error_cnt, mag_active_index);
+                    mag_error_cnt = 0;
+                }
+            }                           
+            // 3.치명적 에러 발생 (10회 연속 실패)
+            if (mag_error_cnt == ERROR_MAX_NUM) {
+                ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
+                xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                g_sys.error_hold_mode = true;
+                mag_error_cnt = ERROR_MAX_NUM+1; // 차단
+            }             
+        }
+
+    
+        // if (loop_cnt % 32 == 0)  
+        //     printf("\n%8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.4f \t %8.6f",
+        //         calculation_acc_x,
+        //         calculation_acc_y,
+        //         calculation_acc_z,
+        //         calculation_gyro_x,
+        //         calculation_gyro_y,
+        //         calculation_gyro_z,
+        //         calulation_mag_x,
+        //         calulation_mag_y,
+        //         calulation_mag_z,calculated_dt );  
+
+        { // qgc로 보내는 데이터
+            g_attitude.rollspeed    = calculation_gyro_x ;
+            g_attitude.pitchspeed   = calculation_gyro_y ;
+            g_attitude.yawspeed     = calculation_gyro_z ;
+        }
+        AHRS::MahonyAHRSupdate(   
+                            calculation_gyro_x * DEG_TO_RAD,
+                            calculation_gyro_y * DEG_TO_RAD, 
+                            calculation_gyro_z * DEG_TO_RAD, 
+                            calculation_acc_x, 
+                            calculation_acc_y, 
+                            calculation_acc_z, 
+                            calulation_mag_x,
+                            calulation_mag_y,
+                            calulation_mag_z,
+                            dt
+                        );
+
+        // 각도 추출 ( 단위 DEG)
+        // QGroundControl에 보내기 위하여 (-)부호를 처리해야하는데 
+        // telemetry의  mavlink_msg_attitude_pack에서 (-) 부호 처리하여 보낸다.
+        // 수정사항 qgc에 보낼정보는 따로 담아서 보관하도록 해야할것 같다. roll정보를 pid에서 사용하기때문에 변하면 안되다.
+        float sinP =0.0f,actual_compass_heading=0.0f;
+        {
+            using namespace AHRS;      
+            const float q0q0 = q0 * q0;
+            const float q1q1 = q1 * q1;
+            const float q2q2 = q2 * q2;
+            const float q3q3 = q3 * q3;             
+
+            g_attitude.roll = atan2f(2.0f * (q0 * q1 + q2 * q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
+            sinP      = std::clamp(2.0f * (q0 * q2 - q1 * q3), -1.0f, 1.0f);
+            g_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
+            actual_compass_heading   = atan2f(2.0f * (q1 * q2 + q0 * q3), q0q0 + q1q1 - q2q2 - q3q3);
+        }
+        // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
+        // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
+        float declinationAngle = 7.7f * DEG_TO_RAD;
+        actual_compass_heading += declinationAngle;
+
+// 변수 변화확인용
+//if (loop_cnt % 16 == 0) ESP_LOGI("MAIN", "yaw_rad: %8.3f", yaw_rad);
+
+        // 3. 각도 범위 정규화 (-PI ~ +PI) -> PID 제어에 유리함
+        // 3. 각도 범위 정규화 (-PI ~ +PI)
+        if (actual_compass_heading >  M_PI)         actual_compass_heading -= 2.0f * M_PI;
+        else if (actual_compass_heading < -M_PI)    actual_compass_heading += 2.0f * M_PI;
+
+        // 4. 이 yaw_rad를 기반으로 최종 yaw(degree)와 heading_deg 생성
+        g_attitude.yaw = actual_compass_heading * RAD_TO_DEG; // 이제 이 yaw는 '진북' 기준입니다.
+
+        // 5. QGC 나침반용 (0 ~ 360도)
+        float heading_deg = g_attitude.yaw;
+        while (heading_deg < 0)    heading_deg += 360.0f;
+        while (heading_deg >= 360) heading_deg -= 360.0f;
+
+        g_attitude.heading = heading_deg;
+
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        
+//        g_sys.is_armed =true;
+//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        if(!g_sys.is_armed) [[unlikely]]{                
+            // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
+            for(auto& comp : SERVO::comparators) mcpwm_comparator_set_compare_value(comp, 1000);
+            // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
+            PID::reset_pid(&pid_roll_angle);
+            PID::reset_pid(&pid_pitch_angle);
+            PID::reset_pid(&pid_yaw_angle);
+            PID::reset_pid(&pid_roll_rate);
+            PID::reset_pid(&pid_pitch_rate);
+            PID::reset_pid(&pid_yaw_rate);
+            PID::reset_pid(&pid_alt_pos);  
+        }else{
+            // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
+            // 감도를 높이려면 값을 키우면 된다.              
+            float tg_throttle = g_rc.throttle * 10.0f; 
+            float tg_roll     = g_rc.roll     * 0.3f; 
+            float tg_pitch    = g_rc.pitch    * 0.3f; 
+            float tg_yaw_rate = g_rc.yaw      * 1.5f; 
+            
+            static float target_alt = 0.0f;
+            static float alt_throttle_offset = 0.0f;   
+            static bool last_alt_hold_state = false;
+            // 고도 PID 제어를 위해 현재 고도와 상승률을 계산한다.
+            static float filtered_alt =0.0f, filtered_climb_rate=0.0f;
+            // 3. 고도 유지 모드 스위치 처리                               
+            if (g_sys.manual_hold_mode  && !last_alt_hold_state) 
+            {
+                target_alt = g_baro.filtered_altitude; // 모드가 켜지는 순간의 고도를 목표로 고정
+                alt_throttle_offset = 0.0f; // PID 보정값 초기화
+                filtered_alt = 0.0f; // 고도 초기화
+                filtered_climb_rate = 0.0f; // 상승률 초기화
+            }
+            last_alt_hold_state = g_sys.manual_hold_mode ;
+
+            // 1초에 한번 파라미터 테이블에서 최신 PID 계수를 읽어옵니다
+            //if(loop_cnt==100) sync_pid_from_params();
+      
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+// barro_active_index = 1;
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&      
+
+            // 고도 PID 및 자세 PID (기존 로직 유지)
+            if ((loop_cnt % 8 ==0) && (baro_error_cnt < ERROR_MAX_NUM + 1)){  //50hz단위로 처리. (전체루프는 400hz이다)
+                float temp_alt = 0.0f,temp_rate = 0.0f;
+                //esp_err_t ret_code;
+                switch(baro_active_index){
+                    case 0:{
+                            std::tie(ret_code,temp_alt)   = cbmp388_main.get_relative_altitude();
+                            temp_rate  = cbmp388_main.update_climb_rate();
+                            //ret_code   = cbmp388_main.get_last_error();
+                        }    
+                        break;
+                    case 1:{
+                            std::tie(ret_code,temp_alt)   = cbmp388_sub.get_relative_altitude();
+                            temp_rate  = cbmp388_sub.update_climb_rate();
+                            //ret_code   = cbmp388_sub.get_last_error();
+                        }
+                        break;
+                }
+                if (ret_code ==ESP_OK)[[likely]]{
+                    baro_error_cnt =0;
+                    filtered_alt        = temp_alt;
+                    filtered_climb_rate = temp_rate;
+                }else{
+                    baro_error_cnt++;
+                    if(baro_error_cnt > ERROR_CNT_NUM) {
+                        baro_active_index = (baro_active_index == 0) ? 1 : 0;
+                        ESP_LOGW("BARO", "Primary BARO failed %d times, trying Backup (BARO %d)",baro_error_cnt, baro_active_index);                                         
+                        baro_error_cnt =0;
+                    }
+                }
+                if (baro_error_cnt == ERROR_MAX_NUM) {
+                    ESP_LOGW("BARO", "xTaskNotify()-> sending to signal(ERR_BUS_HANG)");
+                    xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                    g_sys.error_hold_mode = true;
+                    baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
+                }
+              
+                if (filtered_alt > 500.0f) filtered_alt = 0.0f; // 비정상적인 고도 차단
+                if (filtered_alt <= 0.0f) filtered_alt = 0.0f; // 음수 고도 방지
+                if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
+                if (g_sys.error_hold_mode) {
+                    filtered_alt = g_baro.filtered_altitude; // 에러 모드에서는 => 마지막 데이터로 안정된 고도 유지
+                    filtered_climb_rate = 0.0f;                      // 상승률은 0으로 고정
+                }
+
+                g_baro.filtered_altitude = filtered_alt;
+                
+                if(g_sys.manual_hold_mode) {
+                    // Outer Loop: 고도 유지 (P 제어 위주)
+                    float target_climb_rate = PID::run_pid_angle(&pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
+                    target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
+                    // Inner Loop: 수직 속도 유지 (PI 제어 위주)
+                    alt_throttle_offset = PID::run_pid_rate(&pid_alt_rate, target_climb_rate, filtered_climb_rate, 0.025f);
+                    alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
+                } else {
+                    filtered_alt = 0.0f;
+                    filtered_climb_rate = 0.0f;
+                    alt_throttle_offset = 0.0f;
+                    PID::reset_pid(&pid_alt_pos);
+                    PID::reset_pid(&pid_alt_rate);
+                }
+
+            }
+            // --- [1단계: Outer Loop - 각도 제어] ---
+            // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
+            float target_rate_roll  = PID::run_pid_angle(&pid_roll_angle,  tg_roll,  g_attitude.roll,  dt, false);
+            float target_rate_pitch = PID::run_pid_angle(&pid_pitch_angle, tg_pitch, g_attitude.pitch, dt, false);
+            //float target_rate_yaw   = PID::run_pid_angle(&pid_yaw_angle,   tg_yaw_rate, g_attitude.yaw, dt, true);
+
+            // Yaw는 사용자의 스틱 입력(tg_yaw_rate)을 목표 각속도로 직접 사용하거나, 
+            // 현재처럼 Heading Hold를 원하시면 아래처럼 목표 각도를 유지하게 합니다.
+            static float target_yaw_angle = 0.0f;
+            target_yaw_angle += tg_yaw_rate * dt; 
+            if (target_yaw_angle > 180.0f) target_yaw_angle -= 360.0f;
+            if (target_yaw_angle < -180.0f) target_yaw_angle += 360.0f;
+            float target_rate_yaw = PID::run_pid_angle(&pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
+
+            // --- [2단계: Inner Loop - 각속도 제어] ---
+            // 목표 각속도 -> 현재 자이로 값(g_imu.gyro)과 비교 -> 최종 모터 출력(PWM 변위)
+            // g_imu.gyro[0]: Roll속도, [1]: Pitch속도, [2]: Yaw속도
+            float out_roll  = PID::run_pid_rate(&pid_roll_rate,  target_rate_roll,  g_imu.gyro[X], dt);
+            float out_pitch = PID::run_pid_rate(&pid_pitch_rate, target_rate_pitch, g_imu.gyro[Y], dt);
+            float out_yaw   = PID::run_pid_rate(&pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[Z], dt);
+
+            // throttle이 거의 0일 때는 yaw 제어를 억제하여
+            // 하한 클램프와 충돌하는 현상을 방지한다.
+            // 적분/이전 오차도 같이 초기화.
+            if (tg_throttle < 5.0f) {
+                out_yaw = 0.0f;
+                pid_yaw_angle.integral = 0.0f;
+                pid_yaw_angle.err_prev = 0.0f;
+            }
+            // 작은 값은 dead‑band 처리
+            if (fabsf(out_yaw) < 1.0f) {
+                out_yaw = 0.0f;
+            }
+
+            //QGC 캘리브레이션 테스트 목적=====================================================
+            // qgc_roll_pid.current    = g_attitude.roll;
+            // qgc_roll_pid.target     = tg_roll;
+            // qgc_roll_pid.output     = out_roll;
+            //===============================================================================
+            float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
+            float motor[4];
+            motor[FL] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
+            motor[FR] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor[RL] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor[RR] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
+
+            // static_cast는 유지하되, 타입 추론은 auto에게 맡깁니다.
+            for (size_t i = 0; auto comp : SERVO::comparators) {
+                mcpwm_comparator_set_compare_value(comp, static_cast<uint32_t>(motor[i++]));
+            }
+        }           
+        total_us = esp_timer_get_time() - last_time;
+        int64_t current_time;
+        while ((current_time = esp_timer_get_time()) - last_time < INTERVAL_US) {
+            if (INTERVAL_US - (current_time - last_time) > 1200) {
+                vTaskDelay(1); 
+            }
+        }
+    }
+}
+}
+
+#include <array>
+#include <cmath>
+#include "esp_log.h"
+#include "driver/gpio.h"
+#include "esp_rom_sys.h" // 딜레이용
+
+namespace SensorManager {
+
+enum SensorSource { SENSOR_PRIMARY = 0, SENSOR_BACKUP = 1 };
+
+struct SensorHealth {
+    SensorSource active_index = SENSOR_PRIMARY;
+    int error_cnt = 0;
+    bool is_failed = false;
+};
+
+// 각 센서군의 상태 전역 관리
+inline SensorHealth imu_status;
+inline SensorHealth mag_status;
+
+// 불일치(Inconsistency) 판별을 위한 임계값
+inline constexpr float IMU_DIFF_MAX = 5.0f; // 가속도/자이로 차이 임계값
+inline constexpr int ERROR_MAX_LIMIT = 10;  // 10번 연속 이상 시 스위칭
+
+/**
+ * @brief I2C 버스가 락(Hang) 걸렸을 때 수동 클럭을 주어 복구하는 하드웨어 생존 함수
+ */
+inline void recover_i2c_bus(int scl_io, int sda_io) {
+    ESP_LOGW("I2C", "⚠ I2C 버스 락 감지! 하드웨어 강제 복구를 시도합니다.");
+
+    // 1. SCL과 SDA 핀을 일반 GPIO 출력 모드로 변경
+    gpio_set_direction((gpio_num_t)scl_io, GPIO_MODE_OUTPUT);
+    gpio_set_direction((gpio_num_t)sda_io, GPIO_MODE_INPUT);
+
+    // 2. 센서가 잡고 있는 데이터를 밀어내기 위해 SCL에 9번의 Pulse를 줍니다.
+    for (int i = 0; i < 9; i++) {
+        gpio_set_level((gpio_num_t)scl_io, 0);
+        esp_rom_delay_us(5);
+        gpio_set_level((gpio_num_t)scl_io, 1);
+        esp_rom_delay_us(5);
+    }
+
+    // 3. 복구 신호인 STOP Condition 수동 생성
+    gpio_set_direction((gpio_num_t)sda_io, GPIO_MODE_OUTPUT);
+    gpio_set_level((gpio_num_t)sda_io, 0);
+    esp_rom_delay_us(5);
+    gpio_set_level((gpio_num_t)scl_io, 1);
+    esp_rom_delay_us(5);
+    gpio_set_level((gpio_num_t)sda_io, 1); // Low -> High (STOP)
+
+    ESP_LOGI("I2C", "✓ I2C 버스 복구 완료. 드라이버를 재초기화 하세요.");
+}
+
+/**
+ * @brief 두 IMU 데이터를 비교하여 비행에 사용할 최적의 데이터를 선택합니다.
+ */
+inline std::array<float, 3> get_voted_imu(std::array<float, 3> imu1, std::array<float, 3> imu2) {
+    if (imu_status.is_failed) return imu2; // 이미 Primary가 사망했다면 무조건 Backup 반환
+
+    float diff = 0.0f;
+    for(int i=0; i<3; i++) diff += fabsf(imu1[i] - imu2[i]);
+
+    if (diff > IMU_DIFF_MAX) {
+        imu_status.error_cnt++;
+        if (imu_status.error_cnt > ERROR_MAX_LIMIT) {
+            ESP_LOGE("SENSOR", "🚨 IMU 0 불량 감지! IMU 1(Backup)로 영구 스위칭합니다.");
+            imu_status.active_index = SENSOR_BACKUP;
+            imu_status.is_failed = true;
+            return imu2;
+        }
+    } else {
+        if (imu_status.error_cnt > 0) imu_status.error_cnt--; // 정상 복귀 시 카운트 차감
+    }
+
+    return (imu_status.active_index == SENSOR_PRIMARY) ? imu1 : imu2;
+}
+
+/**
+ * @brief 지자기 센서 다중화 및 판별
+ */
+inline std::array<float, 3> get_voted_mag(std::array<float, 3> mag1, std::array<float, 3> mag2) {
+    // 지자기는 오차가 크므로 통신 에러 코드로만 스위칭하거나, IIR 필터 후 튐 현상만 체크합니다.
+    if (mag_status.is_failed) return mag2;
+    return (mag_status.active_index == SENSOR_PRIMARY) ? mag1 : mag2;
+}
+
+} // namespace SensorManager
+
+
+// #include "freertos/FreeRTOS.h"
+// #include "freertos/task.h"
+// #include "SensorManager.h"
+// #include "IST8310.h"
+// #include "MahonyFilter.h"
+
+// // [전역 변수] 최종 가공되어 PID 제어기들이 가져다 쓸 공유 데이터들
+// struct {
+//     std::array<float, 3> acc;
+//     std::array<float, 3> gyro;
+//     std::array<float, 3> mag;
+// } g_voted_sensor;
+
+// void flight_control_task(void *pvParameters) {
+//     const float dt = 0.0025f; // 400Hz (2.5ms)
+//     uint32_t loop_cnt = 0;
+
+//     // 부팅 초기 1회 캘리브레이션은 편의상 생략 (이미 수립하신 코드 적용)
+
+//     while (1) {
+//         // 400Hz 주기를 보장하는 인터럽트 대기 (Task Notify)
+//         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
+//         loop_cnt++;
+
+//         // =================================================================
+//         // [1단계: 독립 데이터 수집] - 센서가 2개씩이므로 각각 다 읽어옵니다.
+//         // =================================================================
+        
+//         // IMU 2개 읽기 (SPI)
+//         auto [err_a0, acc0, gyro0] = ICM20948::read_with_offset(imu_handle[0]);
+//         auto [err_a1, acc1, gyro1] = ICM20948::read_with_offset(imu_handle[1]);
+
+//         // 지자기 2개 읽기 (I2C) - 20Hz 주기로 읽기 위해 20번(50ms)에 한 번 실행
+//         std::array<float, 3> mag0 = {0}, mag1 = {0};
+//         if (loop_cnt % 20 == 0) {
+//             auto [err_m0, temp_mag0] = IST8310::read_with_offset(mag_handle[0]);
+//             auto [err_m1, temp_mag1] = AK09916::read_with_offset(mag_handle[1]);
+            
+//             // I2C 버스가 락 걸려 둘 다 에러를 뿜는 최악의 상황 감지
+//             if (err_m0 != ESP_OK && err_m1 != ESP_OK) {
+//                 // I2C 핀 번호를 넣어 복구 함수를 호출합니다.
+//                 SensorManager::recover_i2c_bus(22, 21); // 예시 SCL:22, SDA:21
+//                 // 복구 후 I2C 드라이버를 다시 initialize 해주는 코드가 여기에 와야 합니다.
+//             }
+//             mag0 = temp_mag0;
+//             mag1 = temp_mag1;
+//         }
+
+//         // =================================================================
+//         // [2단계: 판별 및 품질 평가] - 센서 매니저를 통해 안전한 데이터만 추출
+//         // =================================================================
+//         g_voted_sensor.acc  = SensorManager::get_voted_imu(acc0, acc1);
+//         g_voted_sensor.gyro = SensorManager::get_voted_imu(gyro0, gyro1);
+        
+//         if (loop_cnt % 20 == 0) {
+//             g_voted_sensor.mag  = SensorManager::get_voted_mag(mag0, mag1);
+//         }
+
+//         // =================================================================
+//         // [3단계: 제어 루프로 넘기기] - 검증 완료된 1개의 데이터 세트만 전달
+//         // =================================================================
+        
+//         // Mahony 필터 업데이트
+//         AHRS::MahonyAHRSupdate(
+//             g_voted_sensor.gyro[X], g_voted_sensor.gyro[Y], g_voted_sensor.gyro[Z],
+//             g_voted_sensor.acc[X],  g_voted_sensor.acc[Y],  g_voted_sensor.acc[Z],
+//             g_voted_sensor.mag[X],  g_voted_sensor.mag[Y],  g_voted_sensor.mag[Z],
+//             dt
+//         );
+
+//         // -----------------------------------------------------------------
+//         // [이후 기존에 올려주신 PID 제어 및 모터 믹싱 로직이 그대로 이어집니다]
+//         // -----------------------------------------------------------------
+//         if (!g_sys.is_armed) {
+//             /* 시동 안 걸렸을 때 로직... */
+//         } else {
+//             /* 조종기 입력 및 각도 PID(Outer) -> 각속도 PID(Inner) -> 모터 출력... */
+//             // 이때 g_imu.gyro[X] 대신 검증된 g_voted_sensor.gyro[X]를 사용하시면 됩니다.
+//         }
+//     }
+// }

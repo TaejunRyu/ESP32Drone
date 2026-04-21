@@ -1,0 +1,18 @@
+.pio
+.vscode/.browse.c_cpp.db*
+.vscode/ipch
+# 빌드 결과물 폴더 (가장 중요)
+build/
+
+ground_station/build/
+
+# Python 컴파일 파일
+__pycache__/
+*.py[cod]
+
+# 에디터 설정 및 임시 파일
+.idea/
+*.swp
+
+# SDK 설정 파일 (필요에 따라 포함하기도 하지만 보통 제외)
+sdkconfig.old

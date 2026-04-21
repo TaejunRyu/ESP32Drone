@@ -1,0 +1,10 @@
+## IDF Component Manager Manifest File
+dependencies:
+  espressif/mavlink: 
+    version: "^1.0.0"
+    # This line define the local path of the mavlink component because this 
+    # example is part of the mavlink component. This line is optional.
+    override_path: "../../.."
+  ## Required IDF version
+  idf:
+    version: ">=4.3.0"

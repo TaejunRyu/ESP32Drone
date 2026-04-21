@@ -1,0 +1,3 @@
+# Default configuration values for ESP-IDF
+# Set flash size to 4MB to match your hardware and silence the warning.
+CONFIG_ESPTOOLPY_FLASHSIZE="4MB"
