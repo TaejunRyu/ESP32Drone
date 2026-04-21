@@ -1,6 +1,10 @@
 #include <esp_system.h>
-#include "ryu_timer.h"
-#include "ryu_flight.h"
+#include <esp_task_wdt.h>
+#include <driver/gpio.h>
+#include <esp_log.h>
+
+#include "ryu_config.h"
+#include "ryu_buzzer.h"
 
 #ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
 extern "C" {

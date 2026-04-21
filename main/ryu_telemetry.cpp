@@ -1,5 +1,11 @@
 #include "ryu_telemetry.h"
 
+#include <esp_log.h>
+#include <c_library_v2/common/mavlink.h>
+#include "ryu_mavlink.h"
+
+
+
 namespace TELEM
 {
 

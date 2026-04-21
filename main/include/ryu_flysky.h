@@ -1,13 +1,6 @@
 #pragma once
 
-#include <driver/uart.h>
-#include <driver/mcpwm_cap.h>
-#include <esp_log.h>
-#include <esp_timer.h>
 
-#include "ryu_config.h"
-#include "ryu_buzzer.h"
-#include "ryu_error_proc.h"
 namespace FLYSKY
 {
 // PPM 신호 캡처 콜백 함수

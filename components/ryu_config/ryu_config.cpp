@@ -10,7 +10,7 @@ i2c_master_dev_handle_t mag_handle[2]   = {0};
 //i2c_master_dev_handle_t baro_handle[2]  = {0}; 
 
 
-sys_t   g_sys = {
+sys_t g_sys = {
              .flight_mode       = MODE_STABILIZED, 
              .system_status     = MAV_STATE_STANDBY,  // 전원 초기 상태 (system_status = 3 = STANDBY)
              .system_health     = 0x00011111b,        // ERR::SYS_HEALTH_ALL_OK 

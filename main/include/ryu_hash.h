@@ -1,7 +1,6 @@
 #pragma once
 
-#include "ryu_common_std.h"
-#include "ryu_paramtable_ryu.h"
+#include "ryu_ParamTable.h"
 
 /**
  * [C++23] 해시 함수: constexpr을 붙여 컴파일 타임에도 사용 가능하게 함

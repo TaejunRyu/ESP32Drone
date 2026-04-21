@@ -1,5 +1,15 @@
 #include "ryu_flysky.h"
 
+#include <algorithm>
+#include <driver/uart.h>
+#include <driver/mcpwm_cap.h>
+#include <esp_log.h>
+#include <esp_timer.h>
+
+#include "ryu_config.h"
+#include "ryu_error_proc.h"
+
+
 namespace FLYSKY
 { 
     

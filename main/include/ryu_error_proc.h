@@ -14,12 +14,6 @@
 #include <freertos/task.h>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
-#include "ryu_flight.h"
-#include "ryu_i2c.h"
-#include "ryu_icm20948.h"
-#include "ryu_ak09916.h"
-#include "ryu_ist8310.h"
-#include "ryu_bmp388.h"
 
 // 에러 비트 정의 (Bitmask 방식)
 namespace ERR

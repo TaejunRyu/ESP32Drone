@@ -1,4 +1,8 @@
 #include "ryu_battery.h"
+
+#include "ryu_config.h"
+#include "ryu_error_proc.h"
+
 /**
  * @brief 팁: 멀티미터로 실제 배터리 전압을 재보고, 
  *            get_battery_voltage() 출력값과 차이가 있다면 이 값을 소수점 단위로 미세 조정(예: 11.12f)하여 캘리브레이션하세요.

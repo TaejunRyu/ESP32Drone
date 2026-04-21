@@ -1,5 +1,6 @@
 #include "ryu_servo.h"
 
+#include "ryu_buzzer.h"
 namespace SERVO
 {
 mcpwm_cmpr_handle_t comparators[4]={}; // 모터 듀티 제어용

@@ -1,5 +1,14 @@
 #include "ryu_mavlink.h"
+
 #include <cmath>   // float, double용 std::abs
+#include <driver/uart.h>
+#include <lwip/sockets.h>
+#include <esp_timer.h>
+
+#include "ryu_ParamTable.h"
+#include "ryu_pid.h"
+#include "ryu_wifi.h"
+#include "ryu_buzzer.h"
 
 /**
  * @brief MAVLink 메시지 전송 함수
@@ -9,6 +18,24 @@
  */
 
 namespace MAV{
+
+void send_mav_ack(  uint16_t command, 
+                uint8_t result,
+                uint8_t progress, 
+                int32_t result_param2,
+                uint8_t target_sysid,
+                uint8_t target_compid) {
+    mavlink_message_t msg;
+    mavlink_msg_command_ack_pack(
+                    SYSTEM_ID, COMPONENT_ID,    // FC의 System/Component ID
+                    &msg,
+                    command,                    // 응답할 명령 번호 
+                    result,                     // 결과 (MAV_RESULT_ACCEPTED)
+                    progress, result_param2,    // Progress, Result_param2
+                    target_sysid, target_compid // Target System/Component (GCS의 ID)
+    );
+    WIFI::dispatch_mavlink_msg(&msg);
+}
 
 // QGC(Mission Planner 포함)는 STATUSTEXT 메시지가 수신되면 설정에 따라 이를 화면에 표시하고 영문/국문 음성으로 읽어줍니다.
 // 사용 예시

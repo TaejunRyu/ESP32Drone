@@ -7,10 +7,6 @@
 #include <c_library_v2/common/mavlink.h>
 //#include <common/mavlink.h>
 
-#include "ryu_config.h"
-#include "ryu_wifi.h"
-#include "ryu_flight.h"
-#include "ryu_battery.h"
 
 namespace TIMER{
 #define DIVIDE_COUNT  10

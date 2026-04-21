@@ -1,6 +1,22 @@
 
 #include "ryu_main.h"
 
+#include "ryu_i2c.h"
+#include "ryu_icm20948.h"
+#include "ryu_ist8310.h"
+#include "ryu_ak09916.h"
+#include "ryu_MahonyFilter.h"
+#include "ryu_servo.h"
+#include "ryu_flysky.h"
+#include "ryu_telemetry.h"
+#include "ryu_gps.h"
+#include "ryu_battery.h"
+#include "ryu_error_proc.h"
+#include "ryu_timer.h"
+#include "ryu_flight_task.h"
+
+
+
 #ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
 
 class CBMP388 cbmp388_main;

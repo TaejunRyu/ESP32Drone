@@ -15,7 +15,8 @@
 #include <math.h>
 #include <driver/mcpwm_prelude.h> // 신형 MCPWM
 
-#include "ryu_buzzer.h"
+#include "ryu_config.h"
+
 
 namespace SERVO
 {

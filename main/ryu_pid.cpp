@@ -1,5 +1,7 @@
 #include "ryu_pid.h"
 #include <algorithm>
+#include "ryu_ParamTable.h"  // drone_pid_t 및 전역 PID 변수를 사용하기 위해 포함
+
 namespace PID
 {
 // PID 리셋: 적분값과 이전 오차를 초기화

@@ -1,5 +1,5 @@
 #include "ryu_nvs.h"
-#include "ryu_paramtable.h"
+#include "ryu_ParamTable.h"
 
 namespace NVS
 {

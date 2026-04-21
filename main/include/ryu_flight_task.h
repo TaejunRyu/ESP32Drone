@@ -1,35 +1,6 @@
 #pragma once
 #include <chrono>
 #include <esp_pm.h>
-#include <driver/i2c_master.h>
-#include <driver/mcpwm_prelude.h> // 신형 MCPWM
-#include <driver/gpio.h>
-#include <esp_log.h>
-#include <esp_task_wdt.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-
-#include "ryu_config.h"
-#include "ryu_wifi.h"
-#include "ryu_gps.h"
-#include "ryu_flysky.h"
-#include "ryu_telemetry.h"
-#include "ryu_MahonyFilter.h"
-#include "ryu_pid.h"
-#include "ryu_battery.h"
-#include "ryu_buzzer.h"
-#include "ryu_error_proc.h"
-
-#include "ryu_i2c.h"
-// 첫번째 센서로 
-// icm20948, ak09916, bmp388 위의 센서 교체.
-#include "ryu_icm20948.h"
-#include "ryu_ak09916.h"
-#include "ryu_bmp388.h"   
-
-// gps에 있는 지자계센서.
-#include "ryu_ist8310.h"
-#include "ryu_servo.h"
 
 
 

@@ -134,7 +134,7 @@ typedef enum {
     MODE_PRECISION_LAND   // 정밀 착륙
 } flight_mode_t;
 
-typedef struct sys_t {
+struct sys_t {
     flight_mode_t  flight_mode;     // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
     uint8_t     system_status;      // standby(3), active(4), critical 등
     uint32_t    system_health;      // 현재 시스템의 상태 error_proc.h에서 주로 사용
@@ -145,13 +145,13 @@ typedef struct sys_t {
     bool        payload_dropped;    // 투하 완료 여부
     float       battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)
     uint32_t    loop_count;         // 비행 루프 카운터 (이게 왜 필요하지 ?)
-} sys_t;
+};
 extern sys_t g_sys;
 
 
 // --- 자세 및 IMU 데이터 ---
 // 센서에서 생성되어지는 roll,pitch,yaw
-typedef struct attitude_data_t{
+struct attitude_data_t{
     float   roll; 
     float   pitch;
     float   yaw;
@@ -159,7 +159,7 @@ typedef struct attitude_data_t{
     float   rollspeed;
     float   pitchspeed;
     float   yawspeed;
-} attitude_data_t;
+};
 extern attitude_data_t g_attitude;
 
 
@@ -169,25 +169,25 @@ extern attitude_data_t g_attitude;
 
 // QGC에 보내는 PID 디버그 데이터 구조체
 // QGC에서 Roll PID 튜닝을 위해 사용 (실제 제어에는 사용 안 함)
-typedef struct qgc_roll_pid_t {
+struct qgc_roll_pid_t {
     float target;
     float current;
     float output; 
-} qgc_roll_pid_t;
+};
 
 extern qgc_roll_pid_t qgc_roll_pid;
 
 
 // PID 구조체
 // 프레임워크 전반에서 공유되므로 연속적인 초기화와 링크를 위해 inline 선언합니다.
-typedef struct {
+struct  drone_pid_t{
     float kp;
     float ki;
     float kd;
     float integral;
     float err_prev;  // Outer Loop(각도)용: 이전 오차 저장
     float prev_rate; // Inner Loop(각속도)용: 이전 자이로 값 저장
-} drone_pid_t;
+};
 
 // PID 구조체 초기화 (기본값 0)
 // 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
@@ -214,7 +214,7 @@ extern drone_pid_t pid_yaw_rate;    // 회전 속도제어
 
 
 // --- RC 송수신기 데이터 ---
-typedef struct rc_data_t {
+struct rc_data_t {
     volatile float throttle;  // 스로틀 (0~100%)
     volatile float roll;      // 롤 (-100~100)
     volatile float pitch;     // 피치 (-100~100)
@@ -223,12 +223,12 @@ typedef struct rc_data_t {
     volatile float aux2;      // 보조 채널 2
     volatile float aux3;      // 보조 채널 3 (SWC 3단)
     volatile float aux4;      // 보조 채널 4
-} rc_data_t;
+};
 extern rc_data_t g_rc;  ///< 조종기 입력 데이터
 
 
 // --- GPS 데이터 ---
-typedef struct gps_data_t {
+struct gps_data_t {
     uint32_t    iTOW;           // gps 시간
     int         date;           // 기본 날자
     float       utc_time;       // 기본 시간 
@@ -251,35 +251,35 @@ typedef struct gps_data_t {
     int32_t     height;         // 타원체 고도 (mm)    
     int32_t     hMSL;           // 해수면 고도 (mm)
     TickType_t  last_update_tick;
-} gps_data_t;
+};
 extern gps_data_t g_gps;  ///< GPS 위치 데이터
 
 
 // --- 고도 데이터 ---
-typedef struct altitude_data_t {
+struct altitude_data_t {
     float current;   // 현재 고도 (기압계 기준, m)
     float home;      // 홈 고도 (초기 기압계 값)
     float target;    // 목표 고도 (고도 유지 모드)
-} altitude_data_t;
+};
 extern altitude_data_t g_altitude;  ///< 고도 관련 데이터
 
 // 현재의 gps위치나 QGC에서 보내온 위치를 홈의 위치로 설정
-typedef struct qgc_home_pos_t {
+struct qgc_home_pos_t {
     double lat;
     double lon;
     double alt;
     bool   is_set;
-} qgc_home_pos_t;
+};
 extern qgc_home_pos_t qgc_home_pos;
 
 
 
 // --- 배터리 데이터 ---
-typedef struct battery_data_t {
+struct battery_data_t {
     float voltage;   // 현재 전압 (V)
     float percentage; // 배터리 백분율 (%)
     bool is_low;               // 저전압 경고 상태
-} battery_data_t;
+};
 extern battery_data_t g_battery;  ///< 배터리 데이터
 
 
@@ -292,11 +292,11 @@ extern battery_data_t g_battery;  ///< 배터리 데이터
 
 
 // --- PID 디버그 데이터 (QGC 텔레메트리용) ---
-typedef struct pid_debug_t {
+struct pid_debug_t {
     float target;  // 목표값
     float current; // 현재값
     float output;  // PID 출력
-} pid_debug_t;
+};
 
 extern pid_debug_t g_roll_pid;   ///< 롤 PID 디버그 데이터
 extern pid_debug_t g_pitch_pid;  ///< 피치 PID 디버그 데이터
@@ -325,39 +325,39 @@ extern pid_debug_t g_alt_pid;    ///< 고도 PID 디버그 데이터
 // pos_hold    3           0x00030000(196608)
 // acro        5           0x00050000(327680)
 // stabilize   7           0x00070000(458752)
-typedef struct heartbeat_t{
+struct heartbeat_t{
     uint8_t     base_mode;
     uint32_t    custom_mode;
-}heartbeat_t;
+};
 extern heartbeat_t g_heartbeat;
 
 
 /*현재 flight_task에서 imu 데이터를 읽어서 여기에 보관하고 작업능 시행 current_data*/
 // 실제로 가지고 있어야하나 
-typedef struct imu_data_t {
+struct imu_data_t {
     std::array<float,3> acc;  // 가속도
     std::array<float,3> gyro; // 자이로
     std::array<float,3> mag;  // 지자계
-} imu_data_t;
+};
 extern imu_data_t g_imu;  ///< IMU 원본 데이터 (가속도도, 자이로, 지자계)
 
 
 // imu main,sub의 offset 저장 보관.
-typedef struct imu_offset_t{
+struct imu_offset_t{
     std::array<float,3> acc;
     std::array<float,3> gyro; 
-}imu_offset_t;
+};
 extern imu_offset_t g_imu_offset[2];
 
 
 
 // 2. 기압 및 고도 데이터
-typedef struct baro_t{
+struct baro_t{
     float pressure;            // 현재 기압 (hPa)
     float raw_altitude;        // 필터 전 고도 (m)
     float filtered_altitude;   // LPF 적용 후 고도 (m)
     float ground_pressure;     // 이륙 지점 기준 기압
-} baro_t;
+};
 extern baro_t g_baro;
 
 

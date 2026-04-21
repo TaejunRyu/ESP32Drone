@@ -2,12 +2,8 @@
 
 //#define LOG_LOCAL_LEVEL ESP_LOG_NONE  // 이 파일의 모든 로그를 끔
 
-#include <driver/uart.h>
-#include <esp_log.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
-#include "ryu_error_proc.h"
-#include "ryu_config.h"
 
 namespace  GPS
 {

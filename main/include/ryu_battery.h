@@ -4,8 +4,6 @@
 #include <esp_adc/adc_cali.h>
 #include <esp_adc/adc_cali_scheme.h>
 #include <esp_log.h>
-#include "ryu_config.h"
-#include "ryu_error_proc.h"
 
 namespace BATT{
 
