@@ -5,7 +5,9 @@
  * PID 계산 함수는 run_pid()로, Yaw 각도 랩어라운드 대응이 포함되어 있습니다.
  * 고도 PID는 기압계 데이터가 업데이트될 때마다 계산하도록 main.cpp에서 호출됩니다.
 */
-#include "ryu_config.h"
+
+//여기서  drone_pid_t 는 struct이다만 알려줘도 된다. 전체를 알 필요가 없기때문에 이렇게 하면 선언되어지 해더 파일을 include할 필요가 없음 (전방 선언)
+struct drone_pid_t;
 
 namespace PID{
 extern void reset_pid(drone_pid_t *p) ;
