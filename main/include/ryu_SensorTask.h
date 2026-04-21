@@ -1,5 +1,5 @@
 #include <array>
-
+#include <stdint.h>
 
 namespace SENSOR{
 

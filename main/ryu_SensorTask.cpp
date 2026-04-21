@@ -17,7 +17,6 @@
 
 namespace SENSOR{
 
-
     // 전역 변수로 선언하거나 태스크에 포인터로 전달
     SensorSharedData shared_data;
     SemaphoreHandle_t sensor_imu_mutex;  // 뮤텍스 핸들
@@ -40,14 +39,14 @@ void SensorRead_task(void *pvParameters) {
         auto [ret2, macc2, mgyro2] = ICM20948::read_with_offset(imu_handle[1], g_imu_offset[1].acc, g_imu_offset[1].gyro);
 
         // [2] 센서 조합 (단순 평균)
-        std::array<float, 3> avg_acc, avg_gyro;
+        std::array<float, 3> avg_acc ={}, avg_gyro={};
         for(int i=0; i<3; i++) {
             avg_acc[i] = (macc1[i] + macc2[i]) * 0.5f;
             avg_gyro[i] = (mgyro1[i] + mgyro2[i]) * 0.5f;
         }
         // [3] 필터 적용 (esp-dsp 호출)
         // ※ 실제 구현시에는 미리 생성된 coeffs를 사용하세요.
-        std::array<float, 3> f_acc, f_gyro;
+        std::array<float, 3> f_acc = {}, f_gyro ={};
         for(int i=0; i<3; i++) {
             // 한 샘플씩 처리 (len=1)
             // dsps_biquad_f32(&avg_acc[i], &f_acc[i], 1, acc_coeffs, acc_w[i]);

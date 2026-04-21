@@ -18,7 +18,7 @@ i2c_master_bus_handle_t initialize(i2c_port_num_t port, gpio_num_t port_sda, gpi
     bus_cfg.scl_io_num = port_scl;
     bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
     bus_cfg.glitch_ignore_cnt = 7;
-    bus_cfg.intr_priority = 0;
+    bus_cfg.intr_priority = 1;
     bus_cfg.flags.enable_internal_pullup = true;;
     bus_cfg.flags.allow_pd = false;
 
