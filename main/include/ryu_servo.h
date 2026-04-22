@@ -17,9 +17,17 @@
 
 #include "ryu_config.h"
 
-
-namespace SERVO
+namespace SERVO 
 {
+
+// FC가 공중 운반물이 있을경우 떨어뜨리는 SERVO MOTOR 
+//inline constexpr  gpio_num_t   SERVO_MOTOR_PIN   = GPIO_NUM_25;
+inline constexpr  gpio_num_t   MOTOR_FRONT_LEFT  = GPIO_NUM_26;
+inline constexpr  gpio_num_t   MOTOR_FRONT_RIGHT = GPIO_NUM_27;
+inline constexpr  gpio_num_t   MOTOR_REAR_LEFT   = GPIO_NUM_32;
+inline constexpr  gpio_num_t   MOTOR_REAR_RIGHT  = GPIO_NUM_33;
+
+
 constexpr int MOTOR_PINS[4] = {MOTOR_FRONT_LEFT, MOTOR_FRONT_RIGHT, MOTOR_REAR_LEFT, MOTOR_REAR_RIGHT}; // FR, FL, RL, RR
 
 /**

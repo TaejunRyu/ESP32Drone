@@ -1,6 +1,8 @@
 #pragma once
 
-typedef struct {
+namespace KALMAN{
+
+struct Kalman_t{
     float Q_angle;   // 가속도계 프로세스 노이즈 (기본값: 0.001f)
     float Q_bias;    // 자이로 바이어스 프로세스 노이즈 (기본값: 0.003f)
     float R_measure; // 측정값 노이즈 (기본값: 0.03f)
@@ -8,9 +10,9 @@ typedef struct {
     float angle; // 필터링된 각도 (State 1)
     float bias;  // 추정된 자이로 바이어스 (State 2)
     float P[2][2]; // 오차 공분산 행렬
-} Kalman_t;
+} ;
 
-float kalman_update(Kalman_t *k, float newAngle, float newRate, float dt) {
+inline float kalman_update(Kalman_t *k, float newAngle, float newRate, float dt) {
     // 1. Predict (예측)
     float rate = newRate - k->bias;
     k->angle += dt * rate;
@@ -46,3 +48,5 @@ float kalman_update(Kalman_t *k, float newAngle, float newRate, float dt) {
 
     return k->angle;
 }
+
+} //namespace KALMAN

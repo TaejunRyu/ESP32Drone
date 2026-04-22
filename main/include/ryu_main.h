@@ -5,6 +5,8 @@
 
 #include "ryu_config.h"
 #include "ryu_buzzer.h"
+#include "ryu_servo.h"
+
 
 #ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
 extern "C" {
@@ -59,10 +61,10 @@ void log_information_control(){
 void __attribute__((weak)) esp_panic_handler_reboot(void) {
     // 1. 모든 모터 PWM 핀을 LOW로 강제 고정 (하드웨어적 정지)
     // 예: GPIO 12, 13, 14, 15가 모터 핀이라면
-    gpio_set_level((gpio_num_t)MOTOR_FRONT_LEFT, 0);
-    gpio_set_level((gpio_num_t)MOTOR_FRONT_RIGHT, 0);
-    gpio_set_level((gpio_num_t)MOTOR_REAR_LEFT, 0);
-    gpio_set_level((gpio_num_t)MOTOR_REAR_RIGHT, 0);
+    gpio_set_level((gpio_num_t)SERVO::MOTOR_FRONT_LEFT, 0);
+    gpio_set_level((gpio_num_t)SERVO::MOTOR_FRONT_RIGHT, 0);
+    gpio_set_level((gpio_num_t)SERVO::MOTOR_REAR_LEFT, 0);
+    gpio_set_level((gpio_num_t)SERVO::MOTOR_REAR_RIGHT, 0);
 
     // 2. 필요하다면 부저(Buzzer)를 울려 경고
     BUZZ::sound_error();

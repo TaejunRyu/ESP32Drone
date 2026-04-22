@@ -6,7 +6,6 @@
 #include "ryu_ist8310.h"
 #include "ryu_ak09916.h"
 #include "ryu_MahonyFilter.h"
-#include "ryu_servo.h"
 #include "ryu_flysky.h"
 #include "ryu_telemetry.h"
 #include "ryu_gps.h"
@@ -14,19 +13,14 @@
 #include "ryu_error_proc.h"
 #include "ryu_timer.h"
 #include "ryu_flight_task.h"
-
+#include "ryu_bmp388.h"
 
 
 #ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
 
-class CBMP388 cbmp388_main;
-class CBMP388 cbmp388_sub;
-
-
 // --- 메인 함수 ---
 void app_main(void) {
     esp_err_t ret_code;
-    static bool led_state = false;
 
     // 시스템 시작시 여유를 준다.
     vTaskDelay(pdMS_TO_TICKS(1000));
@@ -38,9 +32,9 @@ void app_main(void) {
         // buzzer 초기화및 fc의 시작을 알린다.
         BUZZ::initialize();
         BUZZ::sound_system_start();
+        gpio_set_level(GPIO_NUM_2,1);
     }
     
-    gpio_set_level(GPIO_NUM_2, (led_state = !led_state));
      
     check_system_health_on_boot();
 
@@ -92,7 +86,7 @@ void app_main(void) {
 			ESP_LOGI("MAIN", "IMU MAIN MODULE Bypass 모드 설정 완료!");
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
-    gpio_set_level(GPIO_NUM_2, (led_state = !led_state));
+    
     
     {// Gps에 있는 지자계 센서를 사용하기 위하여 초기화 한다.( 두 번째 지자계 센서로 ak09916을 등록 할지 생각해보자.)
 		mag_handle[MAIN]      = IST8310::initialize(i2c_handle);
@@ -153,15 +147,12 @@ void app_main(void) {
 		// GPS 초기화
 		GPS::initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
-		
 		// FLYSKY  초기화
 		FLYSKY::initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 	
 	}
 
-    
-    
     // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
     if (imu_handle[MAIN]    == NULL || 
         imu_handle[SUB]     == NULL || 
@@ -183,19 +174,18 @@ void app_main(void) {
         
         // 무한 대기 (리부팅 필요)
         while (true) {
-            gpio_set_level(GPIO_NUM_2, 1);
+            static bool blink_led = false;
+            gpio_set_level(GPIO_NUM_2,(blink_led = !blink_led));
             vTaskDelay(pdMS_TO_TICKS(100));
-            gpio_set_level(GPIO_NUM_2, 0);
-            vTaskDelay(pdMS_TO_TICKS(100));
+            BUZZ::sound_error();
         }
     }
     
-
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
 
-    WIFI::mavlink_tx_queue      = xQueueCreate(MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
-    TELEM::mavlink_rx_queue     = xQueueCreate(MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
+    WIFI::mavlink_tx_queue      = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
+    TELEM::mavlink_rx_queue     = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
 
     // 2. 송신 Task 생성 (우선순위를 높게 설정)
     xTaskCreatePinnedToCore(WIFI::mavlink_tx_task, "mavlink_tx_task", 4096, NULL, 15, NULL, 0);
@@ -235,10 +225,10 @@ void app_main(void) {
     
     // 콜백이 등록되어야지 데이터가 들어온다.
     WIFI::connect_callback();
-
     TIMER::setupTimer();
 
     while (true) {
+        static bool led_state = false;
         gpio_set_level(GPIO_NUM_2, (led_state = !led_state));
         vTaskDelay(pdMS_TO_TICKS(500)); // 메인 태스크가 종료되지 않게 붙잡음
     }

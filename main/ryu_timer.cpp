@@ -1,7 +1,6 @@
 #include "ryu_timer.h"
 #include <esp_timer.h>
 
-
 #include "ryu_config.h"
 #include "ryu_wifi.h"
 #include "ryu_flight_task.h"

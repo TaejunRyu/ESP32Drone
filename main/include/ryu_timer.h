@@ -5,7 +5,6 @@
 #include <freertos/queue.h>
 #include <lwip/sockets.h>
 #include <c_library_v2/common/mavlink.h>
-//#include <common/mavlink.h>
 
 
 namespace TIMER{

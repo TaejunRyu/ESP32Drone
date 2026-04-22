@@ -1,6 +1,5 @@
 #include "ryu_config.h"
 
-
 // I2C 및 디바이스 핸들
 i2c_master_bus_handle_t i2c_handle      = NULL;
 

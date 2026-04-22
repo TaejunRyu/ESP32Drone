@@ -1,5 +1,11 @@
 #include "ryu_bmp388.h"
 #include <tuple>
+#include <freertos/FreeRTOS.h> 
+#include "ryu_config.h"
+
+class CBMP388 cbmp388_main;
+class CBMP388 cbmp388_sub;
+
 esp_err_t  CBMP388::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address)   
 {
     esp_err_t ret_code = ESP_FAIL;

@@ -1,4 +1,5 @@
 #pragma once
+
 #include <array>
 #include <string_view>
 #include <driver/i2c_master.h>
@@ -6,8 +7,6 @@
 #include <lwip/sockets.h>   // ESP-IDF 전용 소켓 라이브러리
 #include <esp_adc/adc_oneshot.h>
 #include <c_library_v2/common/mavlink.h>
-#include "ryu_bmp388.h"
-//#include "error_proc.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -79,24 +78,12 @@ inline constexpr gpio_num_t I2C_SDA     = GPIO_NUM_21; // 숫자에 직접 타�
 inline constexpr gpio_num_t I2C_SCL     = GPIO_NUM_22;
 
 
-// FC가 공중 운반물이 있을경우 떨어뜨리는 SERVO MOTOR 
-//inline constexpr  gpio_num_t   SERVO_MOTOR_PIN   = GPIO_NUM_25;
-inline constexpr  gpio_num_t   MOTOR_FRONT_LEFT  = GPIO_NUM_26;
-inline constexpr  gpio_num_t   MOTOR_FRONT_RIGHT = GPIO_NUM_27;
-inline constexpr  gpio_num_t   MOTOR_REAR_LEFT   = GPIO_NUM_32;
-inline constexpr  gpio_num_t   MOTOR_REAR_RIGHT  = GPIO_NUM_33;
-inline constexpr gpio_num_t    BATTERY_ADC_PIN   = GPIO_NUM_34;
-inline constexpr adc_channel_t BATTERY_ADC_CH    = ADC_CHANNEL_6;
-
-
-
 
 // --- Sensors 핸들 및 전역 변수 ---
 extern i2c_master_bus_handle_t i2c_handle;
 extern i2c_master_dev_handle_t imu_handle[2]; 
 extern i2c_master_dev_handle_t mag_handle[2];
-extern class CBMP388 cbmp388_main;
-extern class CBMP388 cbmp388_sub;
+
 
 //==============================================
 // 드론의 현재 상태를 저장하는 구조체 

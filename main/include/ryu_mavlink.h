@@ -4,8 +4,6 @@
 #include <c_library_v2/common/mavlink.h>
 #include <c_library_v2/mavlink_get_info.h>
 
-#include "ryu_config.h"
-
 namespace MAV
 {
     extern void send_mav_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid);

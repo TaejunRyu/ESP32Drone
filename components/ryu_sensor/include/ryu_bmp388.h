@@ -3,7 +3,7 @@
 #include <math.h>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
-#include "ryu_config.h"
+#include <algorithm>
 
 class CBMP388{
     private:
@@ -62,4 +62,6 @@ class CBMP388{
 
 };
 
+extern class CBMP388 cbmp388_main;
+extern class CBMP388 cbmp388_sub;
 

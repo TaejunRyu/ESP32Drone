@@ -9,6 +9,7 @@
 #include "ryu_pid.h"
 #include "ryu_wifi.h"
 #include "ryu_buzzer.h"
+#include "ryu_config.h"
 
 /**
  * @brief MAVLink 메시지 전송 함수

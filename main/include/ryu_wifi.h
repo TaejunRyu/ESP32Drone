@@ -12,11 +12,14 @@
 
 #include "ryu_config.h"
 
+namespace WIFI
+{
+
 inline constexpr uint16_t  ESP_NOW_MAX_LEN   = 290;     // MAVLink v2 최대 페이로드 크기 + 헤더
 inline constexpr uint8_t  MAVLINK_TX_QUEUE_SIZE  = 60;
 inline constexpr uint8_t  MAVLINK_RX_QUEUE_SIZE  = 60;
-namespace WIFI
-{
+
+
     // 
 // 전송용 구조체
 typedef struct {

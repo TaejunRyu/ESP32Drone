@@ -15,7 +15,7 @@ namespace TELEM
 {
 
 typedef struct {
-    uint8_t data[ESP_NOW_MAX_LEN];
+    uint8_t data[WIFI::ESP_NOW_MAX_LEN];
     size_t len;
 } esp_now_data_t;
 
