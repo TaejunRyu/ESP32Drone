@@ -4,6 +4,9 @@
 
 namespace WIFI
 {   
+
+    static const char *TAG = "WIFI";    
+
 esp_now_peer_info_t peer_info = {}; 
 
 //ESP-NOW 전용
@@ -30,7 +33,7 @@ void init_wifi(){
     // 채널 설정 (브릿지과 동일한 채널)
     ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
-    ESP_LOGI("DRONE", "WiFi STA 모드 초기화 완료, 채널: %d", ESPNOW_CHANNEL);
+    ESP_LOGI(TAG, "WiFi STA 모드 초기화 완료, 채널: %d", ESPNOW_CHANNEL);
 }
 
 // ESP-NOW 전용 (ESP-NOW 초기화)
@@ -46,7 +49,7 @@ void init_esp_now(void) {
 
     esp_err_t add_peer_err = esp_now_add_peer(&peer_info);
     if (add_peer_err != ESP_OK) {
-        ESP_LOGE("WIFI", "Bridge peer 등록 실패: %s", esp_err_to_name(add_peer_err));
+        ESP_LOGE(TAG, "Bridge peer 등록 실패: %s", esp_err_to_name(add_peer_err));
         return;
     }         
     
@@ -65,21 +68,21 @@ void init_esp_now(void) {
         // 해당 설정시 _LR모드와 공존할수 없다.
         esp_now_set_peer_rate_config(bridge_mac, &rate_config); 
     }
-    ESP_LOGI("WIFI", "Bridge peer 등록 성공: %02x:%02x:%02x:%02x:%02x:%02x",
+    ESP_LOGI(TAG, "Bridge peer 등록 성공: %02x:%02x:%02x:%02x:%02x:%02x",
                  bridge_mac[0], bridge_mac[1], bridge_mac[2],
                  bridge_mac[3], bridge_mac[4], bridge_mac[5]);    
-    ESP_LOGI("WIFI", "ESP-NOW 초기화 완료");
+    ESP_LOGI(TAG, "ESP-NOW 초기화 완료");
 }
 
 void connect_callback(){
     //callback 함수가 데이터를 받아서 mavlink의 데이터 처리를 하기 때문에 콜백함수를 반드시 등록해야함.
     esp_err_t err = esp_now_register_recv_cb(on_esp_now_recv);
     if (err != ESP_OK) {
-        ESP_LOGE("ESP_NOW", "recv callback 등록 실패: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "recv callback 등록 실패: %s", esp_err_to_name(err));
     }
     err = esp_now_register_send_cb(on_esp_now_send);
     if (err != ESP_OK) {
-        ESP_LOGE("ESP_NOW", "send callback 등록 실패: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "send callback 등록 실패: %s", esp_err_to_name(err));
     }
 }
 
@@ -98,22 +101,22 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
     if (len <= 0 || data == nullptr || recv_info == nullptr) return;
 
     // 수신한 MAC 주소가 등록된 peer가 아니면 자동 등록 (양방향 통신용)
-    if (!esp_now_is_peer_exist(recv_info->src_addr)) {
-        esp_now_peer_info_t new_peer = {};
-        memcpy(new_peer.peer_addr, recv_info->src_addr, ESP_NOW_ETH_ALEN);
-        new_peer.channel = 6;
-        new_peer.encrypt = false;
-        new_peer.ifidx = WIFI_IF_STA;
+    // if (!esp_now_is_peer_exist(recv_info->src_addr)) {
+    //     esp_now_peer_info_t new_peer = {};
+    //     memcpy(new_peer.peer_addr, recv_info->src_addr, ESP_NOW_ETH_ALEN);
+    //     new_peer.channel = 6;
+    //     new_peer.encrypt = false;
+    //     new_peer.ifidx = WIFI_IF_STA;
 
-        esp_err_t add_err = esp_now_add_peer(&new_peer);
-        if (add_err == ESP_OK) {
-            ESP_LOGI("ESP_NOW", "새 peer 자동 등록: %02x:%02x:%02x:%02x:%02x:%02x",
-                     recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
-                     recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
-        } else {
-            ESP_LOGW("ESP_NOW", "새 peer 등록 실패: %s", esp_err_to_name(add_err));
-        }
-    }
+    //     esp_err_t add_err = esp_now_add_peer(&new_peer);
+    //     if (add_err == ESP_OK) {
+    //         ESP_LOGI(TAG, "새 peer 자동 등록: %02x:%02x:%02x:%02x:%02x:%02x",
+    //                  recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
+    //                  recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
+    //     } else {
+    //         ESP_LOGW(TAG, "새 peer 등록 실패: %s", esp_err_to_name(add_err));
+    //     }
+    // }
     // 실시간 정보를 구해서 bridge로 보낸다.
     current_rssi = recv_info->rx_ctrl->rssi;
     noise_floor  = recv_info->rx_ctrl->noise_floor;
@@ -159,7 +162,7 @@ void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t stat
     }else{
         // 실패시
     } 
-    //ESP_LOGI("ESP_NOW", "Send status=%s", status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
+    //ESP_LOGI(TAG, "Send status=%s", status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
 }
 
 esp_err_t send_esp_now(const uint8_t *data, size_t len) {
@@ -168,7 +171,7 @@ esp_err_t send_esp_now(const uint8_t *data, size_t len) {
     
     // 1. ESP-NOW 최대 크기 체크 (안전 장치)
     if (len > 250) {
-        ESP_LOGE("ESPNOW", "Packet too large: %d", len);
+        ESP_LOGE(TAG, "Packet too large: %d", len);
         return ESP_ERR_INVALID_SIZE;
     }
 
@@ -206,7 +209,7 @@ esp_err_t esp_now_send_retry(const uint8_t *mac_addr, const uint8_t *data, size_
         err = esp_now_send(mac_addr, data, len);
         if (err == ESP_OK) {
             if (i > 0) {
-                ESP_LOGI("BRIDGE", "ESP-NOW 전송 성공 (재시도 %d/%d 후)", i + 1, max_attempts);
+                ESP_LOGI(TAG, "ESP-NOW 전송 성공 (재시도 %d/%d 후)", i + 1, max_attempts);
             }
             return ESP_OK;
         }
@@ -215,7 +218,7 @@ esp_err_t esp_now_send_retry(const uint8_t *mac_addr, const uint8_t *data, size_
         }
         vTaskDelay(pdMS_TO_TICKS(1 + i * 1));
     }
-    ESP_LOGE("BRIDGE", "ESP-NOW 전송 최종 실패: %s (최대 %d회 재시도)", esp_err_to_name(err), max_attempts);
+    ESP_LOGE(TAG, "ESP-NOW 전송 최종 실패: %s (최대 %d회 재시도)", esp_err_to_name(err), max_attempts);
     return err;
 }
 
@@ -246,7 +249,7 @@ void mavlink_tx_task(void *pvParameters) {
                 esp_now_send(WIFI::bridge_mac, tx_pkt.buffer, tx_pkt.len);
             } else if (result != ESP_OK) {
                 // 그 외 에러는 기록 후 패킷 폐기 (무한 루프 방지)
-                ESP_LOGD("WIFI", "Send failed: %s", esp_err_to_name(result));
+                ESP_LOGD(TAG, "Send failed: %s", esp_err_to_name(result));
             }
         }
     }

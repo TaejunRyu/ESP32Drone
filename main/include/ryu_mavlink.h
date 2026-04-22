@@ -6,9 +6,10 @@
 
 namespace MAV
 {
-    extern void send_mav_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid);
     extern void send_status_text(const char *text, uint8_t severity = MAV_SEVERITY_INFO);
     extern void handle_mavlink_message(mavlink_message_t *msg);
+
+    inline void send_mav_command_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid);
 
     void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
     void MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd);

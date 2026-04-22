@@ -22,7 +22,9 @@
 
 namespace MAV{
 
-void send_mav_ack(  uint16_t command, 
+static const char *TAG = "MAVLINK";    
+
+inline void send_mav_command_ack(  uint16_t command, 
                 uint8_t result,
                 uint8_t progress, 
                 int32_t result_param2,
@@ -212,11 +214,11 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                     break;
                 } 
                 case MAV_CMD_REQUEST_CAMERA_INFORMATION:{ //521
-                    send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,100,0,msg->sysid,msg->compid);             
+                    send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,100,0,msg->sysid,msg->compid);            
                     break;
                 }
                 case MAV_CMD_PREFLIGHT_REBOOT_SHUTDOWN:{
-                    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,100,0,msg->sysid,msg->compid);             
+                    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,100,0,msg->sysid,msg->compid);             
                     if (std::abs(cmd.param1 - 1.0f) < 0.01f) {
                         // 1번 소리(시동 성공음 등)를 짧게 울리고 재부팅하면 상태 확인에 좋습니다.
                         BUZZ::sound_system_off(); 
@@ -225,14 +227,19 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                     break;
                 }
                 default:{
-                    ESP_LOGI("TELETETRY", "QGC Message : %s , Command : %d  param1 : %f  param2 : %f ",ret_msg->name , cmd.command, cmd.param1, cmd.param2);
-                    send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,100,0,msg->sysid,msg->compid);             
+                    ESP_LOGI(TAG, "QGC Message : %s , Command : %d  param1 : %f  param2 : %f ",ret_msg->name , cmd.command, cmd.param1, cmd.param2);
+                    send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,100,0,msg->sysid,msg->compid);             
 
                 }
                     
             } // end of switch
             
             break;
+        }
+
+        case MAVLINK_MSG_ID_MISSION_ACK:{
+
+            
         }
         case MAVLINK_MSG_ID_MISSION_CLEAR_ALL: {
             mavlink_message_t ack_msg;
@@ -270,11 +277,9 @@ void handle_mavlink_message(mavlink_message_t *msg) {
             g_heartbeat.base_mode = cmd.base_mode;
             if (g_heartbeat.base_mode & MAV_MODE_FLAG_CUSTOM_MODE_ENABLED) {
                 switch (cmd.custom_mode) {
-                    case (uint32_t)0x00010000: // Manual 
-                        //qgc용
-                        g_heartbeat.custom_mode = (uint32_t)0x00010000; 
-                        //fc용
-                        g_sys.flight_mode = MODE_MANUAL;                       
+                    case (uint32_t)0x00010000: // Manual                         
+                        g_heartbeat.custom_mode = (uint32_t)0x00010000; //qgc용                        
+                        g_sys.flight_mode = MODE_MANUAL;                //fc용       
                         break;
                     case (uint32_t)0x00020000: // Altitude control
                         g_heartbeat.custom_mode = (uint32_t)0x00020000;
@@ -317,14 +322,14 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                         g_heartbeat.custom_mode = (uint32_t)0x09040000;
                         break;
                     default:
-                            ESP_LOGI("MODE", "Unknown custom mode: 0x%08X", cmd.custom_mode);
+                            ESP_LOGI(TAG, "Unknown custom mode: 0x%08X", cmd.custom_mode);
                         break;
                 }
             }
             break;
         }
         default:{            
-           ESP_LOGI("TELETETRY", "MAVLINK msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
+           ESP_LOGI(TAG, "SWITCH default msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
         }
     }
 }
@@ -334,14 +339,14 @@ void handle_mavlink_message(mavlink_message_t *msg) {
 // telemetry_task에서 시동 상태에 따라 시스템 상태를 관리하는 로직이 이미 구현되어 있기 때문에, 
 // 여기서는 시동 상태만 업데이트하고 ACK만 보내도록 수정합니다.
 void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid); 
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid); 
     //시동이 자동으로 꺼지니 일단 막아놓는다.
     if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
         g_sys.is_armed = true;
     } else if (cmd.param1 < 0.5f) {
         g_sys.is_armed = false;
     }
-    ESP_LOGI("TEMETETRY","Param1: %8.5f",cmd.param1);
+    ESP_LOGI(TAG,"MAV_CMD_COMPONENT_ARM_DISARM_func Param1: %8.5f",cmd.param1);
 }
 
 // 파라미터	명칭	설명
@@ -354,19 +359,19 @@ void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_l
 // Param 7	Altitude	이륙 목표 고도 (단위: 미터, m). 지면으로부터의 상대 고도(Relative Altitude)를 의미합니다.
 // 각 파라메터의 값에 따라 takeoff시에 고도를 얼마에 유지하면 안정적인 상황에서 대기 상태를 유지할 수 있을지 결정하는데 사용됩니다.
 void MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd){    
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);    
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);    
     // float tmp_yaw = cmd.param4; // yaw 각도 (deg)
     // float tmp_lat = cmd.param5; // 위도 (deg)
     // float tmp_lon = cmd.param6; // 경도 (deg)
     // float tmp_alt = cmd.param7; // 고도 (m)
-    ESP_LOGI("PROCESS_CMD_LONG","MSG : (%d), CMD : (%d), PARAM1 :(%f), PARAM4 : (%f), PARAM5 : (%f), PARAM6 : (%f), PARAM7 : (%f)",
+    ESP_LOGI(TAG,"MAV_CMD_NAV_TAKEOFF_func MSG : (%d), CMD : (%d), PARAM1 :(%f), PARAM4 : (%f), PARAM5 : (%f), PARAM6 : (%f), PARAM7 : (%f)",
         msg->msgid,cmd.command,cmd.param1,cmd.param4,cmd.param5,cmd.param6,cmd.param7);
 
 }
 
 
 void MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     if (cmd.param1 == 1){
         // Param 1이 1이면 현재 센서(GPS) 위치를 홈으로 설정
         qgc_home_pos.lat = g_gps.lat;
@@ -387,7 +392,7 @@ void MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd
 }
 
 void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
 
     // 1. ACK 패킹 및 전송
     // 2. 버전 정보(AUTOPILOT_VERSION) 설정
@@ -416,7 +421,7 @@ void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink
 //QGC에서 MESSAGE : 76 , Command : 512 
 void MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_command_long_t cmd)  
 {
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     uint32_t requested_id = static_cast<uint32_t>(cmd.param1);
     switch (requested_id)
     {
@@ -436,11 +441,11 @@ void MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_command_long_t
         WIFI::dispatch_mavlink_msg(&ack_msg);
         break;
     case 280: case 259: case 148: case 435: case 397: case 395:
-        send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
+        send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
         break;
     default:
-        send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
-           ESP_LOGI("PROCESS_CMD_LONG", "QGC Message : %d , Command : %d , Request Id: %d",msg->msgid , cmd.command , requested_id);
+        send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
+           ESP_LOGI(TAG, "MAV_CMD_REQUEST_MESSAGE_func QGC Message : %d , Command : %d , Request Id: %d",msg->msgid , cmd.command , requested_id);
     }
     
 }
@@ -452,12 +457,12 @@ void MAV_CMD_PREFLIGHT_CALIBRATION_func(mavlink_message_t *msg, mavlink_command_
     bool calibrate_accel  = (cmd.param4 == 1.0f);
     bool calibrate_airspeed = (cmd.param5 == 1.0f);
     
-    send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
 
 
     // TODO: 센서 캘리브레이션 요청 처리 구현
     if (calibrate_gyro || calibrate_mag || calibrate_level || calibrate_accel || calibrate_airspeed) {
-        ESP_LOGI("CALIB", "Preflight calibration requested: gyro=%d mag=%d level=%d accel=%d airspeed=%d",
+        ESP_LOGI(TAG, "MAV_CMD_PREFLIGHT_CALIBRATION_func: gyro=%d mag=%d level=%d accel=%d airspeed=%d",
                  calibrate_gyro, calibrate_mag, calibrate_level, calibrate_accel, calibrate_airspeed);
     }
 }
@@ -478,34 +483,33 @@ void MAV_CMD_SET_MESSAGE_INTERVAL_func(mavlink_message_t *msg, mavlink_command_l
     static bool local_pos_data_sending = false;
     static bool pos_target_data_sending = false;
     
-    send_mav_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
 
 
     switch (msg_id) {
         case 83: // MAVLINK_MSG_ID_RAW_IMU
             imu_data_sending = (interval_us > 0.0f);
-            ESP_LOGI("PROCESS_CMD_LONG", "MAVLINK_MSG_ID_RAW_IMU interval set to %f us, sending: %s", interval_us, imu_data_sending ? "ON" : "OFF");
+            ESP_LOGI(TAG, "MAVLINK_MSG_ID_RAW_IMU interval set to %f us, sending: %s", interval_us, imu_data_sending ? "ON" : "OFF");
             break;
         case 31: // MAVLINK_MSG_ID_ATTITUDE_QUATERNION
             att_data_sending = (interval_us > 0.0f);
-            ESP_LOGI("PROCESS_CMD_LONG", "MAVLINK_MSG_ID_ATTITUDE_QUATERNION interval set to %f us, sending: %s", interval_us, att_data_sending ? "ON" : "OFF");
+            ESP_LOGI(TAG, "MAVLINK_MSG_ID_ATTITUDE_QUATERNION interval set to %f us, sending: %s", interval_us, att_data_sending ? "ON" : "OFF");
             break;
         case 32: // MAVLINK_MSG_ID_LOCAL_POSITION_NED
             local_pos_data_sending = (interval_us > 0.0f);
-            ESP_LOGI("PROCESS_CMD_LONG", "MAVLINK_MSG_ID_LOCAL_POSITION_NED interval set to %f us, sending: %s", interval_us, local_pos_data_sending ? "ON" : "OFF");
+            ESP_LOGI(TAG, "MAVLINK_MSG_ID_LOCAL_POSITION_NED interval set to %f us, sending: %s", interval_us, local_pos_data_sending ? "ON" : "OFF");
             break;
         case 85: // MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED
             pos_target_data_sending = (interval_us > 0.0f);
-            ESP_LOGI("PROCESS_CMD_LONG", "MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED interval set to %f us, sending: %s", interval_us, pos_target_data_sending ? "ON" : "OFF");
+            ESP_LOGI(TAG, "MAVLINK_MSG_ID_POSITION_TARGET_LOCAL_NED interval set to %f us, sending: %s", interval_us, pos_target_data_sending ? "ON" : "OFF");
             break;
         default:
             break;
     }
 }
 
-
 void MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     mavlink_message_t ack_msg;
     mavlink_msg_protocol_version_pack(
         SYSTEM_ID,           // 내 FC 시스템 ID (보통 1)

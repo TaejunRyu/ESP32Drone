@@ -9,15 +9,13 @@
 namespace TELEM
 {
 
+ static const char *TAG = "TELEMETRY";
+   
 QueueHandle_t mavlink_rx_queue = NULL;
 static mavlink_status_t status;
 
 void telemetry_task(void *pv) {
-
     mavlink_message_t msg;
-    // uint8_t counter = 0; // 주기 제어용 카운터
-    // auto xLastWakeTime = xTaskGetTickCount();
-    // const auto xFrequency = pdMS_TO_TICKS(50); // 1 loop에 50ms  x 20번 = 1000ms = 1 second
     TELEM::esp_now_data_t pkt;
     
     while (true) 
@@ -27,30 +25,29 @@ void telemetry_task(void *pv) {
                 if (mavlink_parse_char(MAVLINK_COMM_2, pkt.data[i], &msg, &status)) {
                     //printf("msgid : %4d msgseq: %4d sysid: %4d compid : %4d\n",msg.msgid,msg.seq,msg.sysid,msg.compid);
                     MAV::handle_mavlink_message(&msg);
-                }else{                    
-                    // 하나의 패킷이 parser를 실행할때 1:1d에 해당하지 않으면 ?
                 }
             }
 
-            /// QGC 명령에 따른 상태 업데이트 로직
+            // QGC 명령에 따른 상태 업데이트 로직
             static bool previous_armed_state = false;
             if (previous_armed_state != g_sys.is_armed) {
                 if (g_sys.is_armed) {
-                    //ESP_LOGI("TELEMETRY","시동으로 프래그 변환(시동)");
+                    ESP_LOGD(TAG,"시동으로 프래그 변환(시동)");
                     g_heartbeat.base_mode |= MAV_MODE_FLAG_SAFETY_ARMED;
                     g_sys.system_status = MAV_STATE_ACTIVE;
                     // calibrate_ground_pressure(); // 주석 처리 유지: 통신 두절 방지
                 } else {
-                    //ESP_LOGI("TELEMETRY","시동으로 프래그 변환(시동 꺼짐)");
+                    ESP_LOGD(TAG,"시동으로 프래그 변환(시동 꺼짐)");
                     g_heartbeat.base_mode &= ~MAV_MODE_FLAG_SAFETY_ARMED;
                     g_sys.system_status = MAV_STATE_STANDBY;
                 }
                 previous_armed_state = g_sys.is_armed; // 중복 코드 제거
             }
-        }
+        } // if(xQueueReceive(....))
 
-    }
-}
+    } //while(true)
+
+} // telemetry_task
 
 } //namespace TELEM
 
