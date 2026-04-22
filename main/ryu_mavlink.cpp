@@ -1,6 +1,8 @@
 #include "ryu_mavlink.h"
 
 #include <cmath>   // float, double용 std::abs
+#include <ranges>
+#include <string_view>
 #include <driver/uart.h>
 #include <lwip/sockets.h>
 #include <esp_timer.h>
@@ -87,11 +89,11 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 (req.target_component != COMPONENT_ID && req.target_component != 0)) {
                 break;
             }
-            vTaskDelay(pdMS_TO_TICKS(1));
             // 이전 전송테이터가 쌓이지 않도록 여유를 준다.
-            for (int i = 0 ; auto &par : PARAM::params ){
-                float *param_ptr =  reinterpret_cast<float*>(&PARAM::values);
-                // 전송부 코드 예시
+            auto *param_ptr =  reinterpret_cast<float*>(&PARAM::values);
+            for (size_t i = 0 ; i < PARAM::count ; i++){
+                auto  &par = PARAM::params[i];
+
                 float val_to_send;
                 if (par.type == 6) { // INT32
                     int32_t temp = (int32_t)param_ptr[i];
@@ -103,10 +105,6 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                              par.name.data(), val_to_send, par.type, PARAM::count, i);
                 WIFI::dispatch_mavlink_msg(&msg);
-                // pdMS_TO_TICKS(1) : 1또는 2개가 버퍼 를 넘긴다 
-                // pdMS_TO_TICKS(2) : 에러가 나지 않는다.
-                vTaskDelay(pdMS_TO_TICKS(2));
-                i++;
             }
             break;
         }
@@ -193,10 +191,10 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                     MAV_CMD_DO_SET_HOME_func(msg,cmd);
                     break;
                 }
-                // case MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES:{ //520
-                //     MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(msg,cmd);
-                //     break;
-                // }
+                case MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES:{ //520
+                     MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(msg,cmd);
+                     break;
+                }
                 case MAV_CMD_REQUEST_MESSAGE:{  //512
                     MAV_CMD_REQUEST_MESSAGE_func(msg,cmd);    
                     break;
@@ -294,18 +292,18 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                         g_heartbeat.custom_mode = (uint32_t)0x00050000;
                         g_sys.flight_mode = MODE_ACRO;                       
                         break;
-                    // case (uint32_t)0x00060000: // rattitude
-                    //     g_heartbeat.custom_mode = (uint32_t)0x00060000;
-                    //     g_sys.flight_mode = MODE_MANUAL;                       
-                    //     break;    
+                    case (uint32_t)0x00060000: // rattitude
+                        g_heartbeat.custom_mode = (uint32_t)0x00060000;
+                        g_sys.flight_mode = MODE_MANUAL;                       
+                        break;    
                     case (uint32_t)0x00070000: // Stabilize
                         g_heartbeat.custom_mode = (uint32_t)0x00070000;
                         g_sys.flight_mode = MODE_STABILIZED;                       
                         break;
-                    // case (uint32_t)0x03040000: // standby
-                    //     g_heartbeat.custom_mode = (uint32_t)0x03040000;
-                    //     g_sys.flight_mode = MODE_MANUAL;                       
-                    //     break;
+                    case (uint32_t)0x03040000: // standby
+                        g_heartbeat.custom_mode = (uint32_t)0x03040000;
+                        g_sys.flight_mode = MODE_MANUAL;                       
+                        break;
                     case (uint32_t)0x04040000: // Mission
                         g_heartbeat.custom_mode = (uint32_t)0x04040000;
                         g_sys.flight_mode = MODE_MISSION;                       
@@ -395,9 +393,10 @@ void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink
     // 2. 버전 정보(AUTOPILOT_VERSION) 설정
     mavlink_autopilot_version_t version = {};
     // 핵심: 지원하는 기능을 비트로 나열
-    version.capabilities = MAV_PROTOCOL_CAPABILITY_MAVLINK2 | 
+    version.capabilities = 
+                        MAV_PROTOCOL_CAPABILITY_MAVLINK2 | 
                         MAV_PROTOCOL_CAPABILITY_PARAM_FLOAT |
-                        MAV_PROTOCOL_CAPABILITY_MISSION_INT |
+                        //MAV_PROTOCOL_CAPABILITY_MISSION_INT |
                         MAV_PROTOCOL_CAPABILITY_SET_ATTITUDE_TARGET;
     version.board_version = 1;       
     version.flight_sw_version = 0x010D0000; // v1.13.0 (PX4 스타일 버전 넘버링)

@@ -1,5 +1,10 @@
 #include "ryu_buzzer.h"
 
+#include <driver/ledc.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include "ryu_config.h"
+
 namespace BUZZ
 {
 void initialize() {

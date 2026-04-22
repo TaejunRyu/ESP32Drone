@@ -27,40 +27,40 @@ static void vDroneTimerCallback(TimerHandle_t xTimer) {
     static gps_data_t m_gps={};
     static uint32_t last_itow = 0;     // 마지막으로 전송한 iTOW 저장
 
-    {
-        // 1. RC 채널 데이터 가상 생성 (1000~2000 사이의 값)
-        uint16_t channels[18] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 
-                                UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
-                                UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
-                                UINT16_MAX, UINT16_MAX};
-        // 2. 메시지 패키징 (ID: 65)
-        // time_boot_ms: 부팅 후 시간, chancount: 채널수, rssi: 신호세기(0~255)
-        // mavlink_msg_rc_channels_raw_pack(
-        //     SYSTEM_ID,      // System ID (드론 ID, 보통 1)
-        //     COMPONENT_ID,      // Component ID (보통 1: Autopilot)
-        //     &msg, 
-        //     esp_log_timestamp(), // time_boot_ms
-        //     0,                   // chancount (8채널 사용)
-        //     channels[0], channels[1], channels[2], channels[3], 
-        //     channels[4], channels[5], channels[6], channels[7],                    
-        //     100                  // RSSI (신호 세기 0~255)
-        // );
-        mavlink_msg_rc_channels_pack(
-            SYSTEM_ID,      // System ID (드론 ID, 보통 1)
-            COMPONENT_ID,      // Component ID (보통 1: Autopilot)
-            &msg, 
-            esp_log_timestamp(), // time_boot_ms
-            8,                   // chancount (8채널 사용)
-            channels[0], channels[1], channels[2], channels[3], 
-            channels[4], channels[5], channels[6], channels[7],
-            channels[8], channels[9], channels[10], channels[11],
-            channels[12], channels[13], channels[14], channels[15],
-            channels[16], channels[17],
-            200                  // RSSI (신호 세기 0~255)
-        );
-        WIFI::dispatch_mavlink_msg(&msg);
-        //break;                        
-    }
+    // {
+    //     // 1. RC 채널 데이터 가상 생성 (1000~2000 사이의 값)
+    //     uint16_t channels[18] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 
+    //                             UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
+    //                             UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
+    //                             UINT16_MAX, UINT16_MAX};
+    //     // 2. 메시지 패키징 (ID: 65)
+    //     // time_boot_ms: 부팅 후 시간, chancount: 채널수, rssi: 신호세기(0~255)
+    //     // mavlink_msg_rc_channels_raw_pack(
+    //     //     SYSTEM_ID,      // System ID (드론 ID, 보통 1)
+    //     //     COMPONENT_ID,      // Component ID (보통 1: Autopilot)
+    //     //     &msg, 
+    //     //     esp_log_timestamp(), // time_boot_ms
+    //     //     0,                   // chancount (8채널 사용)
+    //     //     channels[0], channels[1], channels[2], channels[3], 
+    //     //     channels[4], channels[5], channels[6], channels[7],                    
+    //     //     100                  // RSSI (신호 세기 0~255)
+    //     // );
+    //     mavlink_msg_rc_channels_pack(
+    //         SYSTEM_ID,      // System ID (드론 ID, 보통 1)
+    //         COMPONENT_ID,      // Component ID (보통 1: Autopilot)
+    //         &msg, 
+    //         esp_log_timestamp(), // time_boot_ms
+    //         8,                   // chancount (8채널 사용)
+    //         channels[0], channels[1], channels[2], channels[3], 
+    //         channels[4], channels[5], channels[6], channels[7],
+    //         channels[8], channels[9], channels[10], channels[11],
+    //         channels[12], channels[13], channels[14], channels[15],
+    //         channels[16], channels[17],
+    //         200                  // RSSI (신호 세기 0~255)
+    //     );
+    //     WIFI::dispatch_mavlink_msg(&msg);
+    //     //break;                        
+    // }
 
     
     switch(step){

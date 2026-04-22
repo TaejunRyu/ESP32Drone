@@ -1,9 +1,6 @@
 #pragma once
 
-#include <driver/ledc.h>
-#include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include "ryu_config.h"
+#include <stdint.h>
 
 namespace BUZZ{
 extern void initialize();

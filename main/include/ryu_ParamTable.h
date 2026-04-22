@@ -4,9 +4,6 @@
  * QGroundControl과의 통신을 위해 MAVLink 프로토콜에 맞춘 데이터 구조로 설계되어 있습니다.
  * 해시 테이블을 사용하여 이름으로 빠르게 파라미터 인덱스를 찾을 수 있도록 구현되어 있습니다.
  * PID 제어 관련 변수와도 연동되어 있어, QGC에서 PID 튜닝이 가능하도록 설계되었습니다.
- * 
- * C++26의 constexpr, std::string_view, std::array 등을 활용하여 안전하고 효율적인 코드로 작성되었습니다.
- * 또한, PID 제어 관련 함수와 변수는 pid_ryu.h에서 별도로 관리하여 모듈화하였습니다.
  */
 #include <array>
 #include <string_view>
