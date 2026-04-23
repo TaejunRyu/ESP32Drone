@@ -5,7 +5,7 @@
 namespace WIFI
 {   
 
-    static const char *TAG = "WIFI";    
+static const char *TAG = "WIFI";    
 
 esp_now_peer_info_t peer_info = {}; 
 
@@ -64,7 +64,6 @@ void init_esp_now(void) {
         //rate_config.rate = WIFI_PHY_RATE_2M_S;         // 2Mbps Short Preamble
         rate_config.rate = WIFI_PHY_RATE_6M;            // 2Mbps Short Preamble
 
-        
         // 해당 설정시 _LR모드와 공존할수 없다.
         esp_now_set_peer_rate_config(bridge_mac, &rate_config); 
     }
@@ -89,10 +88,40 @@ void connect_callback(){
 int8_t current_rssi = 0;
 int8_t noise_floor = 0;
 
+
+/**
+ * @brief QGC raw(1000 단위) -> 퍼센트(100 단위) -> i-BUS(1000~2000) 통합 변환
+ */
+uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
+    float percent;
+    uint16_t ibus_val;
+
+    if (is_throttle) {
+        // 1. 0~1000 -> 0~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        // 2. 0~100 -> 1000~2000 변환
+        ibus_val = (uint16_t)(percent * 10.0f) + 1000;
+    } else {
+        // 1. -1000~1000 -> -100~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < -100) percent = -100;
+        if (percent > 100) percent = 100;
+
+        // 2. -100~100 -> 1000~2000 변환 (0점 1500)
+        ibus_val = (uint16_t)(percent * 5.0f) + 1500;
+    }
+
+    return ibus_val;
+}
+
+
+
 /**
  * @brief 
- *      이 call back 에서 esp-now로 오는 데이터를 telemetry task로 보냄....
- * 
+ *      이 call back 에서 esp-now로 오는 데이터를 telemetry task로 보냄.... * 
  * @param recv_info 
  * @param data 
  * @param len 
@@ -117,6 +146,7 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
     //         ESP_LOGW(TAG, "새 peer 등록 실패: %s", esp_err_to_name(add_err));
     //     }
     // }
+
     // 실시간 정보를 구해서 bridge로 보낸다.
     current_rssi = recv_info->rx_ctrl->rssi;
     noise_floor  = recv_info->rx_ctrl->noise_floor;
@@ -136,8 +166,21 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
         int16_t yaw         = data[16] | (data[17] << 8);
         int16_t button      = data[18] | (data[19] << 8);
         
+        //flysky의 ppm_values 에 데이터를 넣어  똑같은 진행으로 처리한다.
+
+        g_rc.roll       = map_qgc_to_ibus_final(roll,false);
+        g_rc.pitch      = map_qgc_to_ibus_final(pitch,false);
+        g_rc.throttle   = map_qgc_to_ibus_final(throttle,true);
+        g_rc.yaw        = map_qgc_to_ibus_final(yaw,false);
+        g_rc.aux1       = button; 
+    
         //*********************************************************************************************************8 */
-        //printf("rc_data=> roll: %5d pitch: %5d throttle: %5d yaw: %5d button: %d\n",roll,pitch,throttle,yaw,button);
+        printf("rc_data=> roll: %5.0f pitch: %5.0f throttle: %5.0f yaw: %5.0f button: %5.0f\n",
+                        g_rc.roll,
+                        g_rc.pitch,
+                        g_rc.throttle,
+                        g_rc.yaw,
+                        g_rc.aux1);
 
     } else {
         if (TELEM::mavlink_rx_queue != NULL) {

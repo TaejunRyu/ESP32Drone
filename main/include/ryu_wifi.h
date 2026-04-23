@@ -28,7 +28,12 @@ typedef struct {
 } mav_tx_packet_t;
 
 // bridge mac_address ( 칩이 바뀌면 mac address도 바뀌므로 반드시 체크.)
-inline constexpr uint8_t bridge_mac[] = {0xB0, 0xCB, 0xD8, 0xD6, 0xB0, 0xC8};
+// ESP32
+//inline constexpr uint8_t bridge_mac[] = {0xB0, 0xCB, 0xD8, 0xD6, 0xB0, 0xC8};
+
+//ESP32S3
+inline constexpr uint8_t bridge_mac[] = {0x1C, 0xDB, 0xD4, 0xAE, 0x82, 0x04};
+
 // 통신은 channel 6번 양쪽을 바추어야한다.
 inline constexpr uint8_t ESPNOW_CHANNEL  = 6;
 // MAC ADDRESS을 가진 정보

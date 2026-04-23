@@ -237,10 +237,6 @@ void handle_mavlink_message(mavlink_message_t *msg) {
             break;
         }
 
-        case MAVLINK_MSG_ID_MISSION_ACK:{
-
-            
-        }
         case MAVLINK_MSG_ID_MISSION_CLEAR_ALL: {
             mavlink_message_t ack_msg;
             mavlink_msg_mission_ack_pack(
@@ -329,7 +325,7 @@ void handle_mavlink_message(mavlink_message_t *msg) {
             break;
         }
         default:{            
-           ESP_LOGI(TAG, "SWITCH default msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
+           //ESP_LOGI(TAG, "SWITCH default msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
         }
     }
 }

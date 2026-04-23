@@ -417,7 +417,7 @@ CONFIG_IDF_TARGET_ARCH="xtensa"
 # default:
 CONFIG_IDF_TARGET="esp32"
 # default:
-CONFIG_IDF_INIT_VERSION="6.1.0"
+CONFIG_IDF_INIT_VERSION="6.0.0"
 # default:
 CONFIG_IDF_TARGET_ESP32=y
 # default:

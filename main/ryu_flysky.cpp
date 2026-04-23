@@ -19,6 +19,12 @@ int     current_channel = 0;
 portMUX_TYPE my_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
 
+// void set_ppm_values(uint32_t r,uint32_t p,uint32_t t,uint32_t y,uint32_t b){
+
+// }
+
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -173,6 +179,7 @@ void flysky_task(void *pvParameters) {
         g_rc.aux3 = (swc < 1300) ? 0 : (swc <= 1700) ? 1 : 2;
         
         g_rc.aux4 = (local_ppm[7] > 1500) ? 1 : 0;
+
 // 잡시 테스트를 위하여 막아놈......( flight.cpp에서 시동을 걸어놔서 시동 끄는 제스처가 먹히지 않음. )
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        
         // // 5. 시동(Arming) 로직
@@ -188,6 +195,7 @@ void flysky_task(void *pvParameters) {
         //     }
         // }
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+        
         if ( g_rc.aux1 > 0){
             g_sys.manual_hold_mode =true;
         }else{
