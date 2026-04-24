@@ -107,6 +107,7 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                              par.name.data(), val_to_send, par.type, PARAM::count, i);
                 WIFI::dispatch_mavlink_msg(&msg);
+                vTaskDelay(pdMS_TO_TICKS(2));
             }
             break;
         }
@@ -519,4 +520,4 @@ void MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_comma
     );
     WIFI::dispatch_mavlink_msg(&ack_msg);
 }
-}
+} // namespace MAV

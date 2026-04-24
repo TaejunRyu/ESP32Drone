@@ -1,4 +1,8 @@
 #include "ryu_wifi.h"
+
+#include <array>
+#include <esp_mac.h>
+
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
 
@@ -175,12 +179,12 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
         g_rc.aux1       = button; 
     
         //*********************************************************************************************************8 */
-        printf("rc_data=> roll: %5.0f pitch: %5.0f throttle: %5.0f yaw: %5.0f button: %5.0f\n",
-                        g_rc.roll,
-                        g_rc.pitch,
-                        g_rc.throttle,
-                        g_rc.yaw,
-                        g_rc.aux1);
+        // printf("rc_data=> roll: %5.0f pitch: %5.0f throttle: %5.0f yaw: %5.0f button: %5.0f\n",
+        //                 g_rc.roll,
+        //                 g_rc.pitch,
+        //                 g_rc.throttle,
+        //                 g_rc.yaw,
+        //                 g_rc.aux1);
 
     } else {
         if (TELEM::mavlink_rx_queue != NULL) {
@@ -320,5 +324,13 @@ void dispatch_mavlink_msg(mavlink_message_t *msg) {
     }
 }
 
+std::array<uint8_t,6> get_my_mac_address(void){
+    std::array<uint8_t, 6> mac;
+    // std::array의 내부 배열 주소를 직접 넘겨줌 (.data() 사용)
+    esp_read_mac(mac.data(), ESP_MAC_WIFI_STA);
+    return mac;
 }
+
+
+} //namespace WIFI
 
