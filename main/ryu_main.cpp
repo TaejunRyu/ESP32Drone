@@ -172,6 +172,12 @@ void app_main(void) {
         
         SERVO::stop_all_motors();
         
+
+        auto mac_addr = WIFI::get_my_mac_address();
+        ESP_LOGE("MAIN", "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
+                 mac_addr[0], mac_addr[1], mac_addr[2],
+                 mac_addr[3], mac_addr[4], mac_addr[5]);
+
         // 무한 대기 (리부팅 필요)
         while (true) {
             static bool blink_led = false;

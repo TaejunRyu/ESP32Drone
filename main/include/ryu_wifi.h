@@ -56,6 +56,8 @@ extern void mavlink_tx_task(void *pvParameters);
 
 extern void dispatch_mavlink_msg(mavlink_message_t *msg);
 
+extern std::array<uint8_t, 6> get_my_mac_address(void);
+
 extern void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
 extern void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status);
 
