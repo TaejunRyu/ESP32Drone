@@ -173,7 +173,7 @@ void check_arrival_and_drop(double current_lat, double current_lon) {
     if (distance <= ARRIVAL_THRESHOLD) {
         printf("목표 도달! 투하를 시작합니다.\n");
         
-        BUZZ::sound_mission_complete(); // 아까 만든 도착 사운드 재생
+        BUZZ::Buzzer::get_instance().sound_mission_complete(); // 아까 만든 도착 사운드 재생
         set_drop_angle(120);      // 낚시 도구 투하 (서보 회전)
         
         has_dropped = true;       // 투하 완료 표시

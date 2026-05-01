@@ -48,7 +48,7 @@ void error_manager_task(void *pvParameters) {
                 if (ret != ESP_OK){
                     SERVO::stop_all_motors();
                     while(true){
-                        BUZZ::sound_emergency(); // 나 죽었다~~~~~~~~
+                        BUZZ::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
                     }
                 }
                 printf("⚠️ WARNING: IMU/MAG/BARO Not Working Detected!\n");
@@ -56,7 +56,7 @@ void error_manager_task(void *pvParameters) {
 
             // 2. 조종기 신호 상실 처리
             if (notifiedValue & ERR_RC_LOST) {
-                BUZZ::sound_emergency();
+                BUZZ::Buzzer::get_instance().sound_emergency();
                 g_sys.error_hold_mode = false;                
                 // Telemetry로 경고 전송 및 로그 저장 로직
                 //save_error_to_nvs("RC_LOST");
@@ -65,7 +65,7 @@ void error_manager_task(void *pvParameters) {
 
             // 3. 배터리 저전압 처리
             if (notifiedValue & ERR_BATTERY_LOW) {
-                BUZZ::sound_low_battery();
+                BUZZ::Buzzer::get_instance().sound_low_battery();
                 printf("⚠️ WARNING: Low Battery Detected!\n");
             }
             

@@ -222,7 +222,7 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,100,0,msg->sysid,msg->compid);             
                     if (std::abs(cmd.param1 - 1.0f) < 0.01f) {
                         // 1번 소리(시동 성공음 등)를 짧게 울리고 재부팅하면 상태 확인에 좋습니다.
-                        BUZZ::sound_system_off(); 
+                        BUZZ::Buzzer::get_instance().sound_system_off(); 
                         esp_restart();
                     }
                     break;

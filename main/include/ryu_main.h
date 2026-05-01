@@ -67,7 +67,7 @@ void __attribute__((weak)) esp_panic_handler_reboot(void) {
     gpio_set_level((gpio_num_t)SERVO::MOTOR_REAR_RIGHT, 0);
 
     // 2. 필요하다면 부저(Buzzer)를 울려 경고
-    BUZZ::sound_error();
+    BUZZ::Buzzer::get_instance().sound_error();
 
     // 3. 잠시 대기 (모터가 확실히 멈출 시간)
     for (int i = 0; i < 1000000; i++) {
