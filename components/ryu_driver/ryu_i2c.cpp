@@ -1,6 +1,5 @@
 #include "ryu_i2c.h"
-#include "ryu_bmp388.h"
-#include "ryu_ist8310.h"
+#include "ryu_config.h"
 
 namespace Driver{
 
@@ -67,27 +66,21 @@ i2c_master_bus_handle_t I2C::initialize()
 
 void I2C::deinitialize()
 {
-    // 1. 기존 장치 및 버스 제거 (이미 할당된 경우)
-    if (imu_handle[0])  i2c_master_bus_rm_device(imu_handle[0]);  //icm20948
-    if (imu_handle[1])  i2c_master_bus_rm_device(imu_handle[1]);  //icm20948
-    //if (mag_handle[0])  i2c_master_bus_rm_device(mag_handle[0]);  //ist8310
-    IST8310::CIST8310::get_instance().deinitialize();
-    if (mag_handle[1])  i2c_master_bus_rm_device(mag_handle[1]);  //ak09916
-    if (cbmp388_main.get_handle()) i2c_master_bus_rm_device(cbmp388_main.get_handle());    //bmp388
-    if (cbmp388_sub.get_handle()) i2c_master_bus_rm_device(cbmp388_sub.get_handle());    //bmp388
-
     if (_bus_handle) {
-        i2c_del_master_bus(_bus_handle);
+        // ESP-IDF 5.x 이상: 내부 장치를 rm_device 안 해도 
+        // 버스 삭제 시 리소스가 강제 해제되지만, 에러 로그 방지를 위해 reset 고려
+        i2c_del_master_bus(_bus_handle); 
+        _bus_handle = nullptr; 
     }
 
-    // 2. SCL 핀 강제 토글 (Bus Clear)
+    // 2. SCL/SDA 핀 제어권 획득 및 강제 토글 (Bus Clear)
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask = (1ULL << I2C_SCL) | (1ULL << I2C_SDA);
-    io_conf.mode = GPIO_MODE_INPUT_OUTPUT_OD; // Open-Drain 필수
+    io_conf.mode = GPIO_MODE_INPUT_OUTPUT_OD; 
     io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
     gpio_config(&io_conf);
 
-    // SCL 9번 토글하여 고착된 SDA 해제
+    // SCL 9번 토글 (슬레이브 장치 리셋 유도)
     for (int i = 0; i < 9; i++) {
         gpio_set_level(I2C_SCL, 0);
         esp_rom_delay_us(5);
@@ -96,8 +89,9 @@ void I2C::deinitialize()
     }
 
     _initialized = false;
-    ESP_LOGI(TAG, "deinitialzed.");   
+    ESP_LOGI(TAG, "I2C Bus & GPIO recovered and deinitialized.");
 }
+
 
 void I2C::scan_bus()
 {

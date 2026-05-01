@@ -1,9 +1,10 @@
 #pragma once
- 
+
+#include <array> 
 #include <tuple>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
-#include "ryu_config.h"
+
 namespace IST8310
 {
 

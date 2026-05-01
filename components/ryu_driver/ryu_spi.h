@@ -13,9 +13,11 @@
 #include "ryu_ak09916.h"
 #include "ryu_config.h"
 
-namespace SPI {
+namespace Driver {
 
-spi_host_device_t ICM20948_SPI_HOST;
+namespace SPI{
+
+    spi_host_device_t ICM20948_SPI_HOST;
 inline constexpr gpio_num_t ICM20948_SPI_SCLK = VSPI_SCLK;
 inline constexpr gpio_num_t ICM20948_SPI_MISO = VSPI_MISO;
 inline constexpr gpio_num_t ICM20948_SPI_MOSI = VSPI_MOSI;
@@ -88,4 +90,5 @@ struct bmp388_calib_t {
     float _p11;
 };
 
+}
 }

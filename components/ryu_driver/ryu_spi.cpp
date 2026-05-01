@@ -1,7 +1,8 @@
 #include "ryu_spi.h"
 
-namespace SPI {
+namespace Driver {
 
+namespace SPI {    
 static inline bmp388_calib_t bmp388_calib = {};
 
 static inline esp_err_t spi_transfer(
@@ -574,6 +575,7 @@ static inline esp_err_t initialize_all_icm20948_spi() {
 }
 
 } // namespace SPI
+} // namespace Driver
 // 74HC138: "8개 중 하나만 골라!" (선택)
 // 74HC595: "핀 3개로 여러 개를 내 맘대로 켜고 유지해!" (직렬 확장)
 // 74HC573(래치): "지금 이 데이터를 그대로 기억해!" (데이터 보존)

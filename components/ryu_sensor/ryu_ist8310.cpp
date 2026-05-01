@@ -1,5 +1,10 @@
 #include "ryu_ist8310.h"
 #include <tuple>
+#include <cmath>
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+
+
 namespace IST8310
 {
 
@@ -137,19 +142,19 @@ std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_raw_data()
 std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_with_offset()
 {
     auto [ret,mag_data] = this->read_raw_data();
-    mag_data[X] = (mag_data[X]- MAG_OFFSET_X) * SCALE_X;
-    mag_data[Y] = (mag_data[Y]- MAG_OFFSET_Y) * SCALE_Y;
-    mag_data[Z] = (mag_data[Z]- MAG_OFFSET_Z) * SCALE_Z;
+    mag_data[0] = (mag_data[0]- MAG_OFFSET_X) * SCALE_X;
+    mag_data[1] = (mag_data[1]- MAG_OFFSET_Y) * SCALE_Y;
+    mag_data[2] = (mag_data[2]- MAG_OFFSET_Z) * SCALE_Z;
 
-    float norm = sqrtf(mag_data[X] * mag_data[X] + mag_data[Y] * mag_data[Y] + mag_data[Z] * mag_data[Z]);
+    float norm = sqrtf(mag_data[0] * mag_data[0] + mag_data[1] * mag_data[1] + mag_data[2] * mag_data[2]);
     if (norm > 0.0f) {
-        mag_data[X] =mag_data[X]/norm;
-        mag_data[Y] =mag_data[Y]/norm;
-        mag_data[Z] =mag_data[Z]/norm;
+        mag_data[0] =mag_data[0]/norm;
+        mag_data[1] =mag_data[1]/norm;
+        mag_data[2] =mag_data[2]/norm;
     }
     
     // X를 (-)부호를 해야지 Mahony를 통과
-    mag_data[X] *=  -1.0f;
+    mag_data[0] *=  -1.0f;
     return {ret,mag_data};
 }
 
@@ -167,9 +172,9 @@ void CIST8310::calibrate_hard_iron()
         float mx=0.0f, my=0.0f, mz=0.0f;    
         auto [ret,mag_raw]=this->read_raw_data();
         if (ret == ESP_OK) {
-            mx = static_cast<float>(mag_raw[X]);
-            my = static_cast<float>(mag_raw[Y]);
-            mz = static_cast<float>(mag_raw[Z]);
+            mx = static_cast<float>(mag_raw[0]);
+            my = static_cast<float>(mag_raw[1]);
+            mz = static_cast<float>(mag_raw[2]);
 
             // 각 축의 최대/최소값 갱신
             if (mx > mx_max) mx_max = mx;
