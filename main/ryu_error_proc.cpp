@@ -25,7 +25,10 @@ void error_manager_task(void *pvParameters) {
             //  IMU/MAG/BARO  모두 에러 발생 또는 I2C 에러시 모든 것 리셋.
             if (notifiedValue & ERR_I2C_BUS_HANG) {
                 g_system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                                
-                i2c_handle = I2C::i2c_bus_hardware_clear(i2c_handle); // 하드웨어 리셋 (SCL 토글)        
+                Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)        
+                
+                i2c_handle = Driver::I2C::get_instance().initialize();
+
                 if (i2c_handle !=NULL){ 
                     ret = reinit_all_sensors(i2c_handle);             // 센서 레지스터 재설정
                     auto [ret_code,macc,mgyro] =ICM20948::read_raw_data(imu_handle[0]);
@@ -102,8 +105,10 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
     else{
         ret = ESP_FAIL;
     }
+    IST8310::CIST8310::get_instance().deinitialize();
+    IST8310::CIST8310::get_instance().initialize(i2c_handle);
+    mag_handle[0] = IST8310::CIST8310::get_instance().get_dev_handle();
 
-    mag_handle[0] = IST8310::initialize(i2c_handle);
     mag_handle[1] = AK09916::initialize(i2c_handle);
     if (mag_handle[0] != NULL || mag_handle[1] != NULL){
         g_system_health |= SYS_HEALTH_MAG_OK;

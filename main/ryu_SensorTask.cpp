@@ -68,7 +68,7 @@ void SensorRead_task(void *pvParameters) {
 
         // 기압계/지자기 조건부 업데이트
         if (loop_count % 20 == 0) {
-            auto [retM1, mag1] = IST8310::read_with_offset(mag_handle[0]);
+            auto [retM1, mag1] = IST8310::CIST8310::get_instance().read_with_offset();
             auto [retM2, mag2] = AK09916::read_with_offset(mag_handle[1]);
             if (xSemaphoreTake(sensor_mag_mutex, pdMS_TO_TICKS(1)) == pdTRUE) {   
                 shared_data.mag.mag1 = mag1;

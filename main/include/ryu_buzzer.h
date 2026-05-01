@@ -13,7 +13,7 @@ public:
     Buzzer& operator=(const Buzzer&) = delete;
     ~Buzzer();
 
-    // 싱글톤 인스턴스 접근 메서드
+    // 싱글톤 인스턴스 접근 메서드 
     // 🌟 get_instance() 메서드 구현
     static Buzzer& get_instance() {
         static Buzzer* instance = new Buzzer(); // 힙에 할당하여 소멸 순서 꼬임 방지

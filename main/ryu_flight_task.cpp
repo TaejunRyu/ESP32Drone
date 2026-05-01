@@ -128,7 +128,7 @@ void flight_task(void *pv) {
             // 1.인덱스별로  main과 sub별 실행을 분리한다.     
             switch(mag_active_index){
                 case 0:{
-                    auto [ret, mag_main] = IST8310::read_with_offset(mag_handle[mag_active_index]);
+                    auto [ret, mag_main] = IST8310::CIST8310::get_instance().read_with_offset();
                     g_imu.mag = mag_main;
                     ret_code = ret;
                     }
