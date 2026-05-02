@@ -79,7 +79,7 @@ inline constexpr gpio_num_t I2C_SCL     = GPIO_NUM_22;
 
 
 // --- Sensors 핸들 및 전역 변수 ---
-extern i2c_master_bus_handle_t i2c_handle;
+//extern i2c_master_bus_handle_t i2c_handle;
 //extern i2c_master_dev_handle_t imu_handle[2]; 
 //extern i2c_master_dev_handle_t mag_handle[2];
 

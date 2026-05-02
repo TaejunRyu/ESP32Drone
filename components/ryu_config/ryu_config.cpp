@@ -2,7 +2,7 @@
 
 
 // I2C 및 디바이스 핸들
-i2c_master_bus_handle_t i2c_handle      = NULL;
+//i2c_master_bus_handle_t i2c_handle      = NULL;
 
 // error발생시 대신 데이터를 읽어올 센서을 둔다 main=>[0](ado = vcc) / sub=>[1](ado = gnd)
 //i2c_master_dev_handle_t imu_handle[2]   = {0};   

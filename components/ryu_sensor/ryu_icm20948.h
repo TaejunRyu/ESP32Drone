@@ -28,7 +28,7 @@ class ICM20948{
         void icm20948_select_bank(uint8_t bank);
         esp_err_t enable_mag_bypass();
         void calibrate();
-        i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address);
+        i2c_master_dev_handle_t initialize();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();
 
@@ -61,7 +61,7 @@ class ICM20948{
         std::string name;
         bool isAlive = false;
         // private 생성자: 외부에서 호출 불가
-        ICM20948(std::string n) : name(n), isAlive(true) {}
+        ICM20948(std::string n, uint16_t addr) :_dev_address(addr),name(n),isAlive(true) {}
 
         static ICM20948 mainInstance;
         static ICM20948 subInstance;

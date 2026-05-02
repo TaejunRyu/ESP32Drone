@@ -5,7 +5,7 @@
 #include <algorithm>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "ryu_i2c.h"
 //#include "ryu_config.h"
 
 
@@ -34,19 +34,20 @@ void AK09916::deinitialize()
     ESP_LOGI(TAG, "deinitialzed.");
 }
 
-i2c_master_dev_handle_t AK09916::initialize(i2c_master_bus_handle_t bus_handle)
+i2c_master_dev_handle_t AK09916::initialize()
 {
     if(_initialized){
-
         return _dev_handle;
     } 
+    _bus_handle = Driver::I2C::get_instance().get_bus_handle();
+
     // AK09916 디바이스 추가 (I2C 버스에 직접 연결된 것처럼 동작)
     i2c_device_config_t mag_cfg = {};
     mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     mag_cfg.device_address  = ADDR;
     mag_cfg.scl_speed_hz    = 400000;
 
-    if (i2c_master_bus_add_device(bus_handle, &mag_cfg, &_dev_handle) != ESP_OK) {
+    if (i2c_master_bus_add_device(_bus_handle, &mag_cfg, &_dev_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Bus 추가 실패");
         return nullptr;
     }
@@ -69,7 +70,6 @@ i2c_master_dev_handle_t AK09916::initialize(i2c_master_bus_handle_t bus_handle)
     uint8_t mode_cmd[] = {CNTL2, 0x08}; 
     i2c_master_transmit(_dev_handle, mode_cmd, 2, pdMS_TO_TICKS(100));
     
-    _bus_handle = bus_handle;
     _initialized = true;
     ESP_LOGI(TAG, "초기화 성공 (ID: 0x09)");
     return _dev_handle;

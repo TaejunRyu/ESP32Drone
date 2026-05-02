@@ -27,7 +27,7 @@ void error_manager_task(void *pvParameters) {
                 g_system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                                
                 Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)        
                 
-                i2c_handle = Driver::I2C::get_instance().initialize();
+                auto i2c_handle = Driver::I2C::get_instance().initialize();
 
                 if (i2c_handle !=NULL){ 
                     ret = reinit_all_sensors(i2c_handle);             // 센서 레지스터 재설정
@@ -95,8 +95,8 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
 
     // 2. ICM20948 (IMU 1 & 2) 초기화
     //    가속도/자이로 범위, 샘플 레이트, LP 필터 등 설정
-    Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
-    Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
+    Sensor::ICM20948::Main().initialize();
+    Sensor::ICM20948::Sub().initialize();
 
     if (Sensor::ICM20948::Main().get_dev_handle() != NULL){
         g_system_health |= SYS_HEALTH_IMU_OK;
@@ -106,10 +106,10 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
         ret = ESP_FAIL;
     }
     Sensor::IST8310::get_instance().deinitialize();
-    Sensor::IST8310::get_instance().initialize(i2c_handle);
+    Sensor::IST8310::get_instance().initialize();
     
     Sensor::AK09916::get_instance().deinitialize();
-    Sensor::AK09916::get_instance().initialize(i2c_handle);
+    Sensor::AK09916::get_instance().initialize();
 
     if ( Sensor::IST8310::get_instance().get_dev_handle() != NULL || 
          Sensor::AK09916::get_instance().get_dev_handle() != NULL){
@@ -120,8 +120,8 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
 
     // deinitialize 해야할것 같음....
 
-    Sensor::BMP388::Main().initialize(i2c_handle,Sensor::BMP388::ADDR_VCC);
-    Sensor::BMP388::Sub().initialize(i2c_handle,Sensor::BMP388::ADDR_GND);
+    Sensor::BMP388::Main().initialize();
+    Sensor::BMP388::Sub().initialize();
 
     if(Sensor::BMP388::Main().get_dev_handle() != NULL || Sensor::BMP388::Sub().get_dev_handle() != NULL){
         g_system_health |= SYS_HEALTH_BARO_OK;

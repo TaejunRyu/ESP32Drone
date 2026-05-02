@@ -1,13 +1,14 @@
 #include "ryu_icm20948.h"
 #include <tuple>
+#include "ryu_i2c.h"
 #include "ryu_config.h"
 
 namespace Sensor{
 
 const char *ICM20948::TAG = "ICM20948";
 
-ICM20948 ICM20948::mainInstance("MAIN_ICM20948");
-ICM20948 ICM20948::subInstance("SUB_ICM20948");
+ICM20948 ICM20948::mainInstance("MAIN_ICM20948",ADDR_VCC);
+ICM20948 ICM20948::subInstance("SUB_ICM20948",ADDR_GND);
 
 void ICM20948::icm20948_select_bank(uint8_t bank)
 {
@@ -17,20 +18,32 @@ void ICM20948::icm20948_select_bank(uint8_t bank)
     _current_bank = bank;
 }
 
-i2c_master_dev_handle_t ICM20948::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address)
+i2c_master_dev_handle_t ICM20948::initialize()
 {
     if(_dev_handle) {
         ESP_LOGI(TAG,"%s Already initialized.",name.c_str());
     }
+    // bus handle을 바로 가져오기
+    if (Driver::I2C::get_instance().get_bus_handle() != nullptr){
+        this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
+    }
+    else{
+        //
+        return nullptr;
+    }
+
+
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_cfg.device_address = dev_address;
+    dev_cfg.device_address = this->_dev_address;
     dev_cfg.scl_speed_hz = I2C_SPEED; // 400kHz
 
+    
     // 버스에 장치 추가 및 핸들 획득
-    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &_dev_handle);
+    esp_err_t ret = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
     if (ret != ESP_OK) {
         ESP_LOGE(TAG,"%s %s is not add.",name.c_str());
+        this->isAlive = false; // 명시적으로 상태 기록
         return nullptr;
     }
 
@@ -76,9 +89,8 @@ i2c_master_dev_handle_t ICM20948::initialize(i2c_master_bus_handle_t bus_handle,
     icm20948_select_bank(0);
     vTaskDelay(pdMS_TO_TICKS(10));
     
-    _dev_address = dev_address;
-    _bus_handle =  bus_handle;
     _initialized = true;
+    this->isAlive = true;
     ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    
     return _dev_handle;
 }
@@ -212,95 +224,4 @@ esp_err_t ICM20948::enable_mag_bypass()
     return ret;
 }
 
-}
-
-
-// #include "driver/gpio.h"
-// #include "freertos/FreeRTOS.h"
-// #include "freertos/task.h"
-
-// #define ICM_INT_GPIO_PIN   GPIO_NUM_4  // INT 핀이 연결된 ESP32 GPIO 번호
-// static TaskHandle_t imu_task_handle = NULL;
-
-// // 2.1 인터럽트 서비스 루틴 (ISR)
-// static void IRAM_ATTR icm20948_isr_handler(void* arg) {
-//     BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-    
-//     // 데이터를 처리할 Task에 Notification을 보냅니다.
-//     vTaskNotifyGiveFromISR(imu_task_handle, &xHigherPriorityTaskWoken);
-    
-//     if (xHigherPriorityTaskWoken) {
-//         portYIELD_FROM_ISR();
-//     }
-// }
-
-// // 2.2 GPIO 설정 및 ISR 등록 함수
-// void setup_gpio_interrupt(void) {
-//     gpio_config_t io_conf = {
-//         .intr_type = GPIO_INTR_POSEDGE,       // ICM-20948 설정에 따라 NEGEDGE 또는 POSEDGE 선택
-//         .mode = GPIO_MODE_INPUT,
-//         .pin_bit_mask = (1ULL << ICM_INT_GPIO_PIN),
-//         .pull_down_en = GPIO_PULLDOWN_DISABLE,
-//         .pull_up_en = GPIO_PULLUP_ENABLE      // Open-drain 설정 시 Pull-up 필요
-//     };
-//     gpio_config(&io_conf);
-
-//     // GPIO 인터럽트 서비스 설치 (보통 app_main에서 한 번만 호출)
-//     gpio_install_isr_service(0);
-    
-//     // 특정 GPIO 핀에 ISR 핸들러 부착
-//     gpio_isr_handler_add(ICM_INT_GPIO_PIN, icm20948_isr_handler, NULL);
-// }
-
-
-// #include "driver/i2c_master.h"
-
-// #define ICM20948_I2C_ADDR       0x68    // AD0 핀이 GND일 때 0x68, VCC일 때 0x69
-// #define ICM20948_ACCEL_XOUT_H   0x2D    // Bank 0에 위치한 가속도 데이터 시작 주소
-
-// i2c_master_dev_handle_t icm_dev_handle; // 이미 초기화된 I2C 디바이스 핸들
-
-// // 3.1 인터럽트 트리거 시 데이터를 읽어오는 Task
-// void imu_read_task(void *pvParameters) {
-//     uint8_t data[12]; // 가속도(6B) + 자이로(6B)
-    
-//     while (1) {
-//         // ISR로부터 신호가 올 때까지 대기 (무한 대기 portMAX_DELAY)
-//         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
-        
-//         // I2C 읽기 작업 수행
-//         // Bank 0가 선택되어 있는지 확인 후 읽어야 안전합니다.
-//         esp_err_t err = i2c_master_transmit_receive(
-//             icm_dev_handle, 
-//             (uint8_t[]){ICM20948_ACCEL_XOUT_H}, 1, 
-//             data, sizeof(data), 
-//             pdMS_TO_TICKS(100)
-//         );
-
-//         if (err == ESP_OK) {
-//             // 16비트 정수로 조합 (Big Endian)
-//             int16_t accel_x = (data[0] << 8) | data[1];
-//             int16_t accel_y = (data[2] << 8) | data[3];
-//             int16_t accel_z = (data[4] << 8) | data[5];
-            
-//             int16_t gyro_x  = (data[6] << 8) | data[7];
-//             int16_t gyro_y  = (data[8] << 8) | data[9];
-//             int16_t gyro_z  = (data[10] << 8) | data[11];
-
-//             // 데이터 활용 (예: 출력)
-//             // printf("Accel: %d, %d, %d\n", accel_x, accel_y, accel_z);
-//         }
-//     }
-// }
-
-// // 3.2 메인 및 초기화 흐름 예시
-// void app_main(void) {
-//     // 1. I2C 버스 및 센서 디바이스 등록 (코드 생략)
-//     // 2. ICM-20948 내부 레지스터 설정 (Bank 선택, Data Ready INT 활성화 등)
-    
-//     // 3. Task 생성
-//     xTaskCreate(imu_read_task, "imu_read_task", 4096, NULL, 10, &imu_task_handle);
-    
-//     // 4. GPIO 인터럽트 설정 및 가동
-//     setup_gpio_interrupt();
-// }
+} // namespace Sensor

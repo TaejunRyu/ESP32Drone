@@ -25,7 +25,7 @@ class BMP388{
         static constexpr uint8_t ADDR_VCC   =   0x77;
         static constexpr uint8_t ADDR_GND   =   0x76;
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
-        esp_err_t initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address);
+        esp_err_t initialize();
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();
         float update_climb_rate();
@@ -84,7 +84,7 @@ class BMP388{
         std::string name;
         bool isAlive;
         // private 생성자: 외부에서 호출 불가
-        BMP388(std::string n) : name(n), isAlive(true) {}
+        BMP388(std::string n,uint16_t addr) : _dev_address(addr), name(n), isAlive(true) {}
 
         static BMP388 mainInstance;
         static BMP388 subInstance;

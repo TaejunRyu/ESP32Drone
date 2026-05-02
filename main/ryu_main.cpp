@@ -52,7 +52,7 @@ void app_main(void) {
 
 
     {// ========== [1단계] I2C 버스 생성 ==========
-		i2c_handle      = Driver::I2C::get_instance().initialize((i2c_port_num_t)0,I2C_SDA,I2C_SCL); 
+		auto i2c_handle = Driver::I2C::get_instance().initialize((i2c_port_num_t)0,I2C_SDA,I2C_SCL); 
 		if(i2c_handle == nullptr)
 			ESP_LOGI(MAINTAG, "I2C 초기화 실패!");
 		else
@@ -61,13 +61,13 @@ void app_main(void) {
 	}
 
 	{ // 메인 imu sensor와  서브 imu  sensor을 초기화한다.
-		Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
+		Sensor::ICM20948::Main().initialize();
 		if(Sensor::ICM20948::Main().get_dev_handle() ==nullptr)
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 초기화 설정 실패!");
 		else 
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
-		Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
+		Sensor::ICM20948::Sub().initialize();
 		if(Sensor::ICM20948::Sub().get_dev_handle() ==nullptr)
 			ESP_LOGI(MAINTAG, "IMU SUB MODULE 초기화 설정 실패!");
 		else 
@@ -90,10 +90,10 @@ void app_main(void) {
     
     
     {// Gps에 있는 지자계 센서를 사용하기 위하여 초기화 한다.( 두 번째 지자계 센서로 ak09916을 등록 할지 생각해보자.)
-        Sensor::IST8310::get_instance().initialize(i2c_handle); 
+        Sensor::IST8310::get_instance().initialize(); 
         if (Sensor::IST8310::get_instance().get_dev_handle() == nullptr) 
             ESP_LOGW("WARNING","IST8310 등록실패!");
-		Sensor::AK09916::get_instance().initialize(i2c_handle);
+		Sensor::AK09916::get_instance().initialize();
         if (Sensor::AK09916::get_instance().get_dev_handle() == nullptr) 
             ESP_LOGW("WARNING","AK09916 등록실패!");
 		vTaskDelay(pdMS_TO_TICKS(50));
@@ -112,11 +112,11 @@ void app_main(void) {
 
 
     {// 기압계센서를 초기화하고 현재 위치의 기압을 체크한다.(나중에 상대 고도의 기준이 되는 값.)
-        ret_code = Sensor::BMP388::Main().initialize(i2c_handle,Sensor::BMP388::ADDR_VCC);
+        ret_code = Sensor::BMP388::Main().initialize();
         if (ret_code !=ESP_OK){
 
         }
-        ret_code = Sensor::BMP388::Sub().initialize(i2c_handle, Sensor::BMP388::ADDR_GND); 
+        ret_code = Sensor::BMP388::Sub().initialize(); 
         if (ret_code !=ESP_OK){
             
         }

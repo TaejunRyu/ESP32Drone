@@ -7,8 +7,8 @@
 namespace Sensor{
     
 
-BMP388 BMP388::mainInstance("MAIN_BMP388");
-BMP388 BMP388::subInstance("SUB_BMP388");
+BMP388 BMP388::mainInstance("MAIN_BMP388",ADDR_VCC);
+BMP388 BMP388::subInstance("SUB_BMP388",ADDR_GND);
 
 const char *BMP388::TAG = "BMP388";
 
@@ -16,12 +16,13 @@ BMP388::BMP388():_bus_handle(nullptr),_dev_handle(nullptr),_dev_address(0),_init
 {
 }
 
-esp_err_t BMP388::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address)
-{
+esp_err_t BMP388::initialize()
+{    
     if(_initialized){
         ESP_LOGI(TAG,"%s Already initialized.",this->name.c_str());
         return ESP_FAIL;
     }
+    _bus_handle =  Driver::I2C::get_instance().get_bus_handle();
     
     //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     ESP_LOGI(TAG,"%s Start initialization.",this->name.c_str());
@@ -29,10 +30,10 @@ esp_err_t BMP388::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_ad
     esp_err_t ret_code = ESP_FAIL;
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_cfg.device_address = dev_address;
+    dev_cfg.device_address = _dev_address;
     dev_cfg.scl_speed_hz = I2C_SPEED;
 
-    ret_code = i2c_master_bus_add_device(bus_handle, &dev_cfg, &_dev_handle);
+    ret_code = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
     if(ret_code !=ESP_OK){
         ESP_LOGI(TAG,"%s is not add.",this->name.c_str());
         return ret_code;
@@ -106,8 +107,6 @@ esp_err_t BMP388::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_ad
     else // 복잡한 수식 계산 미리 처리
         init_coefficients();
 
-    _dev_address = dev_address;
-    _bus_handle =  bus_handle;
     _initialized = true;
 
     ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    

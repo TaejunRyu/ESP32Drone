@@ -3,7 +3,7 @@
 #include <cmath>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
-
+#include "ryu_i2c.h"
 
 namespace Sensor
 {
@@ -21,9 +21,11 @@ IST8310::~IST8310()
 }
 
 
-i2c_master_dev_handle_t IST8310::initialize(i2c_master_bus_handle_t bus_handle)
+i2c_master_dev_handle_t IST8310::initialize()
 {
-    this->_bus_handle = bus_handle;
+
+    this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
+
 
     i2c_device_config_t mag_cfg = {};
     mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
