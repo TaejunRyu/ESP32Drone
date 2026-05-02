@@ -246,48 +246,129 @@ namespace PARAM {
     PARAM(SYS_AUTOSTART,4001,6)\
     PARAM(SYS_HAS_MAG,1,6)
 
-// 2. 파라미터 정보를 담을 구조체 정의
-struct DroneParam {
-    std::string_view name; 
-    float value;
-    uint8_t type;
-};
+// // 2. 파라미터 정보를 담을 구조체 정의
+// struct DroneParam {
+//     std::string_view name; 
+//     float value;
+//     uint8_t type;
+// };
 
-struct ParamInfo {
-    std::string_view name;
-    uint8_t type;
-};
+// struct ParamInfo {
+//     std::string_view name;
+//     uint8_t type;
+// };
 
-#define PARAM(name, default_val, type) ParamInfo{ #name, type },
-// const를 붙여 Flash(ROData) 영역에 할당
-inline const struct ParamInfo params[] = { PARAM_LIST };
-#undef PARAM
+// #define PARAM(name, default_val, type) ParamInfo{ #name, type },
+// // const를 붙여 Flash(ROData) 영역에 할당
+// inline const struct ParamInfo params[] = { PARAM_LIST };
+// #undef PARAM
 
-// values 구조체의 모양을 결정하는 매크로
-#define PARAM(name, default_val, type) float name;
-struct ParamValuesStruct {
-    PARAM_LIST
-};
-#undef PARAM
+// // values 구조체의 모양을 결정하는 매크로
+// #define PARAM(name, default_val, type) float name;
+// struct ParamValuesStruct {
+//     PARAM_LIST
+// };
+// #undef PARAM
 
-#define PARAM(name, default_val, type) static_cast<float>(default_val),
-inline ParamValuesStruct values = { PARAM_LIST }; // 배열 {} 가 아닌 구조체 {} 초기화
-#undef PARAM
+// #define PARAM(name, default_val, type) static_cast<float>(default_val),
+// inline ParamValuesStruct values = { PARAM_LIST }; // 배열 {} 가 아닌 구조체 {} 초기화
+// #undef PARAM
 
-constexpr size_t count = sizeof(params) / sizeof(ParamInfo);
+// constexpr size_t count = sizeof(params) / sizeof(ParamInfo);
 
-//순차검색  검색
-[[nodiscard]] constexpr int find_param(std::string_view name) noexcept{
-    for( size_t i=0 ; const auto &p :params){
-        if (p.name == name) return i; 
-    }
-    return -1;
-}
+// //순차검색  검색
+// [[nodiscard]] constexpr int find_param(std::string_view name) noexcept{
+//     for( size_t i=0 ; const auto &p :params){
+//         if (p.name == name) return i; 
+//     }
+//     return -1;
+// }
 
-//인덱스를 이용하여 업데이트하는 함수 
-inline constexpr void update_param(size_t index , float value) noexcept{
-    float *param_ptr =  reinterpret_cast<float*>(&values);
-    param_ptr[index] = value;
-}
+// //인덱스를 이용하여 업데이트하는 함수 
+// inline constexpr void update_param(size_t index , float value) noexcept{
+//     float *param_ptr =  reinterpret_cast<float*>(&values);
+//     param_ptr[index] = value;
+// }
+    struct ParamInfo {
+        std::string_view name;
+        uint8_t type;
+    };
 
-} //namespace PID
+    #define PARAM(name, default_val, type) ParamInfo{ #name, type },
+    // const를 붙여 Flash(ROData) 영역에 할당
+    inline const struct ParamInfo params[] = { PARAM_LIST };
+    #undef PARAM
+
+    class ParamMgr {
+    public:
+        // 1. 데이터 구조체 정의 (모든 멤버가 float임이 보장됨)
+        #define PARAM(name, default_val, type) float name;
+        struct ParamValuesStruct {
+            PARAM_LIST
+        };
+        #undef PARAM
+
+        // 싱글톤 접근
+        static ParamMgr& get_instance() {
+            static ParamMgr instance;
+            return instance;
+        }
+
+        // 1. 값 읽기 전용 참조 (복사 방지 및 안전성)
+        const ParamValuesStruct& get_values() const { return _values; }
+
+        // 2. 이름으로 파라미터 찾아서 수정
+        bool update_by_name(std::string_view name, float value) {
+            int idx = find_name_index(name);
+            if (idx == -1) return false;
+            update_by_index(idx, value);
+            return true;
+        }
+        
+        // 3. 인덱스로 직접 수정 (최적화된 경로)
+        void update_by_index(size_t index, float value) {
+            if (index >= param_count) return;
+            // 모든 멤버가 float이므로 포인터 배열처럼 접근 가능
+            float* ptr = reinterpret_cast<float*>(&_values);
+            ptr[index] = value;
+        }
+
+        float get_value_by_index(size_t index) const {
+            if (index >= param_count) return 0.0f; // 범위 체크
+            const float* ptr = reinterpret_cast<const float*>(&_values);
+            return ptr[index];
+        }
+        
+        int find_name_index(char *name) const {
+            for (size_t i = 0; i < param_count; ++i) {                
+                if (params[i].name == std::string_view(name)) return (int)i;
+            }
+            return -1;
+        }
+
+        // 이름 기반 순차 검색
+        int find_name_index(std::string_view name) const {
+            for (size_t i = 0; i < param_count; ++i) {
+                if (params[i].name == name) return (int)i;
+            }
+            return -1;
+        }        
+
+
+        size_t get_param_count(){return param_count;}
+
+    private:
+        // 생성자: INITIAL_VALUES를 사용하여 _values 초기화
+        ParamMgr() : _values(INITIAL_VALUES) {}
+
+        ParamValuesStruct _values;
+        static constexpr size_t param_count = sizeof(ParamValuesStruct) / sizeof(float);
+
+        // 초기값 리스트 생성을 위한 매크로 정의
+        #define PARAM(name, def, type) static_cast<float>(def),
+        static inline constexpr ParamValuesStruct INITIAL_VALUES = { PARAM_LIST };
+        #undef PARAM
+
+        
+    };
+} //namespace PARAM

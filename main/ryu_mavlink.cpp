@@ -91,23 +91,24 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 (req.target_component != COMPONENT_ID && req.target_component != 0)) {
                 break;
             }
-            // 이전 전송테이터가 쌓이지 않도록 여유를 준다.
-            auto *param_ptr =  reinterpret_cast<float*>(&PARAM::values);
-            for (size_t i = 0 ; i < PARAM::count ; i++){
+
+            auto& p_mgr = PARAM::ParamMgr::get_instance();
+
+            for (size_t i = 0 ; i < p_mgr.get_param_count() ; i++){
                 auto  &par = PARAM::params[i];
 
                 float val_to_send;
                 if (par.type == 6) { // INT32
-                    int32_t temp = (int32_t)param_ptr[i];
+                    int32_t temp = (int32_t)p_mgr.get_value_by_index(i);
                     memcpy(&val_to_send, &temp, 4); // 정수 비트를 float에 복사i
                 } else {
-                    val_to_send = param_ptr[i];
+                    val_to_send = p_mgr.get_value_by_index(i);
                 } 
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
-                                             par.name.data(), val_to_send, par.type, PARAM::count, i);
+                                             par.name.data(), val_to_send, par.type,p_mgr.get_param_count(), i);
                 WIFI::dispatch_mavlink_msg(&msg);
-                vTaskDelay(pdMS_TO_TICKS(2));
+                vTaskDelay(pdMS_TO_TICKS(3));
             }
             break;
         }
@@ -122,20 +123,21 @@ void handle_mavlink_message(mavlink_message_t *msg) {
             {
                 // 전송부 코드 예시
                 float val_to_send;
-                float *param_ptr =  reinterpret_cast<float*>(&PARAM::values);
+                auto& p_mgr = PARAM::ParamMgr::get_instance();
+
                 if (PARAM::params[req.param_index].type == 6) { // INT32
                     
-                    int32_t temp = (int32_t)param_ptr[req.param_index]; 
+                    int32_t temp = (int32_t)p_mgr.get_value_by_index(req.param_index);
                     memcpy(&val_to_send, &temp, 4); // 정수 비트를 float에 복사
                 } else {
-                    val_to_send = param_ptr[req.param_index];
+                    val_to_send = p_mgr.get_value_by_index(req.param_index);
                 }
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                             PARAM::params[req.param_index].name.data(),
                                             val_to_send, 
                                             PARAM::params[req.param_index].type,
-                                            PARAM::count,
+                                            p_mgr.get_param_count(),
                                             req.param_index);               
                 WIFI::dispatch_mavlink_msg(&msg);
             } 
@@ -151,7 +153,9 @@ void handle_mavlink_message(mavlink_message_t *msg) {
             }
             // [중요] 변경된 값을 다시 보내줘야 QGC 화면에서 수치가 확정됨
             float val_to_send;
-            if(size_t index = PARAM::find_param(set.param_id);index != -1){
+            auto& p_mgr = PARAM::ParamMgr::get_instance();
+
+            if(size_t index = p_mgr.find_name_index(set.param_id);index != -1){
                 if (set.param_type == 6){    
                     int32_t temp = (int32_t)set.param_value; 
                     memcpy(&val_to_send, &temp, 4); // 정수 비트를 float에 복사
@@ -159,13 +163,14 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 else{
                     val_to_send = (int32_t)set.param_value;
                 }
-                PARAM::update_param(index,val_to_send);
+                p_mgr.update_by_index(index,val_to_send);
                 // 적용 가능한 PID 계수가 있다면 즉시 동기화
-                Controller::PID::sync_pid_from_params();
+
+                Controller::PID::get_instance().sync_pid_from_params();
 
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
-                                            set.param_id, val_to_send, set.param_type, PARAM::count,index);               
+                                            set.param_id, val_to_send, set.param_type,p_mgr.get_param_count(),index);               
                 WIFI::dispatch_mavlink_msg(&msg);
             }
             break;

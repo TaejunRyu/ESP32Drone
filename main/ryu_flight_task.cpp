@@ -238,13 +238,14 @@ void flight_task(void *pv) {
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
             for(auto& comp : SERVO::comparators) mcpwm_comparator_set_compare_value(comp, 1000);
             // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
-            Controller::PID::reset_pid(&Controller::PID::pid_roll_angle);
-            Controller::PID::reset_pid(&Controller::PID::pid_pitch_angle);
-            Controller::PID::reset_pid(&Controller::PID::pid_yaw_angle);
-            Controller::PID::reset_pid(&Controller::PID::pid_roll_rate);
-            Controller::PID::reset_pid(&Controller::PID::pid_pitch_rate);
-            Controller::PID::reset_pid(&Controller::PID::pid_yaw_rate);
-            Controller::PID::reset_pid(&Controller::PID::pid_alt_pos);  
+            auto& pid = Controller::PID::get_instance();
+            pid.reset_pid(&pid.pid_roll_angle);
+            pid.reset_pid(&pid.pid_pitch_angle);
+            pid.reset_pid(&pid.pid_yaw_angle);
+            pid.reset_pid(&pid.pid_roll_rate);
+            pid.reset_pid(&pid.pid_pitch_rate);
+            pid.reset_pid(&pid.pid_yaw_rate);
+            pid.reset_pid(&pid.pid_alt_pos);  
         }else{
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
             // 감도를 높이려면 값을 키우면 된다.              
@@ -322,27 +323,30 @@ void flight_task(void *pv) {
 
                 g_baro.filtered_altitude = filtered_alt;
                 
+                auto& pid = Controller::PID::get_instance();
                 if(g_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = Controller::PID::run_pid_angle(&Controller::PID::pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
+                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)
-                    alt_throttle_offset = Controller::PID::run_pid_rate(&Controller::PID::pid_alt_rate, target_climb_rate, filtered_climb_rate, 0.025f);
+                    alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, filtered_climb_rate, 0.025f);
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
                 } else {
                     filtered_alt = 0.0f;
                     filtered_climb_rate = 0.0f;
                     alt_throttle_offset = 0.0f;
-                    Controller::PID::reset_pid(&Controller::PID::pid_alt_pos);
-                    Controller::PID::reset_pid(&Controller::PID::pid_alt_rate);
+                    pid.reset_pid(&pid.pid_alt_pos);
+                    pid.reset_pid(&pid.pid_alt_rate);
                 }
 
             }
+            
+            auto& pid = Controller::PID::get_instance();                
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
-            float target_rate_roll  = Controller::PID::run_pid_angle(&Controller::PID::pid_roll_angle,  tg_roll,  g_attitude.roll,  dt, false);
-            float target_rate_pitch = Controller::PID::run_pid_angle(&Controller::PID::pid_pitch_angle, tg_pitch, g_attitude.pitch, dt, false);
-            //float target_rate_yaw = Controller::PID::run_pid_angle(&Controller::PID::pid_yaw_angle,   tg_yaw_rate, g_attitude.yaw, dt, true);
+            float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  g_attitude.roll,  dt, false);
+            float target_rate_pitch = pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, g_attitude.pitch, dt, false);
+            //float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle,   tg_yaw_rate, g_attitude.yaw, dt, true);
 
             // Yaw는 사용자의 스틱 입력(tg_yaw_rate)을 목표 각속도로 직접 사용하거나, 
             // 현재처럼 Heading Hold를 원하시면 아래처럼 목표 각도를 유지하게 합니다.
@@ -350,22 +354,22 @@ void flight_task(void *pv) {
             target_yaw_angle += tg_yaw_rate * dt; 
             if (target_yaw_angle > 180.0f) target_yaw_angle -= 360.0f;
             if (target_yaw_angle < -180.0f) target_yaw_angle += 360.0f;
-            float target_rate_yaw = Controller::PID::run_pid_angle(&Controller::PID::pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
+            float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
 
             // --- [2단계: Inner Loop - 각속도 제어] ---
             // 목표 각속도 -> 현재 자이로 값(g_imu.gyro)과 비교 -> 최종 모터 출력(PWM 변위)
             // g_imu.gyro[0]: Roll속도, [1]: Pitch속도, [2]: Yaw속도
-            float out_roll  = Controller::PID::run_pid_rate(&Controller::PID::pid_roll_rate,  target_rate_roll,  g_imu.gyro[X], dt);
-            float out_pitch = Controller::PID::run_pid_rate(&Controller::PID::pid_pitch_rate, target_rate_pitch, g_imu.gyro[Y], dt);
-            float out_yaw   = Controller::PID::run_pid_rate(&Controller::PID::pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[Z], dt);
+            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  g_imu.gyro[X], dt);
+            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, g_imu.gyro[Y], dt);
+            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[Z], dt);
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
             // 적분/이전 오차도 같이 초기화.
             if (tg_throttle < 5.0f) {
                 out_yaw = 0.0f;
-                Controller::PID::pid_yaw_angle.integral = 0.0f;
-                Controller::PID::pid_yaw_angle.err_prev = 0.0f;
+                pid.pid_yaw_angle.integral = 0.0f;
+                pid.pid_yaw_angle.err_prev = 0.0f;
             }
             // 작은 값은 dead‑band 처리
             if (fabsf(out_yaw) < 1.0f) {
