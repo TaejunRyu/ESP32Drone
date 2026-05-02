@@ -68,9 +68,7 @@ void flight_task(void *pv) {
         if (imu_error_cnt < ERROR_MAX_NUM+1){
             switch(imu_active_index){
                 case 0:{
-                    auto [ret,macc,mgyro] = ICM20948::read_with_offset(imu_handle[imu_active_index],
-                                                                                g_imu_offset[imu_active_index].acc,
-                                                                                g_imu_offset[imu_active_index].gyro);
+                    auto [ret,macc,mgyro] = Sensor::ICM20948::Main().read_with_offset();
                     g_imu.acc   = macc;
                     g_imu.gyro  = mgyro;
                     ret_code    = ret;
@@ -78,9 +76,7 @@ void flight_task(void *pv) {
                     break;
                 
                 case 1:{
-                    auto [ret,macc,mgyro]   = ICM20948::read_with_offset(imu_handle[imu_active_index],
-                                                                                    g_imu_offset[imu_active_index].acc,
-                                                                                    g_imu_offset[imu_active_index].gyro);
+                    auto [ret,macc,mgyro] = Sensor::ICM20948::Sub().read_with_offset();
                     g_imu.acc   = macc;
                     g_imu.gyro  = mgyro;
                     ret_code    = ret;
@@ -285,15 +281,15 @@ void flight_task(void *pv) {
                 //esp_err_t ret_code;
                 switch(baro_active_index){
                     case 0:{
-                            std::tie(ret_code,temp_alt)   = cbmp388_main.get_relative_altitude();
-                            temp_rate  = cbmp388_main.update_climb_rate();
-                            //ret_code   = cbmp388_main.get_last_error();
+                            std::tie(ret_code,temp_alt)   = Sensor::BMP388::Main().get_relative_altitude();
+                            temp_rate  = Sensor::BMP388::Main().update_climb_rate();
+                            //ret_code   = bmp388_main.get_last_error();
                         }    
                         break;
                     case 1:{
-                            std::tie(ret_code,temp_alt)   = cbmp388_sub.get_relative_altitude();
-                            temp_rate  = cbmp388_sub.update_climb_rate();
-                            //ret_code   = cbmp388_sub.get_last_error();
+                            std::tie(ret_code,temp_alt)   = Sensor::BMP388::Sub().get_relative_altitude();
+                            temp_rate  = Sensor::BMP388::Sub().update_climb_rate();
+                            //ret_code   = bmp388_sub.get_last_error();
                         }
                         break;
                 }

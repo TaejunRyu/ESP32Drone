@@ -31,7 +31,7 @@ void error_manager_task(void *pvParameters) {
 
                 if (i2c_handle !=NULL){ 
                     ret = reinit_all_sensors(i2c_handle);             // 센서 레지스터 재설정
-                    auto [ret_code,macc,mgyro] =ICM20948::read_raw_data(imu_handle[0]);
+                    auto [ret_code,macc,mgyro] =Sensor::ICM20948::Main().read_raw_data();
                     if (ret_code == ESP_OK && (macc[0] + macc[1] + macc[2]) > 1.0f){
                         ret = ESP_OK;
                         FLIGHT::imu_error_cnt =0;
@@ -95,12 +95,12 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
 
     // 2. ICM20948 (IMU 1 & 2) 초기화
     //    가속도/자이로 범위, 샘플 레이트, LP 필터 등 설정
-    imu_handle[0]=ICM20948::initialize(i2c_handle,ICM20948::ADDR_VCC);
-    imu_handle[1]=ICM20948::initialize(i2c_handle,ICM20948::ADDR_GND);
+    imu_handle[0]=Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
+    imu_handle[1]=Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
 
     if (imu_handle[0] != NULL){
         g_system_health |= SYS_HEALTH_IMU_OK;
-        ICM20948::enable_mag_bypass(imu_handle[0]);
+        Sensor::ICM20948::Main().enable_mag_bypass();
     }
     else{
         ret = ESP_FAIL;
@@ -116,9 +116,12 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
         ret = ESP_FAIL;
     }
 
-    cbmp388_main.initialize(i2c_handle,CBMP388::ADDR_VCC);
-    cbmp388_sub.initialize(i2c_handle,CBMP388::ADDR_GND);
-    if(cbmp388_main.get_handle() != NULL || cbmp388_sub.get_handle() != NULL){
+    // deinitialize 해야할것 같음....
+
+    Sensor::BMP388::Main().initialize(i2c_handle,Sensor::BMP388::ADDR_VCC);
+    Sensor::BMP388::Sub().initialize(i2c_handle,Sensor::BMP388::ADDR_GND);
+
+    if(Sensor::BMP388::Main().get_handle() != NULL || Sensor::BMP388::Sub().get_handle() != NULL){
         g_system_health |= SYS_HEALTH_BARO_OK;
     }else{
         ret = ESP_FAIL;

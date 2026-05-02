@@ -35,8 +35,8 @@ void SensorRead_task(void *pvParameters) {
     while(true) {
         // [1] 센서 데이터 읽기 (로컬 변수에 먼저 저장)
         // IMU 1, 2 읽기
-        auto [ret1, macc1, mgyro1] = ICM20948::read_with_offset(imu_handle[0], g_imu_offset[0].acc, g_imu_offset[0].gyro);
-        auto [ret2, macc2, mgyro2] = ICM20948::read_with_offset(imu_handle[1], g_imu_offset[1].acc, g_imu_offset[1].gyro);
+        auto [ret1, macc1, mgyro1] = Sensor::ICM20948::Main().read_with_offset();
+        auto [ret2, macc2, mgyro2] = Sensor::ICM20948::Sub().read_with_offset();
 
         // [2] 센서 조합 (단순 평균)
         std::array<float, 3> avg_acc ={}, avg_gyro={};
@@ -78,8 +78,8 @@ void SensorRead_task(void *pvParameters) {
         }
 
         if (loop_count % 100 == 0) {
-            auto [retP1, p1] = cbmp388_main.get_relative_altitude();
-            auto [retP2, p2] = cbmp388_sub.get_relative_altitude();
+            auto [retP1, p1] = Sensor::BMP388::Main().get_relative_altitude();
+            auto [retP2, p2] = Sensor::BMP388::Sub().get_relative_altitude();
             if (xSemaphoreTake(sensor_baro_mutex, pdMS_TO_TICKS(1)) == pdTRUE) {   
                 shared_data.baro.pressure1 = p1;
                 shared_data.baro.pressure2 = p2;

@@ -1,56 +1,52 @@
 #include "ryu_icm20948.h"
 #include <tuple>
 
-namespace ICM20948{
+namespace Sensor{
 
-inline constexpr uint8_t  REG_BANK_SEL     =  0x7F;
-inline constexpr uint8_t  B0_WHO_AM_I      =  0x00; // 값: 0xEA
-inline constexpr uint8_t  B0_PWR_MGMT_1    =  0x06;
-inline constexpr uint8_t  B0_ACCEL_XOUT_H  =  0x2D; // 가속도 시작 (총 6바이트)
-inline constexpr uint8_t  B0_GYRO_XOUT_H   =  0x33; // 자이로 시작 (총 6바이트)
-// 뱅크 및 레지스터 추가 정의
-inline constexpr uint8_t  B0_INT_PIN_CFG   =  0x0F;
-inline constexpr uint8_t  B0_USER_CTRL     =  0x03; 
-// 레지스터 정의 (Bank 2 기준)=
-inline constexpr uint8_t  B2_GYRO_CONFIG_1 =  0x01;
-inline constexpr uint8_t  B2_ACCEL_CONFIG  =  0x14;
+const char *ICM20948::TAG = "ICM20948";
 
-// 뱅크 선택 함수
-void icm20948_select_bank(i2c_master_dev_handle_t handle, uint8_t bank) {
+ICM20948 ICM20948::mainInstance("MAIN_ICM20948");
+ICM20948 ICM20948::subInstance("SUB_ICM20948");
+
+void ICM20948::icm20948_select_bank(uint8_t bank)
+{
     uint8_t cmd[] = {REG_BANK_SEL, (uint8_t)(bank << 4)};
-    i2c_master_transmit(handle, cmd, 2, pdMS_TO_TICKS(10));
+    i2c_master_transmit(_dev_handle, cmd, 2, pdMS_TO_TICKS(10));
+    //ESP_LOGI(TAG,"%s Changed Bank.",name.c_str());
+    _current_bank = bank;
 }
 
-i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle,  uint16_t dev_address){
-
-    i2c_master_dev_handle_t handle={};
-
+i2c_master_dev_handle_t ICM20948::initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address)
+{
+    if(_dev_handle) {
+        ESP_LOGI(TAG,"%s Already initialized.",name.c_str());
+    }
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     dev_cfg.device_address = dev_address;
     dev_cfg.scl_speed_hz = I2C_SPEED; // 400kHz
 
     // 버스에 장치 추가 및 핸들 획득
-    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &handle);
+    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &_dev_handle);
     if (ret != ESP_OK) {
-        //ESP_LOGE("ICM20948", "장치 등록 실패: %s", esp_err_to_name(ret));
+        ESP_LOGE(TAG,"%s %s is not add.",name.c_str());
         return nullptr;
     }
 
-    icm20948_select_bank(handle,0);
+    icm20948_select_bank(0);
     
     // 1. Soft Reset
     uint8_t reset_cmd[] = {B0_PWR_MGMT_1, 0x80};
-    i2c_master_transmit(handle, reset_cmd, 2, pdMS_TO_TICKS(100));
+    i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(100));
     vTaskDelay(pdMS_TO_TICKS(100)); // 리셋 후 대기 필수
 
     // 2. Sleep 해제 및 Auto Clock 선택 (내부 20MHz OSC 사용)
     uint8_t wake_cmd[] = {B0_PWR_MGMT_1, 0x01};
-    i2c_master_transmit(handle, wake_cmd, 2, pdMS_TO_TICKS(100));
+    i2c_master_transmit(_dev_handle, wake_cmd, 2, pdMS_TO_TICKS(100));
     vTaskDelay(pdMS_TO_TICKS(100));
     
     // --- [1. Bank 2로 이동] ---
-    icm20948_select_bank(handle,2);
+    icm20948_select_bank(2);
     vTaskDelay(pdMS_TO_TICKS(10));
 
     // --- [2. 자이로스코프 설정: ±1000dps & DLPF 설정] ---
@@ -62,7 +58,7 @@ i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle,  uint16_t
        => 0b00011101 (0x1D)
     */
     uint8_t gyro_cfg[] = {B2_GYRO_CONFIG_1, 0x1D};
-    i2c_master_transmit(handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
+    i2c_master_transmit(_dev_handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
 
     // --- [3. 가속도계 설정: ±8g & DLPF 설정] ---
     /* 
@@ -73,48 +69,28 @@ i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle,  uint16_t
        => 0b00011101 (0x1D)
     */
     uint8_t accel_cfg[] = {B2_ACCEL_CONFIG, 0x1D};
-    i2c_master_transmit(handle, accel_cfg, 2, pdMS_TO_TICKS(100));
+    i2c_master_transmit(_dev_handle, accel_cfg, 2, pdMS_TO_TICKS(100));
 
     // --- [4. 다시 Bank 0로 복귀 (데이터 읽기 준비)] ---
-    icm20948_select_bank(handle,0);
+    icm20948_select_bank(0);
     vTaskDelay(pdMS_TO_TICKS(10));
     
-    //ESP_LOGI("ICM20948", "범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
-    return handle;
+    _dev_address = dev_address;
+    _bus_handle =  bus_handle;
+    _initialized = true;
+    ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    
+    return _dev_handle;
 }
 
-
-
-/**
- * @brief ICM20948 내부의 AK09916(지자계)을 직접 접근하기 위한 Bypass 모드 활성화
- */
-esp_err_t enable_mag_bypass(i2c_master_dev_handle_t handle) {
-    
-    icm20948_select_bank(handle,0);
-
-    // 1. I2C Master 모드 비활성화 (Bypass를 쓰기 위함)
-    uint8_t user_ctrl_cmd[] = {B0_USER_CTRL, 0x00};
-    i2c_master_transmit(handle, user_ctrl_cmd, 2, pdMS_TO_TICKS(10));
-
-    // 2. Bypass 모드 활성화 (BYPASS_EN = 1)
-    uint8_t bypass_cmd[] = {B0_INT_PIN_CFG, 0x02};
-    esp_err_t ret = i2c_master_transmit(handle, bypass_cmd, 2, pdMS_TO_TICKS(10));
-    
-    if (ret == ESP_OK) {
-        ESP_LOGI("ICM20948", "지자계(AK09916) Bypass 모드 활성화 완료");
-    }
-    return ret;
-}
-
-
-std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
-        read_raw_data(i2c_master_dev_handle_t handle){
-    if (handle == NULL) 
+std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()
+{
+    if (_dev_handle == NULL){ 
         return {ESP_FAIL, {0.0f, 0.0f, 0.0f},{0.0f,0.0f,0.0f}};
+    }
     uint8_t d[12]; // Accel(6) + Gyro(6)
     
-    icm20948_select_bank(handle,0);
-    esp_err_t ret = i2c_master_transmit_receive(handle, &B0_ACCEL_XOUT_H, 1, d, 12, pdMS_TO_TICKS(2));
+    icm20948_select_bank(0);
+    esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &B0_ACCEL_XOUT_H, 1, d, 12, pdMS_TO_TICKS(2));
     if(ret != ESP_OK){
         return{ret,{},{}};
     } 
@@ -130,26 +106,24 @@ std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>>
     return {ret,{raw_acc[0],raw_acc[1],raw_acc[2]},{raw_gyro[0],raw_gyro[1],raw_gyro[2]}};
 }
 
-/**
- * @brief  
- * 
- * @param handle 
- * @return std::tuple<std::array<float,3>,std::array<float,3>> 
- */
-std::tuple<std::array<float,3>,std::array<float,3>> calibrate( i2c_master_dev_handle_t handle) {
-
+void ICM20948::calibrate()
+{
+    if (_calibration){
+        ESP_LOGW(TAG,"%s Already Calibration was performed.",name.c_str());
+        return ;
+    }
     float sum_acc[3] ={},sum_gyro[3]={};
      int valid_samples = 0; // 실제로 성공한 샘플 수만 카운트
     const int samples = 1000; // 1000번 샘플링 (약 1~2초 소요)
     uint8_t buf[12];
     uint8_t reg = B0_ACCEL_XOUT_H;
     
-    icm20948_select_bank(handle,0);
+    icm20948_select_bank(0);
 
-    ESP_LOGI("ICM20948", "센서 영점 조절 시작... 기체를 수평으로 유지하세요.");
+    ESP_LOGI(TAG, "센서 영점 조절 시작... 기체를 수평으로 유지하세요.");
     for (int i = 0; i < samples; i++) {
         uint64_t start_time = esp_timer_get_time(); // 시작 시간 기록
-        if (i2c_master_transmit_receive(handle, &reg, 1, buf, 12, pdMS_TO_TICKS(2)) == ESP_OK) [[likely]]{    
+        if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(2)) == ESP_OK) [[likely]]{    
             sum_acc[X] += (int16_t)((buf[0] << 8) | buf[1])   / 4096.0f;
             sum_acc[Y] += (int16_t)((buf[2] << 8) | buf[3])   / 4096.0f;
             sum_acc[Z] += (int16_t)((buf[4] << 8) | buf[5])   / 4096.0f;
@@ -184,27 +158,30 @@ std::tuple<std::array<float,3>,std::array<float,3>> calibrate( i2c_master_dev_ha
         sum_gyro[X] = 0.0f,sum_gyro[Y] = 0.0f,sum_gyro[Z] = 0.0f;
     }
     
-    return {{sum_acc[X],sum_acc[Y],sum_acc[Z]},{sum_gyro[X],sum_gyro[Y],sum_gyro[Z]}};
+    _offset_acc[0] = sum_acc[0];
+    _offset_acc[1] = sum_acc[1];
+    _offset_acc[2] = sum_acc[2];
+    _offset_gyro[0] = sum_gyro[0];
+    _offset_gyro[1] = sum_gyro[1];
+    _offset_gyro[2] = sum_gyro[2];
+    //return {{sum_acc[X],sum_acc[Y],sum_acc[Z]},{sum_gyro[X],sum_gyro[Y],sum_gyro[Z]}};
+    _calibration = true;
 }
 
+std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_with_offset()
+{
+    if (!_calibration){
+        ESP_LOGW(TAG,"%s Calibration was not performed.",name.c_str());
+        return {ESP_FAIL,{},{}};
+    }
 
-/**
- * @brief  원시 데이터의 모든 설정값을 조건에 맞게 설정하여 반환한다. 
- *      
- * @param handle       
- * @param offset_acc    시스템 시작시 캘리브레이션으로 얻은 acc  offset이다.
- * @param offset_gyro   시스템 시작시 캘리브레이션으로 얻은 gyro offset이다.
- * @return std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
- */
-std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>> 
-        read_with_offset(i2c_master_dev_handle_t handle,std::array<float,3> offset_acc,std::array<float,3> offset_gyro){
-    auto [ret,acc,gyro] = read_raw_data(handle);
-    acc[X]  = acc[X]  - offset_acc[X];
-    acc[Y]  = acc[Y]  - offset_acc[Y];
-    acc[Z]  = acc[Z]  - offset_acc[Z];
-    gyro[X] = gyro[X] - offset_gyro[X];
-    gyro[Y] = gyro[Y] - offset_gyro[Y];
-    gyro[Z] = gyro[Z] - offset_gyro[Z];
+    auto [ret,acc,gyro] = read_raw_data();
+    acc[X]  = acc[X]  - _offset_acc[X];
+    acc[Y]  = acc[Y]  - _offset_acc[Y];
+    acc[Z]  = acc[Z]  - _offset_acc[Z];
+    gyro[X] = gyro[X] - _offset_gyro[X];
+    gyro[Y] = gyro[Y] - _offset_gyro[Y];
+    gyro[Z] = gyro[Z] - _offset_gyro[Z];
 
     // ICM20948에서 부호를 반대로 설정해놨어요. 논리 대로 처리 간다~~~~  
     // qgc의 roll , pitch에 (-) 부호처리 일단함.
@@ -217,11 +194,24 @@ std::tuple < esp_err_t , std::array<float,3>, std::array<float,3>>
     return {ret,acc,gyro};
 }
 
+esp_err_t ICM20948::enable_mag_bypass()
+{
+    icm20948_select_bank(0);
+    // 1. I2C Master 모드 비활성화 (Bypass를 쓰기 위함)
+    uint8_t user_ctrl_cmd[] = {B0_USER_CTRL, 0x00};
+    i2c_master_transmit(_dev_handle, user_ctrl_cmd, 2, pdMS_TO_TICKS(10));
 
+    // 2. Bypass 모드 활성화 (BYPASS_EN = 1)
+    uint8_t bypass_cmd[] = {B0_INT_PIN_CFG, 0x02};
+    esp_err_t ret = i2c_master_transmit(_dev_handle, bypass_cmd, 2, pdMS_TO_TICKS(10));
+    
+    if (ret == ESP_OK) {
+        ESP_LOGI(TAG, "지자계(AK09916) Bypass 모드 활성화 완료");
+    }
+    return ret;
 }
 
-
-
+}
 
 
 // #include "driver/gpio.h"

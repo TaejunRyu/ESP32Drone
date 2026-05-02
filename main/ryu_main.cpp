@@ -60,26 +60,26 @@ void app_main(void) {
 	}
 
 	{ // 메인 imu sensor와  서브 imu  sensor을 초기화한다.
-		imu_handle[0]  = ICM20948::initialize(i2c_handle,ICM20948::ADDR_VCC);
+		imu_handle[0]  = Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
 		if(imu_handle[0] ==nullptr)
 			ESP_LOGI("MAIN", "IMU MAIN MODULE 초기화 설정 실패!");
 		else 
 			ESP_LOGI("MAIN", "IMU MAIN MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
-		imu_handle[1]      = ICM20948::initialize(i2c_handle,ICM20948::ADDR_GND);
+		imu_handle[1] = Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
 		if(imu_handle[1] ==nullptr)
 			ESP_LOGI("MAIN", "IMU SUB MODULE 초기화 설정 실패!");
 		else 
 			ESP_LOGI("MAIN", "IMU SUB MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
         // 각각의 오프셋을 구한다.
-		std::tie(g_imu_offset[0].acc,g_imu_offset[0].gyro) = ICM20948::calibrate(imu_handle[0]);		
-        std::tie(g_imu_offset[1].acc,g_imu_offset[1].gyro) = ICM20948::calibrate(imu_handle[1]);    
+		Sensor::ICM20948::Main().calibrate();
+        Sensor::ICM20948::Sub().calibrate();		
 
     }
     
 	{ // ak09916을 사용하기위하여 main sensor의 icm20948에서 bypass mode를 설정한다.
-		ret_code = ICM20948::enable_mag_bypass(imu_handle[0]);
+		ret_code = Sensor::ICM20948::Main().enable_mag_bypass();
 		if (ret_code != ESP_OK)
 			ESP_LOGI("MAIN", "IMU MAIN MODULE Bypass 모드 설정 실패!");
 		else
@@ -112,23 +112,28 @@ void app_main(void) {
 
 
     {// 기압계센서를 초기화하고 현재 위치의 기압을 체크한다.(나중에 상대 고도의 기준이 되는 값.)
-        ret_code = cbmp388_main.initialize(i2c_handle,CBMP388::ADDR_VCC);
-        ret_code = cbmp388_sub.initialize(i2c_handle, CBMP388::ADDR_GND); 
-        auto [ret_bmp0,mgp] = cbmp388_main.calibrate_ground_pressure();
-        auto [ret_bmp1,sgp] = cbmp388_sub.calibrate_ground_pressure();
+        ret_code = Sensor::BMP388::Main().initialize(i2c_handle,Sensor::BMP388::ADDR_VCC);
+        if (ret_code !=ESP_OK){
+
+        }
+        ret_code = Sensor::BMP388::Sub().initialize(i2c_handle, Sensor::BMP388::ADDR_GND); 
+        if (ret_code !=ESP_OK){
+            
+        }
+        auto [ret_bmp0,mgp] = Sensor::BMP388::Main().calibrate_ground_pressure();
+        auto [ret_bmp1,sgp] = Sensor::BMP388::Sub().calibrate_ground_pressure();
         g_baro.ground_pressure = (mgp+sgp) * 0.5;
     }
     
     
     {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	
 		// IMU 데이터를 읽는다. 		
-		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = ICM20948::read_with_offset(imu_handle[0],g_imu_offset[0].acc,g_imu_offset[0].gyro);
+		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = Sensor::ICM20948::Main().read_with_offset();
 		g_imu.acc[Y]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
         g_imu.gyro[X]   *=  -1.0f;
 
         // 지자계 데이터를 읽는다. 		
         auto [ist_ret,ist_mag]  = IST8310::CIST8310::get_instance().read_with_offset();
-        //auto [ist_ret,ist_mag]  = IST8310::read_with_offset(mag_handle[0]);
 		auto [ ak_ret, ak_mag]  = AK09916::read_with_offset(mag_handle[1]);    
 
         g_imu.mag[X] = (ist_mag[X]+ak_mag[X])*0.5;
@@ -162,15 +167,15 @@ void app_main(void) {
         imu_handle[SUB]     == NULL || 
         mag_handle[MAIN]    == NULL || 
         mag_handle[SUB]     == NULL || 
-        cbmp388_main.get_handle()   == NULL ||
-        cbmp388_sub.get_handle()    == NULL) 
+        Sensor::BMP388::Main().get_handle()   == NULL ||
+        Sensor::BMP388::Sub().get_handle()    == NULL) 
         {
         if (imu_handle[MAIN]            == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", IMU_NAME_MAIN);
         if (imu_handle[SUB]             == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", IMU_NAME_SUB);
         if( mag_handle[MAIN]            == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", MAG_NAME_MAIN);
         if( mag_handle[SUB]             == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", MAG_NAME_SUB);
-        if (cbmp388_main.get_handle()   == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", BARO_NAME_MAIN);
-        if (cbmp388_sub.get_handle()    == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", BARO_NAME_SUB);
+        if (Sensor::BMP388::Main().get_handle()   == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", BARO_NAME_MAIN);
+        if (Sensor::BMP388::Sub().get_handle()    == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", BARO_NAME_SUB);
 
         ESP_LOGE("MAIN", "❌ 필수 센서 미연결! 시스템 중단");
         
