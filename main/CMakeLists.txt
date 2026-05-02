@@ -7,7 +7,7 @@ idf_component_register(
     SRCS ${app_sources}
         
     INCLUDE_DIRS 
-        "include"
+        "." 
 
     REQUIRES                   
                 esp_adc             esp_wifi            nvs_flash 
@@ -16,6 +16,7 @@ idf_component_register(
                 bootloader_support  esp_pm              freertos
                 esp_system          lwip                mavlink
                 ryu_sensor          ryu_config          ryu_driver
+                ryu_controller
                 
     PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
 )

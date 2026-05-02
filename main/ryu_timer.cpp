@@ -64,7 +64,6 @@ static void vDroneTimerCallback(TimerHandle_t xTimer) {
 
     
     switch(step){
-
         case 1: case 8: case 9:{
             // g_gps 공동 변수에서 읽어와 사용한다.
             // 정확한 데이터 보장이 필요하기 때문에 시간별 다름을 없애는 목적......

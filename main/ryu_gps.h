@@ -53,6 +53,7 @@ extern void gps_ubx_mode_task(void *pvParameters);
 void calculate_ubx_checksum(uint8_t* data, int len, uint8_t* ck_a, uint8_t* ck_b);
 uint8_t checkDataReliability(ubx_nav_pvt_t *pvt);
 
+
 }
 
 
