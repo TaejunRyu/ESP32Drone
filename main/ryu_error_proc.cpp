@@ -105,9 +105,9 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
     else{
         ret = ESP_FAIL;
     }
-    IST8310::CIST8310::get_instance().deinitialize();
-    IST8310::CIST8310::get_instance().initialize(i2c_handle);
-    mag_handle[0] = IST8310::CIST8310::get_instance().get_dev_handle();
+    Sensor::IST8310::get_instance().deinitialize();
+    Sensor::IST8310::get_instance().initialize(i2c_handle);
+    mag_handle[0] = Sensor::IST8310::get_instance().get_dev_handle();
 
     mag_handle[1] = AK09916::initialize(i2c_handle);
     if (mag_handle[0] != NULL || mag_handle[1] != NULL){

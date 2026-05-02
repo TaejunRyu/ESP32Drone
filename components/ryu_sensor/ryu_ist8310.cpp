@@ -5,23 +5,23 @@
 #include "freertos/task.h"
 
 
-namespace IST8310
+namespace Sensor
 {
 
-const char* CIST8310::TAG = "IST8310";
+const char* IST8310::TAG = "IST8310";
 
-CIST8310::CIST8310():_bus_handle(nullptr),_dev_handle(nullptr),_initialized(false)
+IST8310::IST8310():_bus_handle(nullptr),_dev_handle(nullptr),_initialized(false)
 {
-    ESP_LOGI(TAG, "CIST8310 created. ");
+    ESP_LOGI(TAG, "IST8310 created. ");
 }
 
-CIST8310::~CIST8310()
+IST8310::~IST8310()
 {
     deinitialize();
 }
 
 
-void CIST8310::initialize(i2c_master_bus_handle_t bus_handle)
+void IST8310::initialize(i2c_master_bus_handle_t bus_handle)
 {
     this->_bus_handle = bus_handle;
 
@@ -80,7 +80,7 @@ void CIST8310::initialize(i2c_master_bus_handle_t bus_handle)
 }
 
 
-void CIST8310::deinitialize()
+void IST8310::deinitialize()
 {
     if (!this->_initialized){
         return;
@@ -93,7 +93,7 @@ void CIST8310::deinitialize()
 }
 
 
-std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_raw_data()
+std::tuple<esp_err_t, std::array<float, 3>> IST8310::read_raw_data()
 {
     uint8_t rx_buf[6] = {0};
     std::array<float, 3> raw_float = {0.0f, 0.0f, 0.0f};
@@ -139,7 +139,7 @@ std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_raw_data()
     return {ESP_OK, last_valid_mag};
 }
 
-std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_with_offset()
+std::tuple<esp_err_t, std::array<float, 3>> IST8310::read_with_offset()
 {
     auto [ret,mag_data] = this->read_raw_data();
     mag_data[0] = (mag_data[0]- MAG_OFFSET_X) * SCALE_X;
@@ -160,7 +160,7 @@ std::tuple<esp_err_t, std::array<float, 3>> CIST8310::read_with_offset()
 
 
 
-void CIST8310::calibrate_hard_iron()
+void IST8310::calibrate_hard_iron()
 {
     float mx_max = -99999.0f, mx_min = 99999.0f;
     float my_max = -99999.0f, my_min = 99999.0f;

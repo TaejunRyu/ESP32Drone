@@ -89,8 +89,8 @@ void app_main(void) {
     
     
     {// Gps에 있는 지자계 센서를 사용하기 위하여 초기화 한다.( 두 번째 지자계 센서로 ak09916을 등록 할지 생각해보자.)
-        IST8310::CIST8310::get_instance().initialize(i2c_handle);
-        mag_handle[MAIN]   =  IST8310::CIST8310::get_instance().get_dev_handle();
+        Sensor::IST8310::get_instance().initialize(i2c_handle);
+        mag_handle[MAIN]   =  Sensor::IST8310::get_instance().get_dev_handle();
 		
         //mag_handle[MAIN]      = IST8310::initialize(i2c_handle);
         if (mag_handle[MAIN] == NULL) ESP_LOGW("WARNING","IST8310 등록실패!");
@@ -133,7 +133,7 @@ void app_main(void) {
         g_imu.gyro[X]   *=  -1.0f;
 
         // 지자계 데이터를 읽는다. 		
-        auto [ist_ret,ist_mag]  = IST8310::CIST8310::get_instance().read_with_offset();
+        auto [ist_ret,ist_mag]  = Sensor::IST8310::get_instance().read_with_offset();
 		auto [ ak_ret, ak_mag]  = AK09916::read_with_offset(mag_handle[1]);    
 
         g_imu.mag[X] = (ist_mag[X]+ak_mag[X])*0.5;

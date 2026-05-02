@@ -80,4 +80,8 @@ inline std::tuple<esp_err_t,uint8_t> ready_data(i2c_master_dev_handle_t handle){
 
 
 
+
+
+
+
 }

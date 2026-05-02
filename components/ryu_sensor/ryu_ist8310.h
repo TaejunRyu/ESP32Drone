@@ -5,22 +5,22 @@
 #include <driver/i2c_master.h>
 #include <esp_log.h>
 
-namespace IST8310
+namespace Sensor
 {
 
-class CIST8310{
+class IST8310{
     private:
-        CIST8310();
+        IST8310();
     public:
             // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
-        CIST8310(const CIST8310&) = delete;
-        CIST8310& operator=(const CIST8310&) = delete;
-        ~CIST8310();
+        IST8310(const IST8310&) = delete;
+        IST8310& operator=(const IST8310&) = delete;
+        ~IST8310();
 
         // 싱글톤 인스턴스 접근 메서드
         // 🌟 get_instance() 메서드 구현
-        static CIST8310& get_instance() {
-            static CIST8310* instance = new CIST8310(); // 힙에 할당하여 소멸 순서 꼬임 방지
+        static IST8310& get_instance() {
+            static IST8310* instance = new IST8310(); // 힙에 할당하여 소멸 순서 꼬임 방지
             return *instance;
         }  
 
