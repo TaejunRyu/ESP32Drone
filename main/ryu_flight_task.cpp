@@ -130,7 +130,7 @@ void flight_task(void *pv) {
                     }
                     break;
                 case 1:{
-                    auto [ret, mag_sub] = AK09916::read_with_offset(mag_handle[mag_active_index]);
+                    auto [ret, mag_sub] = Sensor::AK09916::get_instance().read_with_offset();
                     g_imu.mag = mag_sub;
                     ret_code = ret;
                     }

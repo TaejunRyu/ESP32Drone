@@ -94,7 +94,7 @@ void app_main(void) {
 		
         //mag_handle[MAIN]      = IST8310::initialize(i2c_handle);
         if (mag_handle[MAIN] == NULL) ESP_LOGW("WARNING","IST8310 등록실패!");
-		mag_handle[SUB]      = AK09916::initialize(i2c_handle);
+		mag_handle[SUB]      = Sensor::AK09916::get_instance().initialize(i2c_handle);
         if (mag_handle[SUB] == NULL) ESP_LOGW("WARNING","AK09916 등록실패!");
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
@@ -134,7 +134,7 @@ void app_main(void) {
 
         // 지자계 데이터를 읽는다. 		
         auto [ist_ret,ist_mag]  = Sensor::IST8310::get_instance().read_with_offset();
-		auto [ ak_ret, ak_mag]  = AK09916::read_with_offset(mag_handle[1]);    
+		auto [ ak_ret, ak_mag]  = Sensor::AK09916::get_instance().read_with_offset();    
 
         g_imu.mag[X] = (ist_mag[X]+ak_mag[X])*0.5;
         g_imu.mag[Y] = (ist_mag[Y]+ak_mag[Y])*0.5;

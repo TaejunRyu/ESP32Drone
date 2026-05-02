@@ -1,5 +1,6 @@
 #include "ryu_icm20948.h"
 #include <tuple>
+#include "ryu_config.h"
 
 namespace Sensor{
 
