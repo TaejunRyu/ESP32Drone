@@ -24,7 +24,7 @@ class BMP388{
 
         static constexpr uint8_t ADDR_VCC   =   0x77;
         static constexpr uint8_t ADDR_GND   =   0x76;
-        i2c_master_dev_handle_t get_handle(){return _dev_handle;};
+        i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         esp_err_t initialize(i2c_master_bus_handle_t bus_handle, uint16_t dev_address);
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();

@@ -22,6 +22,18 @@ AK09916::~AK09916()
 {
 }
 
+void AK09916::deinitialize()
+{
+    if (!this->_initialized){
+        return;
+    }
+    if (this->_dev_handle){
+        i2c_master_bus_rm_device(this->_dev_handle);
+    }
+    this->_initialized = false;
+    ESP_LOGI(TAG, "deinitialzed.");
+}
+
 i2c_master_dev_handle_t AK09916::initialize(i2c_master_bus_handle_t bus_handle)
 {
     if(_initialized){

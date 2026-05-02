@@ -21,7 +21,7 @@ IST8310::~IST8310()
 }
 
 
-void IST8310::initialize(i2c_master_bus_handle_t bus_handle)
+i2c_master_dev_handle_t IST8310::initialize(i2c_master_bus_handle_t bus_handle)
 {
     this->_bus_handle = bus_handle;
 
@@ -32,7 +32,7 @@ void IST8310::initialize(i2c_master_bus_handle_t bus_handle)
 
     if (i2c_master_bus_add_device(this->_bus_handle, &mag_cfg, &_dev_handle) != ESP_OK){
 
-        return ;
+        return nullptr;
     }
 
     // 1. 소프트 리셋 (중요: 리셋 후 반드시 50ms 이상 대기)
@@ -44,8 +44,8 @@ void IST8310::initialize(i2c_master_bus_handle_t bus_handle)
     uint8_t who_reg = 0x00, who_val = 0;
     i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
     if (who_val != 0x10) {
-        ESP_LOGE("IST8310", "연결 실패! ID: 0x%02X (기대값: 0x10)", who_val);
-        return ;
+        ESP_LOGE(TAG, "연결 실패! ID: 0x%02X (기대값: 0x10)", who_val);
+        return nullptr;
     }
 
     // 3. 센서 내부 동작 환경 설정 (이 루틴이 없으면 데이터 갱신 안됨)
@@ -77,6 +77,7 @@ void IST8310::initialize(i2c_master_bus_handle_t bus_handle)
 
     this->_initialized = true;
     ESP_LOGI(TAG, "Initialized successfully. (ID: 0x10, 100Hz mode)");
+    return _dev_handle;
 }
 
 
@@ -166,7 +167,7 @@ void IST8310::calibrate_hard_iron()
     float my_max = -99999.0f, my_min = 99999.0f;
     float mz_max = -99999.0f, mz_min = 99999.0f;
 
-    ESP_LOGI("IST8310", "지자계 보정 시작: 드론을 모든 방향(8자)으로 돌리세요 (약 60초)...");    
+    ESP_LOGI(TAG, "지자계 보정 시작: 드론을 모든 방향(8자)으로 돌리세요 (약 60초)...");    
     // 약 10000 샘플링 (100Hz 기준 약 30초)
     for (int i = 0; i < 10000; i++) {
         float mx=0.0f, my=0.0f, mz=0.0f;    

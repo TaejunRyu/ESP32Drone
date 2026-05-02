@@ -24,7 +24,7 @@ class IST8310{
             return *instance;
         }  
 
-        void initialize(i2c_master_bus_handle_t bus_handle);
+        i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle);
         void deinitialize();
 
         std::tuple<esp_err_t, std::array<float, 3>> read_raw_data();

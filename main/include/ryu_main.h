@@ -8,12 +8,11 @@
 #include "ryu_servo.h"
 
 
-#ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
+
+
 extern "C" {
 	void app_main(void);
 }
-#endif
-
 
 /**
  * @brief // 워치독 초기화 (5초 설정: 센서 재초기화 시간을 고려하여 넉넉히)
@@ -42,14 +41,15 @@ void watch_dog_initialize(){
 void log_information_control(){
     // esp_log_level_set("*", ESP_LOG_NONE);   //(0): 로그 끔
     // esp_log_level_set("*", ESP_LOG_ERROR);  //(1): 치명적 오류만 출력
-    //esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력
+    // esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력
      esp_log_level_set("*", ESP_LOG_INFO);   //(3): 일반 정보까지 출력 (기본값)
     // esp_log_level_set("*", ESP_LOG_DEBUG);  //(4): 디버그용 상세 정보
     // esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
-    //esp_log_level_set("PROCESS_CMD_LONG", ESP_LOG_NONE);   //(0): 로그 
-    esp_log_level_set("TELETETRY", ESP_LOG_NONE);   //(0): 로그 
-    //esp_log_level_set("MAIN", ESP_LOG_NONE);   //(0): 로그 
-    //esp_log_level_set("GPS", ESP_LOG_NONE);   //(0): 로그 
+
+    // esp_log_level_set("PROCESS_CMD_LONG", ESP_LOG_NONE);   //(0): 로그 
+    // esp_log_level_set("TELETETRY", ESP_LOG_NONE);   //(0): 로그 
+    // esp_log_level_set("MAIN", ESP_LOG_NONE);   //(0): 로그 
+    // esp_log_level_set("GPS", ESP_LOG_NONE);   //(0): 로그 
 }
 
 
@@ -111,3 +111,4 @@ void check_system_health_on_boot() {
             break;
     }
 }
+

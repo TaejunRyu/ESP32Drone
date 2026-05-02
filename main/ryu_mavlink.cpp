@@ -161,7 +161,7 @@ void handle_mavlink_message(mavlink_message_t *msg) {
                 }
                 PARAM::update_param(index,val_to_send);
                 // 적용 가능한 PID 계수가 있다면 즉시 동기화
-                PID::sync_pid_from_params();
+                Controller::PID::sync_pid_from_params();
 
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 

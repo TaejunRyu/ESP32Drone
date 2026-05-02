@@ -20,7 +20,7 @@ class I2C{
             return *instance;
         }
 
-        i2c_master_bus_handle_t get_handle(){return _bus_handle;};
+        i2c_master_bus_handle_t get_bus_handle(){return _bus_handle;};
         i2c_master_bus_handle_t initialize(i2c_port_num_t port, gpio_num_t port_sda, gpio_num_t port_scl);
         i2c_master_bus_handle_t initialize();
         void deinitialize();

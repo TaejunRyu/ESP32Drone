@@ -133,23 +133,6 @@ uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
 void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
     if (len <= 0 || data == nullptr || recv_info == nullptr) return;
 
-    // 수신한 MAC 주소가 등록된 peer가 아니면 자동 등록 (양방향 통신용)
-    // if (!esp_now_is_peer_exist(recv_info->src_addr)) {
-    //     esp_now_peer_info_t new_peer = {};
-    //     memcpy(new_peer.peer_addr, recv_info->src_addr, ESP_NOW_ETH_ALEN);
-    //     new_peer.channel = 6;
-    //     new_peer.encrypt = false;
-    //     new_peer.ifidx = WIFI_IF_STA;
-
-    //     esp_err_t add_err = esp_now_add_peer(&new_peer);
-    //     if (add_err == ESP_OK) {
-    //         ESP_LOGI(TAG, "새 peer 자동 등록: %02x:%02x:%02x:%02x:%02x:%02x",
-    //                  recv_info->src_addr[0], recv_info->src_addr[1], recv_info->src_addr[2],
-    //                  recv_info->src_addr[3], recv_info->src_addr[4], recv_info->src_addr[5]);
-    //     } else {
-    //         ESP_LOGW(TAG, "새 peer 등록 실패: %s", esp_err_to_name(add_err));
-    //     }
-    // }
 
     // 실시간 정보를 구해서 bridge로 보낸다.
     current_rssi = recv_info->rx_ctrl->rssi;

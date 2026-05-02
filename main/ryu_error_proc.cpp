@@ -95,10 +95,10 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
 
     // 2. ICM20948 (IMU 1 & 2) 초기화
     //    가속도/자이로 범위, 샘플 레이트, LP 필터 등 설정
-    imu_handle[0]=Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
-    imu_handle[1]=Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
+    Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
+    Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
 
-    if (imu_handle[0] != NULL){
+    if (Sensor::ICM20948::Main().get_dev_handle() != NULL){
         g_system_health |= SYS_HEALTH_IMU_OK;
         Sensor::ICM20948::Main().enable_mag_bypass();
     }
@@ -107,10 +107,12 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
     }
     Sensor::IST8310::get_instance().deinitialize();
     Sensor::IST8310::get_instance().initialize(i2c_handle);
-    mag_handle[0] = Sensor::IST8310::get_instance().get_dev_handle();
+    
+    Sensor::AK09916::get_instance().deinitialize();
+    Sensor::AK09916::get_instance().initialize(i2c_handle);
 
-    mag_handle[1] = Sensor::AK09916::get_instance().initialize(i2c_handle);
-    if (mag_handle[0] != NULL || mag_handle[1] != NULL){
+    if ( Sensor::IST8310::get_instance().get_dev_handle() != NULL || 
+         Sensor::AK09916::get_instance().get_dev_handle() != NULL){
         g_system_health |= SYS_HEALTH_MAG_OK;
     }else{
         ret = ESP_FAIL;
@@ -121,7 +123,7 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
     Sensor::BMP388::Main().initialize(i2c_handle,Sensor::BMP388::ADDR_VCC);
     Sensor::BMP388::Sub().initialize(i2c_handle,Sensor::BMP388::ADDR_GND);
 
-    if(Sensor::BMP388::Main().get_handle() != NULL || Sensor::BMP388::Sub().get_handle() != NULL){
+    if(Sensor::BMP388::Main().get_dev_handle() != NULL || Sensor::BMP388::Sub().get_dev_handle() != NULL){
         g_system_health |= SYS_HEALTH_BARO_OK;
     }else{
         ret = ESP_FAIL;

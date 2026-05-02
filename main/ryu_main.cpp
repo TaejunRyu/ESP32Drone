@@ -16,7 +16,8 @@
 #include "ryu_bmp388.h"
 
 
-#ifndef UNIT_TEST  // 유닛 테스트 중이 아닐 때만 아래 코드를 포함
+
+static const char *MAINTAG = "MAIN";
 
 // --- 메인 함수 ---
 void app_main(void) {
@@ -24,7 +25,7 @@ void app_main(void) {
 
     // 시스템 시작시 여유를 준다.
     vTaskDelay(pdMS_TO_TICKS(1000));
-    ESP_LOGI("MAIN", "시스템 부팅을 시작합니다...");
+    ESP_LOGI(MAINTAG, "시스템 부팅을 시작합니다...");
 
     { // 2번 포트 led 설정
         gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화
@@ -53,24 +54,24 @@ void app_main(void) {
     {// ========== [1단계] I2C 버스 생성 ==========
 		i2c_handle      = Driver::I2C::get_instance().initialize((i2c_port_num_t)0,I2C_SDA,I2C_SCL); 
 		if(i2c_handle == nullptr)
-			ESP_LOGI("MAIN", "I2C 초기화 실패!");
+			ESP_LOGI(MAINTAG, "I2C 초기화 실패!");
 		else
-		ESP_LOGI("MAIN", "✓ I2C 초기화 완료");
+		    ESP_LOGI(MAINTAG, "✓ I2C 초기화 완료");
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
 
 	{ // 메인 imu sensor와  서브 imu  sensor을 초기화한다.
-		imu_handle[0]  = Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
-		if(imu_handle[0] ==nullptr)
-			ESP_LOGI("MAIN", "IMU MAIN MODULE 초기화 설정 실패!");
+		Sensor::ICM20948::Main().initialize(i2c_handle,Sensor::ICM20948::ADDR_VCC);
+		if(Sensor::ICM20948::Main().get_dev_handle() ==nullptr)
+			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 초기화 설정 실패!");
 		else 
-			ESP_LOGI("MAIN", "IMU MAIN MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
+			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
-		imu_handle[1] = Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
-		if(imu_handle[1] ==nullptr)
-			ESP_LOGI("MAIN", "IMU SUB MODULE 초기화 설정 실패!");
+		Sensor::ICM20948::Sub().initialize(i2c_handle,Sensor::ICM20948::ADDR_GND);
+		if(Sensor::ICM20948::Sub().get_dev_handle() ==nullptr)
+			ESP_LOGI(MAINTAG, "IMU SUB MODULE 초기화 설정 실패!");
 		else 
-			ESP_LOGI("MAIN", "IMU SUB MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
+			ESP_LOGI(MAINTAG, "IMU SUB MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
         // 각각의 오프셋을 구한다.
 		Sensor::ICM20948::Main().calibrate();
@@ -81,21 +82,20 @@ void app_main(void) {
 	{ // ak09916을 사용하기위하여 main sensor의 icm20948에서 bypass mode를 설정한다.
 		ret_code = Sensor::ICM20948::Main().enable_mag_bypass();
 		if (ret_code != ESP_OK)
-			ESP_LOGI("MAIN", "IMU MAIN MODULE Bypass 모드 설정 실패!");
+			ESP_LOGI(MAINTAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
 		else
-			ESP_LOGI("MAIN", "IMU MAIN MODULE Bypass 모드 설정 완료!");
+			ESP_LOGI(MAINTAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
 		vTaskDelay(pdMS_TO_TICKS(10));
 	}
     
     
     {// Gps에 있는 지자계 센서를 사용하기 위하여 초기화 한다.( 두 번째 지자계 센서로 ak09916을 등록 할지 생각해보자.)
-        Sensor::IST8310::get_instance().initialize(i2c_handle);
-        mag_handle[MAIN]   =  Sensor::IST8310::get_instance().get_dev_handle();
-		
-        //mag_handle[MAIN]      = IST8310::initialize(i2c_handle);
-        if (mag_handle[MAIN] == NULL) ESP_LOGW("WARNING","IST8310 등록실패!");
-		mag_handle[SUB]      = Sensor::AK09916::get_instance().initialize(i2c_handle);
-        if (mag_handle[SUB] == NULL) ESP_LOGW("WARNING","AK09916 등록실패!");
+        Sensor::IST8310::get_instance().initialize(i2c_handle); 
+        if (Sensor::IST8310::get_instance().get_dev_handle() == nullptr) 
+            ESP_LOGW("WARNING","IST8310 등록실패!");
+		Sensor::AK09916::get_instance().initialize(i2c_handle);
+        if (Sensor::AK09916::get_instance().get_dev_handle() == nullptr) 
+            ESP_LOGW("WARNING","AK09916 등록실패!");
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
     
@@ -145,7 +145,7 @@ void app_main(void) {
 		g_imu.acc   ={};
 		g_imu.gyro  ={};
 		g_imu.mag   ={};
-		ESP_LOGI("MAIN", "✓ Mahony AHRS 초기화 완료");
+		ESP_LOGI(MAINTAG, "✓ Mahony AHRS 초기화 완료");
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}
     
@@ -163,27 +163,34 @@ void app_main(void) {
 	}
 
     // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
-    if (imu_handle[MAIN]    == NULL || 
-        imu_handle[SUB]     == NULL || 
-        mag_handle[MAIN]    == NULL || 
-        mag_handle[SUB]     == NULL || 
-        Sensor::BMP388::Main().get_handle()   == NULL ||
-        Sensor::BMP388::Sub().get_handle()    == NULL) 
+    if (
+        Sensor::ICM20948::Main().get_dev_handle() == nullptr ||
+        Sensor::ICM20948::Sub().get_dev_handle() == nullptr ||
+        Sensor::IST8310::get_instance().get_dev_handle() == nullptr ||
+        Sensor::AK09916::get_instance().get_dev_handle() == nullptr ||
+        Sensor::BMP388::Main().get_dev_handle()   == nullptr ||
+        Sensor::BMP388::Sub().get_dev_handle()    == nullptr) 
         {
-        if (imu_handle[MAIN]            == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", IMU_NAME_MAIN);
-        if (imu_handle[SUB]             == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", IMU_NAME_SUB);
-        if( mag_handle[MAIN]            == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", MAG_NAME_MAIN);
-        if( mag_handle[SUB]             == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", MAG_NAME_SUB);
-        if (Sensor::BMP388::Main().get_handle()   == NULL) ESP_LOGE("MAIN", "❌ %s MAIN에 연결할 수 없습니다!", BARO_NAME_MAIN);
-        if (Sensor::BMP388::Sub().get_handle()    == NULL) ESP_LOGE("MAIN", "❌ %s SUB에 연결할 수 없습니다!", BARO_NAME_SUB);
+        if (Sensor::ICM20948::Main().get_dev_handle() == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s MAIN에 연결할 수 없습니다!", IMU_NAME_MAIN);
+        if (Sensor::ICM20948::Sub().get_dev_handle() == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s SUB에 연결할 수 없습니다!", IMU_NAME_SUB);
+        if( Sensor::IST8310::get_instance().get_dev_handle() == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s MAIN에 연결할 수 없습니다!", MAG_NAME_MAIN);
+        if( Sensor::AK09916::get_instance().get_dev_handle()  == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s SUB에 연결할 수 없습니다!", MAG_NAME_SUB);
+        if (Sensor::BMP388::Main().get_dev_handle()   == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s MAIN에 연결할 수 없습니다!", BARO_NAME_MAIN);
+        if (Sensor::BMP388::Sub().get_dev_handle()    == nullptr) 
+            ESP_LOGE(MAINTAG, "❌ %s SUB에 연결할 수 없습니다!", BARO_NAME_SUB);
 
-        ESP_LOGE("MAIN", "❌ 필수 센서 미연결! 시스템 중단");
+        ESP_LOGE(MAINTAG, "❌ 필수 센서 미연결! 시스템 중단");
         
         SERVO::stop_all_motors();
         
 
         auto mac_addr = WIFI::get_my_mac_address();
-        ESP_LOGE("MAIN", "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
+        ESP_LOGE(MAINTAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
                  mac_addr[0], mac_addr[1], mac_addr[2],
                  mac_addr[3], mac_addr[4], mac_addr[5]);
 
@@ -206,37 +213,37 @@ void app_main(void) {
     xTaskCreatePinnedToCore(WIFI::mavlink_tx_task, "mavlink_tx_task", 4096, NULL, 15, NULL, 0);
 
     res = xTaskCreatePinnedToCore(FLYSKY::flysky_task,"flysky",4096,NULL,12,NULL,0);
-    if (res != pdPASS) ESP_LOGE("MAIN", "❌ 1.Flysky Task is failed!  code: %d", res);
-    else ESP_LOGI("MAIN", "✓ 1.Flysky Task is passed...");
+    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 1.Flysky Task is failed!  code: %d", res);
+    else ESP_LOGI(MAINTAG, "✓ 1.Flysky Task is passed...");
 
     res = xTaskCreatePinnedToCore(GPS::gps_ubx_mode_task, "gps", 4096, NULL, 5, NULL, 0);
-    if (res != pdPASS) ESP_LOGE("MAIN", "❌ 2.Gps Task is Failed! code: %d", res);
-    else ESP_LOGI("MAIN", "✓ 2.Gps Task is passed... ");
+    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 2.Gps Task is Failed! code: %d", res);
+    else ESP_LOGI(MAINTAG, "✓ 2.Gps Task is passed... ");
     
     res = xTaskCreatePinnedToCore(TELEM::telemetry_task, "telemetry", 8192, NULL, 15, NULL, 0);
-    if (res != pdPASS) ESP_LOGE("MAIN", "❌ 3.Telemetry Task is failed! code: %d", res);
-    else ESP_LOGI("MAIN", "✓ 3.Telemetry task is passed...");
+    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 3.Telemetry Task is failed! code: %d", res);
+    else ESP_LOGI(MAINTAG, "✓ 3.Telemetry task is passed...");
     
     res= xTaskCreatePinnedToCore(BATT::battery_check_task, "Battery", 4096, NULL, 10, NULL, 0);
-    if (res != pdPASS) ESP_LOGE("MAIN", "❌ 4.Battery Check Task is failed! code: %d", res);
-    else ESP_LOGI("MAIN", "✓ 4.Battery Task is passed...");
+    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 4.Battery Check Task is failed! code: %d", res);
+    else ESP_LOGI(MAINTAG, "✓ 4.Battery Task is passed...");
     
     res= xTaskCreatePinnedToCore(ERR::error_manager_task, "ErrMgr", 4096, NULL, 10, &ERR::xErrorHandle, 0);
-    if (res != pdPASS) ESP_LOGE("MAIN", "❌ 5.Error Check Task is failed! code: %d", res);
-    else ESP_LOGI("MAIN", "✓ 5.Error Check Task is passed...");
+    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 5.Error Check Task is failed! code: %d", res);
+    else ESP_LOGI(MAINTAG, "✓ 5.Error Check Task is passed...");
 
 
     // ========== [5단계] 비행 제어 태스크 생성 (모든 검증 완료 후) ==========
     res = xTaskCreatePinnedToCore(FLIGHT::flight_task, "flight", 8192, NULL, 24, NULL, 1);
     if (res != pdPASS) {
-        ESP_LOGE("MAIN", "❌ 6.Flight Task is Failed! code: %d", res);
+        ESP_LOGE(MAINTAG, "❌ 6.Flight Task is Failed! code: %d", res);
         // 모터 안전 정지
         for(auto& comp : SERVO::comparators) mcpwm_comparator_set_compare_value(comp, 1000);
     } else {
-        ESP_LOGI("MAIN", "✓ 6.Flight Task is passed...");
+        ESP_LOGI(MAINTAG, "✓ 6.Flight Task is passed...");
     }
 
-    ESP_LOGI("MAIN", "✅ All Processes is passed... Flight ready!");
+    ESP_LOGI(MAINTAG, "✅ All Processes is passed... Flight ready!");
     
     // 콜백이 등록되어야지 데이터가 들어온다.
     WIFI::connect_callback();
@@ -248,5 +255,3 @@ void app_main(void) {
         vTaskDelay(pdMS_TO_TICKS(500)); // 메인 태스크가 종료되지 않게 붙잡음
     }
 }
-#endif
-

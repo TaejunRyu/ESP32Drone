@@ -23,12 +23,13 @@ class AK09916{
         }
         static constexpr uint8_t ADDR       =    0x0C;
         static constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
-
+        void deinitialize();
         i2c_master_dev_handle_t initialize(i2c_master_bus_handle_t bus_handle);
         std::tuple<esp_err_t, std::array<float, 3>> read_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset(); 
         std::tuple<esp_err_t,uint8_t> ready_data();
         void calibrate_hard_iron();
+        i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
 
     private:
 

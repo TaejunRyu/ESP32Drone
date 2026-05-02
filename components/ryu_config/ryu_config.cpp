@@ -1,11 +1,12 @@
 #include "ryu_config.h"
 
+
 // I2C 및 디바이스 핸들
 i2c_master_bus_handle_t i2c_handle      = NULL;
 
 // error발생시 대신 데이터를 읽어올 센서을 둔다 main=>[0](ado = vcc) / sub=>[1](ado = gnd)
-i2c_master_dev_handle_t imu_handle[2]   = {0};   
-i2c_master_dev_handle_t mag_handle[2]   = {0};
+//i2c_master_dev_handle_t imu_handle[2]   = {0};   
+//i2c_master_dev_handle_t mag_handle[2]   = {0};
 //i2c_master_dev_handle_t baro_handle[2]  = {0}; 
 
 
@@ -28,29 +29,6 @@ attitude_data_t g_attitude = {};
 // qgc에서 지도상의 위치에서 home지정해준 위치.
 qgc_home_pos_t qgc_home_pos = {};
 
-// PID 구조체 초기화 (기본값 0)
-// 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
-// Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
-// Alt Rate         (Inner)	    상승/하강 속도 제어	50.0 ~ 100.0	 10.0 ~ 20.0	 0.05	        단위: (m/s) -> PWM 변량
-drone_pid_t pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-drone_pid_t pid_alt_rate    = { .kp = 50.0f, .ki = 10.0f,  .kd = 0.5f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-
-// 1. 각도 제어용 (Outer Loop) - P값 위주
-// PID 구조체 초기값 (추천 가이드)
-// 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
-// Angle (Outer)	    각도 유지	    4.5	                0.0	            0.0	            오직 P값만 사용해도
-drone_pid_t pid_roll_angle  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-drone_pid_t pid_pitch_angle = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-drone_pid_t pid_yaw_angle   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
-
-// 2. 각속도 제어용 (Inner Loop) - 실제 기체 반응 결정
-// 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
-// Rate (Inner)	        진동/회전 제어	0.15	            0.1	            0.003	        가장 정밀하게 튜닝 필요
-// Yaw Rate	회전        속도 제어	    0.20	            0.05	        0.0	            값은 거의 사용 안 함
-
-drone_pid_t pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-drone_pid_t pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-drone_pid_t pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
 qgc_roll_pid_t qgc_roll_pid = {};
 

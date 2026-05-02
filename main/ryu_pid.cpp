@@ -1,17 +1,56 @@
 #include "ryu_pid.h"
+
 #include <algorithm>
 #include "ryu_config.h"
 #include "ryu_ParamTable.h"  // drone_pid_t 및 전역 PID 변수를 사용하기 위해 포함
 
-namespace PID
+namespace Controller
 {
-// PID 리셋: 적분값과 이전 오차를 초기화
-void reset_pid(drone_pid_t* p) {
+
+const char* PID::TAG = "PID";
+
+// PID 구조체 초기화 (기본값 0)
+// 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
+// Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
+// Alt Rate         (Inner)	    상승/하강 속도 제어	50.0 ~ 100.0	 10.0 ~ 20.0	 0.05	        단위: (m/s) -> PWM 변량
+drone_pid_t PID::pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+drone_pid_t PID::pid_alt_rate    = { .kp = 50.0f, .ki = 10.0f,  .kd = 0.5f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+
+// 1. 각도 제어용 (Outer Loop) - P값 위주
+// PID 구조체 초기값 (추천 가이드)
+// 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
+// Angle (Outer)	    각도 유지	    4.5	                0.0	            0.0	            오직 P값만 사용해도
+drone_pid_t PID::pid_roll_angle  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+drone_pid_t PID::pid_pitch_angle = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+drone_pid_t PID::pid_yaw_angle   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
+
+// 2. 각속도 제어용 (Inner Loop) - 실제 기체 반응 결정
+// 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
+// Rate (Inner)	        진동/회전 제어	0.15	            0.1	            0.003	        가장 정밀하게 튜닝 필요
+// Yaw Rate	회전        속도 제어	    0.20	            0.05	        0.0	            값은 거의 사용 안 함
+
+drone_pid_t PID::pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+drone_pid_t PID::pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+drone_pid_t PID::pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+
+
+PID::PID()
+{
+}
+
+PID::~PID()
+{
+}
+
+void PID::reset_pid(drone_pid_t *p)
+{
     p->integral = 0.0f;
     p->err_prev = 0.0f;
 }
-float run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is_yaw){
-    if (dt <= 0.0f) return 0.0f;
+
+float PID::run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is_yaw)
+{
+     if (dt <= 0.0f) return 0.0f;
 
     float error = tar - cur;
 
@@ -43,8 +82,9 @@ float run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is_yaw)
     return (p_out + i_out + d_out);
 }
 
-// --- PID 계산 rate
-float run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt) {
+
+float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt)
+{
     if (dt <= 0.0f) return 0.0f;
     float error = target_rate - current_rate;
 
@@ -73,8 +113,8 @@ float run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float 
     return p_out + i_out + d_out;
 }
 
-// PID 파라미터 동기화 구현 (일반 함수)
-void sync_pid_from_params() {
+void PID::sync_pid_from_params()
+{
     // Roll / Pitch / Yaw 각 항의 비례, 적분, 미분 계수
     pid_roll_angle.kp   = PARAM::values.MC_ROLL_P;
     pid_roll_angle.ki   = PARAM::values.MC_ROLLRATE_I; // rate I를 재활용
@@ -93,8 +133,9 @@ void sync_pid_from_params() {
     pid_alt_pos.ki      = PARAM::values.MPC_Z_VEL_I_ACC;
     pid_alt_pos.kd      = PARAM::values.MPC_Z_VEL_D_ACC;
 
-    // pid_alt_rate.kp
-    // pid_alt_rate.kd
-    // pid_alt_rate.ki
+    pid_alt_rate.kp     = PARAM::values.MPC_Z_VEL_P;
+    pid_alt_rate.ki     = PARAM::values.MPC_Z_VEL_I;
+    pid_alt_rate.kd     = PARAM::values.MPC_Z_VEL_D;
 }
+
 }

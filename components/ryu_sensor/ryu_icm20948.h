@@ -24,6 +24,7 @@ class ICM20948{
         static constexpr uint8_t  ADDR_GND =  0x68; // AD0핀이 GND일 때 0x68, VCC일 때 0x69
         static constexpr uint8_t  ADDR_VCC =  0x69; // AD0핀이 GND일 때 0x68, VCC일 때 0x69
 
+        i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         void icm20948_select_bank(uint8_t bank);
         esp_err_t enable_mag_bypass();
         void calibrate();
