@@ -52,8 +52,8 @@ void app_main(void) {
 
 
     {// ========== [1단계] I2C 버스 생성 ==========
-		auto i2c_handle = Driver::I2C::get_instance().initialize((i2c_port_num_t)0,I2C_SDA,I2C_SCL); 
-		if(i2c_handle == nullptr)
+		Driver::I2C::get_instance().initialize(); 
+		if(Driver::I2C::get_instance().get_bus_handle() == nullptr)
 			ESP_LOGI(MAINTAG, "I2C 초기화 실패!");
 		else
 		    ESP_LOGI(MAINTAG, "✓ I2C 초기화 완료");
@@ -129,19 +129,19 @@ void app_main(void) {
     {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	
 		// IMU 데이터를 읽는다. 		
 		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = Sensor::ICM20948::Main().read_with_offset();
-		g_imu.acc[Y]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-        g_imu.gyro[X]   *=  -1.0f;
+		g_imu.acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
+        g_imu.gyro[0]   *=  -1.0f;
 
         // 지자계 데이터를 읽는다. 		
         auto [ist_ret,ist_mag]  = Sensor::IST8310::get_instance().read_with_offset();
 		auto [ ak_ret, ak_mag]  = Sensor::AK09916::get_instance().read_with_offset();    
 
-        g_imu.mag[X] = (ist_mag[X]+ak_mag[X])*0.5;
-        g_imu.mag[Y] = (ist_mag[Y]+ak_mag[Y])*0.5;
-        g_imu.mag[Z] = (ist_mag[Z]+ak_mag[Z])*0.5;
+        g_imu.mag[0] = (ist_mag[0]+ak_mag[0])*0.5;
+        g_imu.mag[1] = (ist_mag[1]+ak_mag[1])*0.5;
+        g_imu.mag[2] = (ist_mag[2]+ak_mag[2])*0.5;
 
 		// 융합된 데이터를 적용처리.
-		AHRS::calibrate_mahony_initial_attitude(g_imu.acc[X],g_imu.acc[Y], g_imu.acc[Z],g_imu.mag[X],g_imu.mag[Y],g_imu.mag[Z]);
+		AHRS::calibrate_mahony_initial_attitude(g_imu.acc[0],g_imu.acc[1], g_imu.acc[2],g_imu.mag[0],g_imu.mag[1],g_imu.mag[2]);
 		g_imu.acc   ={};
 		g_imu.gyro  ={};
 		g_imu.mag   ={};

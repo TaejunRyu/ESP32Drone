@@ -85,12 +85,12 @@ void flight_task(void *pv) {
             }
             if(ret_code == ESP_OK)[[likely]]{
                 imu_error_cnt = 0;
-                calculation_acc_x  = g_imu.acc[X] ;
-                calculation_acc_y  = g_imu.acc[Y] ;
-                calculation_acc_z  = g_imu.acc[Z] ;
-                calculation_gyro_x = g_imu.gyro[X] ;
-                calculation_gyro_y = g_imu.gyro[Y] ;
-                calculation_gyro_z = g_imu.gyro[Z] ;
+                calculation_acc_x  = g_imu.acc[0] ;
+                calculation_acc_y  = g_imu.acc[1] ;
+                calculation_acc_z  = g_imu.acc[2] ;
+                calculation_gyro_x = g_imu.gyro[0] ;
+                calculation_gyro_y = g_imu.gyro[1] ;
+                calculation_gyro_z = g_imu.gyro[2] ;
             }else{
                 imu_error_cnt++;
                 if( imu_error_cnt > ERROR_CNT_NUM ){
@@ -140,9 +140,9 @@ void flight_task(void *pv) {
             if(ret_code == ESP_OK)[[likely]]{
                 mag_error_cnt = 0;
                 // main과 격차를 줄이기위하여 보정한다.
-                calulation_mag_x = g_imu.mag[X] + ((mag_active_index == 1) ?  diff_x : 0.0f);
-                calulation_mag_y = g_imu.mag[Y] + ((mag_active_index == 1) ?  diff_y : 0.0f);
-                calulation_mag_z = g_imu.mag[Z] + ((mag_active_index == 1) ?  diff_z : 0.0f);
+                calulation_mag_x = g_imu.mag[0] + ((mag_active_index == 1) ?  diff_x : 0.0f);
+                calulation_mag_y = g_imu.mag[1] + ((mag_active_index == 1) ?  diff_y : 0.0f);
+                calulation_mag_z = g_imu.mag[2] + ((mag_active_index == 1) ?  diff_z : 0.0f);
             }else{
                 mag_error_cnt++;
                 if (mag_error_cnt > ERROR_CNT_NUM) {
@@ -359,9 +359,9 @@ void flight_task(void *pv) {
             // --- [2단계: Inner Loop - 각속도 제어] ---
             // 목표 각속도 -> 현재 자이로 값(g_imu.gyro)과 비교 -> 최종 모터 출력(PWM 변위)
             // g_imu.gyro[0]: Roll속도, [1]: Pitch속도, [2]: Yaw속도
-            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  g_imu.gyro[X], dt);
-            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, g_imu.gyro[Y], dt);
-            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[Z], dt);
+            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  g_imu.gyro[0], dt);
+            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, g_imu.gyro[1], dt);
+            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[2], dt);
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
@@ -383,10 +383,10 @@ void flight_task(void *pv) {
             //===============================================================================
             float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
             float motor[4];
-            motor[FL] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
-            motor[FR] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor[RL] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor[RR] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
+            motor[0] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
+            motor[1] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor[2] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
 
             // static_cast는 유지하되, 타입 추론은 auto에게 맡깁니다.
             for (size_t i = 0; auto comp : SERVO::comparators) {

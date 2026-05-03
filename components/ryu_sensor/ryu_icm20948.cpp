@@ -1,7 +1,8 @@
 #include "ryu_icm20948.h"
+
 #include <tuple>
+#include <freertos/FreeRTOS.h>
 #include "ryu_i2c.h"
-#include "ryu_config.h"
 
 namespace Sensor{
 
@@ -36,7 +37,7 @@ i2c_master_dev_handle_t ICM20948::initialize()
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     dev_cfg.device_address = this->_dev_address;
-    dev_cfg.scl_speed_hz = I2C_SPEED; // 400kHz
+    dev_cfg.scl_speed_hz = Driver::I2C::I2C_SPEED;; // 400kHz
 
     
     // 버스에 장치 추가 및 핸들 획득
@@ -109,12 +110,12 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     } 
     float raw_acc[3] = {},raw_gyro[3] ={};
     // Raw 데이터 결합 (Big-Endian)
-    raw_acc[X]  = (int16_t)(d[0] << 8  | d[1])     / 4096.0f ;
-    raw_acc[Y]  = (int16_t)(d[2] << 8  | d[3])     / 4096.0f ;
-    raw_acc[Z]  = (int16_t)(d[4] << 8  | d[5])     / 4096.0f ;
-    raw_gyro[X] = (int16_t)(d[6] << 8  | d[7])     / 32.8f   ;
-    raw_gyro[Y] = (int16_t)(d[8] << 8  | d[9])     / 32.8f   ;
-    raw_gyro[Z] = (int16_t)(d[10] << 8 | d[11])    / 32.8f   ;
+    raw_acc[0]  = (int16_t)(d[0] << 8  | d[1])     / 4096.0f ;
+    raw_acc[1]  = (int16_t)(d[2] << 8  | d[3])     / 4096.0f ;
+    raw_acc[2]  = (int16_t)(d[4] << 8  | d[5])     / 4096.0f ;
+    raw_gyro[0] = (int16_t)(d[6] << 8  | d[7])     / 32.8f   ;
+    raw_gyro[1] = (int16_t)(d[8] << 8  | d[9])     / 32.8f   ;
+    raw_gyro[2] = (int16_t)(d[10] << 8 | d[11])    / 32.8f   ;
     
     return {ret,{raw_acc[0],raw_acc[1],raw_acc[2]},{raw_gyro[0],raw_gyro[1],raw_gyro[2]}};
 }
@@ -137,13 +138,13 @@ void ICM20948::calibrate()
     for (int i = 0; i < samples; i++) {
         uint64_t start_time = esp_timer_get_time(); // 시작 시간 기록
         if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(2)) == ESP_OK) [[likely]]{    
-            sum_acc[X] += (int16_t)((buf[0] << 8) | buf[1])   / 4096.0f;
-            sum_acc[Y] += (int16_t)((buf[2] << 8) | buf[3])   / 4096.0f;
-            sum_acc[Z] += (int16_t)((buf[4] << 8) | buf[5])   / 4096.0f;
+            sum_acc[0] += (int16_t)((buf[0] << 8) | buf[1])   / 4096.0f;
+            sum_acc[1] += (int16_t)((buf[2] << 8) | buf[3])   / 4096.0f;
+            sum_acc[2] += (int16_t)((buf[4] << 8) | buf[5])   / 4096.0f;
             
-            sum_gyro[X] += (int16_t)((buf[6] << 8) | buf[7])   / 32.8f;  
-            sum_gyro[Y] += (int16_t)((buf[8] << 8) | buf[9])   / 32.8f;
-            sum_gyro[Z] += (int16_t)((buf[10] << 8) | buf[11]) / 32.8f;
+            sum_gyro[0] += (int16_t)((buf[6] << 8) | buf[7])   / 32.8f;  
+            sum_gyro[1] += (int16_t)((buf[8] << 8) | buf[9])   / 32.8f;
+            sum_gyro[2] += (int16_t)((buf[10] << 8) | buf[11]) / 32.8f;
             valid_samples++; 
         }  
         // 400Hz(2500us) 주기를 정확히 맞추기 위한 대기
@@ -159,16 +160,16 @@ void ICM20948::calibrate()
     //printf("\n");
     if(valid_samples > 0 )[[likely]]{
         // 평균값 계산 (Offset 저장)
-        sum_acc[X]  = sum_acc[X] / valid_samples;
-        sum_acc[Y]  = sum_acc[Y] / valid_samples;
-        sum_acc[Z]  = (sum_acc[Z] / valid_samples) -1.0f;  // 가속도는 중력 가속도(1g)를 제외하고 0이 되어야 함m
+        sum_acc[0]  = sum_acc[0] / valid_samples;
+        sum_acc[1]  = sum_acc[1] / valid_samples;
+        sum_acc[2]  = (sum_acc[2] / valid_samples) -1.0f;  // 가속도는 중력 가속도(1g)를 제외하고 0이 되어야 함m
 
-        sum_gyro[X] = sum_gyro[X] / valid_samples;
-        sum_gyro[Y] = sum_gyro[Y] / valid_samples;
-        sum_gyro[Z] = sum_gyro[Z] / valid_samples;
+        sum_gyro[0] = sum_gyro[0] / valid_samples;
+        sum_gyro[1] = sum_gyro[1] / valid_samples;
+        sum_gyro[2] = sum_gyro[2] / valid_samples;
     }else{
-        sum_acc[X] =0.0f;sum_acc[Y] =0.0f;sum_acc[Z] =0.0f; 
-        sum_gyro[X] = 0.0f,sum_gyro[Y] = 0.0f,sum_gyro[Z] = 0.0f;
+        sum_acc[0] =0.0f;sum_acc[1] =0.0f;sum_acc[2] =0.0f; 
+        sum_gyro[0] = 0.0f,sum_gyro[1] = 0.0f,sum_gyro[2] = 0.0f;
     }
     
     _offset_acc[0] = sum_acc[0];
@@ -189,21 +190,21 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     }
 
     auto [ret,acc,gyro] = read_raw_data();
-    acc[X]  = acc[X]  - _offset_acc[X];
-    acc[Y]  = acc[Y]  - _offset_acc[Y];
-    acc[Z]  = acc[Z]  - _offset_acc[Z];
-    gyro[X] = gyro[X] - _offset_gyro[X];
-    gyro[Y] = gyro[Y] - _offset_gyro[Y];
-    gyro[Z] = gyro[Z] - _offset_gyro[Z];
+    acc[0]  = acc[0]  - _offset_acc[0];
+    acc[1]  = acc[1]  - _offset_acc[1];
+    acc[2]  = acc[2]  - _offset_acc[2];
+    gyro[0] = gyro[0] - _offset_gyro[0];
+    gyro[1] = gyro[1] - _offset_gyro[1];
+    gyro[2] = gyro[2] - _offset_gyro[2];
 
     // ICM20948에서 부호를 반대로 설정해놨어요. 논리 대로 처리 간다~~~~  
     // qgc의 roll , pitch에 (-) 부호처리 일단함.
     // 오른손법칙에 어긋나는 부분 교정하여 Mahony에 입력한다 
-    acc[Y]  *=  -1.0f;
-    gyro[X] *=  -1.0f;
+    acc[1]  *=  -1.0f;
+    gyro[0] *=  -1.0f;
 
     // 오른쪽으로 회전시 (-)부호로 값은 커진다. (즉 값이 작아진다는 것이다)
-    gyro[Z] *=  -1.0f;
+    gyro[2] *=  -1.0f;
     return {ret,acc,gyro};
 }
 

@@ -38,7 +38,7 @@ void Buzzer::initialize()
     ledc_timer_config(&ledc_timer);
 
     ledc_channel_config_t ledc_channel = {};
-    ledc_channel.gpio_num       = BUZZER_GPIO;
+    ledc_channel.gpio_num       = BUZZ::Buzzer::BUZZER_GPIO;
     ledc_channel.speed_mode     = LEDC_LOW_SPEED_MODE;
     ledc_channel.channel        = LEDC_CHANNEL_0;
     ledc_channel.intr_type      = LEDC_INTR_DISABLE;

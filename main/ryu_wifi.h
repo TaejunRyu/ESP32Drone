@@ -9,6 +9,7 @@
 #include <esp_now.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h> 
+#include <c_library_v2/common/mavlink.h>
 
 #include "ryu_config.h"
 

@@ -6,7 +6,6 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ryu_i2c.h"
-//#include "ryu_config.h"
 
 
 namespace Sensor
@@ -45,7 +44,7 @@ i2c_master_dev_handle_t AK09916::initialize()
     i2c_device_config_t mag_cfg = {};
     mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     mag_cfg.device_address  = ADDR;
-    mag_cfg.scl_speed_hz    = 400000;
+    mag_cfg.scl_speed_hz    = Driver::I2C::I2C_SPEED;;
 
     if (i2c_master_bus_add_device(_bus_handle, &mag_cfg, &_dev_handle) != ESP_OK) {
         ESP_LOGE(TAG, "Bus 추가 실패");

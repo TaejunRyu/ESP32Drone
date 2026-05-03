@@ -1,4 +1,5 @@
 #include "ryu_config.h"
+#include <c_library_v2/common/mavlink.h>
 
 sys_t g_sys = {
              .flight_mode       = MODE_STABILIZED, 

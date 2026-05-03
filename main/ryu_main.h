@@ -8,6 +8,13 @@
 #include "ryu_servo.h"
 
 
+// 현재 사용하는 센서 이름을 상수로 정의하여 코드 가독성 향상
+inline constexpr char IMU_NAME_MAIN[]     ="ICM20948";
+inline constexpr char IMU_NAME_SUB[]      ="ICM20948";
+inline constexpr char MAG_NAME_MAIN[]     ="IST8310";
+inline constexpr char MAG_NAME_SUB[]      ="AK09916";
+inline constexpr char BARO_NAME_MAIN[]    ="BMP388";
+inline constexpr char BARO_NAME_SUB[]     ="BMP388";
 
 
 extern "C" {

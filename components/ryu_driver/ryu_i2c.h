@@ -21,11 +21,13 @@ class I2C{
         }
 
         i2c_master_bus_handle_t get_bus_handle(){return _bus_handle;};
-        i2c_master_bus_handle_t initialize(i2c_port_num_t port, gpio_num_t port_sda, gpio_num_t port_scl);
         i2c_master_bus_handle_t initialize();
         void deinitialize();
         void scan_bus();
-        
+        static const uint32_t       I2C_SPEED   = 400'000;
+        static const gpio_port_t    I2C_PORT    = gpio_port_t(0);
+        static const gpio_num_t     I2C_SDA     = GPIO_NUM_21; // 숫자에 직접 타입을 지정
+        static const gpio_num_t     I2C_SCL     = GPIO_NUM_22;
 
     private:
         i2c_port_num_t _port;

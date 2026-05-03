@@ -1,5 +1,6 @@
 #pragma once
 
+#include <driver/gpio.h>
 
 namespace FLYSKY
 {
@@ -12,7 +13,7 @@ ppm_values[3]: Rudder (Yaw - 좌우 회전)
 ppm_values[4]: Aux 1 (스위치 또는 다이얼) ----> AUTO MODE
 ppm_values[5]: Aux 2 (스위치 또는 다이얼)
 */
-
+inline constexpr gpio_num_t FLYSKY_PPM_PIN = GPIO_NUM_4; // PPM으로 데이터를 보낼때
 extern void initialize();
 extern void flysky_task(void *pvParameters);
 

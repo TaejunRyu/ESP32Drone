@@ -1,11 +1,14 @@
 #include "ryu_i2c.h"
-#include "ryu_config.h"
+
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+
 
 namespace Driver{
 
 const char* I2C::TAG = "I2C";
 
-I2C::I2C(): _port(0),_port_sda((gpio_num_t)-1),_port_scl((gpio_num_t)-1), _bus_handle(nullptr),_initialized(false)
+I2C::I2C(): _port(I2C_PORT),_port_sda(I2C_SDA),_port_scl(I2C_SCL), _bus_handle(nullptr),_initialized(false)
 {
     ESP_LOGI(TAG, "I2C created. ");
 }
@@ -15,19 +18,16 @@ I2C::~I2C()
     deinitialize();
 }
 
-i2c_master_bus_handle_t I2C::initialize(i2c_port_num_t port, gpio_num_t port_sda, gpio_num_t port_scl)
+i2c_master_bus_handle_t I2C::initialize()
 {        
     if(_initialized){
         return _bus_handle;
     }
-    _port = port;
-    _port_sda = port_sda;
-    _port_scl = port_scl;
 
     i2c_master_bus_config_t bus_cfg = {};
-    bus_cfg.i2c_port = port;
-    bus_cfg.sda_io_num = port_sda;
-    bus_cfg.scl_io_num = port_scl;
+    bus_cfg.i2c_port = _port;
+    bus_cfg.sda_io_num = _port_sda;
+    bus_cfg.scl_io_num = _port_scl;
     bus_cfg.clk_source = I2C_CLK_SRC_DEFAULT;
     bus_cfg.glitch_ignore_cnt = 7;
     bus_cfg.intr_priority = 1;
@@ -47,21 +47,6 @@ i2c_master_bus_handle_t I2C::initialize(i2c_port_num_t port, gpio_num_t port_sda
     ESP_LOGI(TAG, "Initialized successfully.");
     return _bus_handle; // 생성된 핸들 반환
     
-}
-
-/**
- * @brief 
- *      1. 초기화 되어진 상태에서 문제 발생시 deinitialize한후 인수없이 initialize하는 함수 절대 처음 initialize시 사용하지 말것
- * @return i2c_master_bus_handle_t 
- */
-i2c_master_bus_handle_t I2C::initialize()
-{
-    if (_port_sda == 0 || _port_scl == 0){
-        ESP_LOGI(TAG, "USE => initialize(x,x,x)");
-        return nullptr;
-    }
-    this->initialize(_port,_port_sda,_port_scl);
-    return _bus_handle;
 }
 
 void I2C::deinitialize()

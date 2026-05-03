@@ -6,41 +6,17 @@
 #include <driver/uart.h>
 #include <lwip/sockets.h>   // ESP-IDF 전용 소켓 라이브러리
 #include <esp_adc/adc_oneshot.h>
-#include <c_library_v2/common/mavlink.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+
+#define M_PI 3.14159265358979323846
+
 inline constexpr uint8_t SYSTEM_ID      = 1;
 inline constexpr uint8_t COMPONENT_ID   = 1;
 
 inline constexpr  float RAD_TO_DEG = 180.0f/M_PI;
 inline constexpr  float DEG_TO_RAD = M_PI/180.0f;
 
-inline constexpr uint8_t MAIN = 0;
-inline constexpr uint8_t SUB  = 1; 
 
-inline constexpr uint8_t  X  =  0;
-inline constexpr uint8_t  Y  =  1;
-inline constexpr uint8_t  Z  =  2;
-
-inline constexpr uint8_t  FL =  0;
-inline constexpr uint8_t  FR =  1;
-inline constexpr uint8_t  RL =  2;
-inline constexpr uint8_t  RR =  3;
-
-
-// 현재 사용하는 센서 이름을 상수로 정의하여 코드 가독성 향상
-inline constexpr char IMU_NAME_MAIN[]     ="ICM20948";
-inline constexpr char IMU_NAME_SUB[]      ="ICM20948";
-inline constexpr char MAG_NAME_MAIN[]     ="IST8310";
-inline constexpr char MAG_NAME_SUB[]      ="AK09916";
-inline constexpr char BARO_NAME_MAIN[]    ="BMP388";
-inline constexpr char BARO_NAME_SUB[]     ="BMP388";
-
-
-inline constexpr uint32_t   I2C_SPEED   = 400000;
-inline constexpr uint32_t   GPS_UART_BAUD_RATE = 115200;
 
 inline constexpr bool USE_BMP388_SPI = false;  // true로 설정하면 BMP388 SPI 경로 사용
 inline constexpr gpio_num_t  VSPI_SCLK   = GPIO_NUM_18;
@@ -65,17 +41,6 @@ inline constexpr gpio_num_t  HSPI_MOSI    = GPIO_NUM_13; //  JTAG핀
 inline constexpr gpio_num_t  HSPI_CS      = GPIO_NUM_2;  // 부팅관련
 inline constexpr gpio_num_t  T1    = GPIO_NUM_0;  // 부팅관련
   
-
-
-inline constexpr gpio_num_t BUZZER_GPIO = GPIO_NUM_14;  // 부저가 연결된 GPIO 번호
-
-inline constexpr gpio_num_t FLYSKY_PPM_PIN = GPIO_NUM_4; // PPM으로 데이터를 보낼때
-
-inline constexpr gpio_num_t GPS_RX      = GPIO_NUM_16;  // UART1 
-inline constexpr gpio_num_t GPS_TX      = GPIO_NUM_17;
-inline constexpr gpio_num_t I2C_SDA     = GPIO_NUM_21; // 숫자에 직접 타입을 지정
-inline constexpr gpio_num_t I2C_SCL     = GPIO_NUM_22;
-
 
 //==============================================
 // 드론의 현재 상태를 저장하는 구조체 
@@ -303,74 +268,3 @@ struct baro_t{
     float ground_pressure;     // 이륙 지점 기준 기압
 };
 extern baro_t g_baro;
-
-
-// typedef struct {
-//     // 1. IMU 데이터 (자이로, 가속도, 기울기)
-//     struct {
-//         float roll, pitch, yaw;    // 최종 계산된 각도 (degree)
-//         float gx, gy, gz;          // 자이로 원시 데이터
-//         float ax, ay, az;          // 가속도 원시 데이터
-//     } imu;
-
-//     // 2. 기압 및 고도 데이터
-//     struct {
-//         float pressure;            // 현재 기압 (hPa)
-//         float raw_altitude;        // 필터 전 고도 (m)
-//         float filtered_altitude;   // LPF 적용 후 고도 (m)
-//         float ground_pressure;     // 이륙 지점 기준 기압
-//     } baro;
-
-//     // 3. GPS 데이터
-//     struct {
-//         double lat, lon;           // 현재 위도, 경도
-//         float distance_to_target;  // 목표지점까지의 거리 (m)
-//         bool is_gps_fixed;         // GPS 수신 상태
-//     } gps;
-
-//     // 4. 시스템 상태
-//     bool is_armed;                 // 모터 가동 상태
-//     bool payload_dropped;          // 투하 완료 여부
-//     float battery_voltage;         // 배터리 전압
-// } drone_status_t;
-
-// // 전역 변수 선언
-// drone_status_t g_drone;
-
-
-// typedef struct {
-//     // 1. 목표 지점 정보 (Target)
-//     struct {
-//         double lat, lon;           // 목표 위도, 경도
-//         float target_alt;          // 투하 목표 고도 (예: 3.0m)
-//         float dist_to_target;      // 현재 위치에서 목표까지의 거리 (m)
-//         bool arrived;              // 목표 지점 도달 여부
-//     } target;
-
-//     // 2. 기압 및 고도 (Barometer)
-//     struct {
-//         float pressure;            // 현재 기압 (hPa)
-//         float ground_pressure;     // 이륙 시 저장된 지면 기압
-//         float rel_alt;             // 상대 고도 (m)
-//         float filtered_alt;        // LPF 적용된 안정된 고도 (m)
-//     } baro;
-
-//     // 3. 전원 상태 (Power)
-//     struct {
-//         float voltage;             // 현재 배터리 전압 (V)
-//         float percentage;          // 남은 잔량 (%)
-//         bool is_low;               // 저전압 경고 상태
-//     } battery;
-
-//     // 4. 시스템 플래그 (Status)
-//     bool is_armed;                 // 모터 가동 여부
-//     bool payload_dropped;          // 낚시 도구 투하 완료 여부
-//     int lpf_alpha;                 // 필터 계수 (가변 조정용)
-// } drone_status_t;
-
-// // 전역 변수 생성
-// drone_status_t g_drone = {0};
-
-#ifdef __cplusplus
-}
-#endif

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <driver/gpio.h>
 
 namespace BUZZ{
 
@@ -38,6 +39,8 @@ public:
     void sound_scanning();
     void sound_connected();
     void sound_disconnected();
+    
+    static const gpio_num_t BUZZER_GPIO = GPIO_NUM_14;  // 부저가 연결된 GPIO 번호
 
 private:
     bool _initialized = false;

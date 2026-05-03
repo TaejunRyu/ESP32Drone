@@ -4,9 +4,15 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
+#include <driver/gpio.h>
 
 namespace  GPS
 {
+
+inline constexpr uint32_t   GPS_UART_BAUD_RATE = 115200;
+inline constexpr gpio_num_t GPS_RX      = GPIO_NUM_16;  // UART1 
+inline constexpr gpio_num_t GPS_TX      = GPIO_NUM_17;
+
 extern SemaphoreHandle_t xGpsMutex;
 
     //=====ubx 바이너리 프로토콜======= start

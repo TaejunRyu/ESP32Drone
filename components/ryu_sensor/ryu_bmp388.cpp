@@ -2,7 +2,6 @@
 #include <tuple>
 #include <freertos/FreeRTOS.h>
 #include "ryu_i2c.h" 
-#include "ryu_config.h"
 
 namespace Sensor{
     
@@ -31,7 +30,7 @@ esp_err_t BMP388::initialize()
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     dev_cfg.device_address = _dev_address;
-    dev_cfg.scl_speed_hz = I2C_SPEED;
+    dev_cfg.scl_speed_hz = Driver::I2C::I2C_SPEED;
 
     ret_code = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
     if(ret_code !=ESP_OK){
