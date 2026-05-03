@@ -87,4 +87,12 @@ void Battery::battery_check_task(void *pvParameters)
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1초마다 확인
     }
 }
+void Battery::start_task()
+{
+    auto  res= xTaskCreatePinnedToCore(battery_check_task, "Battery", 4096, this, 10, NULL, 0);
+    if (res != pdPASS) ESP_LOGE(TAG, "❌ 4.Battery Check Task is failed! code: %d", res);
+    else ESP_LOGI(TAG, "✓ 4.Battery Task is passed...");
+   
+}
+
 }

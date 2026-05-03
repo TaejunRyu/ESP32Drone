@@ -10,6 +10,7 @@ idf_component_register(
         esp_timer
         esp_event
         esp_driver_gpio
+        esp_driver_mcpwm
         esp_pm
         esp_wifi
         nvs_flash

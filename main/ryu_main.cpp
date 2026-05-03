@@ -31,6 +31,7 @@ void app_main(void) {
     { // 2번 포트 led 설정
         gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화
         gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // 출력 모드로 설정
+        
         // buzzer 초기화및 fc의 시작을 알린다.
         Driver::Buzzer::get_instance().initialize();
         Driver::Buzzer::get_instance().sound_system_start();
@@ -129,7 +130,8 @@ void app_main(void) {
         g_imu.mag[2] = (ist_mag[2]+ak_mag[2])*0.5;
 
 		// 융합된 데이터를 적용처리.
-		AHRS::calibrate_mahony_initial_attitude(g_imu.acc[0],g_imu.acc[1], g_imu.acc[2],g_imu.mag[0],g_imu.mag[1],g_imu.mag[2]);
+        auto& mahony = Service::Mahony::get_instance();
+        mahony.calibrate_mahony_initial_attitude(g_imu.acc[0],g_imu.acc[1], g_imu.acc[2],g_imu.mag[0],g_imu.mag[1],g_imu.mag[2]);
 		g_imu.acc   ={};
 		g_imu.gyro  ={};
 		g_imu.mag   ={};
@@ -139,14 +141,13 @@ void app_main(void) {
     
 	{
 		// 모터 PWM 초기화
-        auto& motor = Driver::Motor::get_instance();
-        motor.initialize();
+        Driver::Motor::get_instance().initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 		// GPS 초기화
 		GPS::initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 		// FLYSKY  초기화
-		FLYSKY::initialize();
+        Service::Flysky::get_instance().initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 	
 	}
@@ -176,8 +177,7 @@ void app_main(void) {
         ESP_LOGE(MAINTAG, "❌ 필수 센서 미연결! 시스템 중단");
 
         
-        auto& motor = Driver::Motor::get_instance();
-        motor.stop_all_motors();
+        Driver::Motor::get_instance().stop_all_motors();
         
 
         auto mac_addr = WIFI::get_my_mac_address();
@@ -194,8 +194,6 @@ void app_main(void) {
         }
     }
 
-    auto& mavlink =  Service::Mavlink::get_instance();
-    mavlink.initialize();
     
 
     // ========== [4단계] 보조 태스크 생성 ==========
@@ -204,12 +202,14 @@ void app_main(void) {
     WIFI::mavlink_tx_queue      = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
     TELEM::mavlink_rx_queue     = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
 
+    auto& mavlink =  Service::Mavlink::get_instance();
+    mavlink.initialize();
+
     // 2. 송신 Task 생성 (우선순위를 높게 설정)
     xTaskCreatePinnedToCore(WIFI::mavlink_tx_task, "mavlink_tx_task", 4096, NULL, 15, NULL, 0);
 
-    res = xTaskCreatePinnedToCore(FLYSKY::flysky_task,"flysky",4096,NULL,12,NULL,0);
-    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 1.Flysky Task is failed!  code: %d", res);
-    else ESP_LOGI(MAINTAG, "✓ 1.Flysky Task is passed...");
+    auto& flysky = Service::Flysky::get_instance();
+    flysky.start_task();
 
     res = xTaskCreatePinnedToCore(GPS::gps_ubx_mode_task, "gps", 4096, NULL, 5, NULL, 0);
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 2.Gps Task is Failed! code: %d", res);
@@ -219,10 +219,7 @@ void app_main(void) {
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 3.Telemetry Task is failed! code: %d", res);
     else ESP_LOGI(MAINTAG, "✓ 3.Telemetry task is passed...");
     
-    auto& bat = Driver::Battery::get_instance();
-    res= xTaskCreatePinnedToCore(Driver::Battery::battery_check_task, "Battery", 4096, &bat, 10, NULL, 0);
-    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 4.Battery Check Task is failed! code: %d", res);
-    else ESP_LOGI(MAINTAG, "✓ 4.Battery Task is passed...");
+    Driver::Battery::get_instance().start_task();
     
     res= xTaskCreatePinnedToCore(ERR::error_manager_task, "ErrMgr", 4096, NULL, 10, &ERR::xErrorHandle, 0);
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 5.Error Check Task is failed! code: %d", res);
@@ -234,8 +231,7 @@ void app_main(void) {
     if (res != pdPASS) {
         ESP_LOGE(MAINTAG, "❌ 6.Flight Task is Failed! code: %d", res);
         // 모터 안전 정지
-        auto& motor = Driver::Motor::get_instance();
-        motor.stop_all_motors();
+        Driver::Motor::get_instance().stop_all_motors();
     } else {
         ESP_LOGI(MAINTAG, "✓ 6.Flight Task is passed...");
     }

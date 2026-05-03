@@ -66,3 +66,12 @@
 12. 분배기 
 13. 플롭 4EA
 12. 충전기
+
+
+
+1. 계층별 컴포넌트 분류 가이드계층 (Folder)역할 설명해당될 수 있는 컴포넌트
+
+drivers     하드웨어에 직접 의존하는 코드 (Register, 직접 제어) Flysky(PPM 읽기), IMU(MPU6050 등) 드라이버
+sensors     드라이버를 통해 물리량을 읽어오는 추상화 계층IMU_Sensor(가속도/자이로 값 보정), Battery     _Monitor
+services    배경에서 데이터를 처리하고 상태를 유지하는 기능 Mahony(자세 추정), 로깅 서비스, 통신(Telemetry)
+control     입력을 바탕으로 출력을 계산하는 알고리즘PID_Control, 가이드 비행 로직, 모터 출력 믹서

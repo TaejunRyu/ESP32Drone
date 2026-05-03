@@ -34,7 +34,7 @@ class Battery{
         void initialize();
         float get_battery_voltage();
         static void battery_check_task(void *pvParameters);
-
+        void start_task();
 
     private:
 

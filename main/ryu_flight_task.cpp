@@ -49,6 +49,8 @@ void flight_task(void *pv) {
     //Watch Dog 등록.  
     esp_task_wdt_add(NULL);     
 
+    auto& mahony = Service::Mahony::get_instance();
+    
     while(true) {
         int64_t now = esp_timer_get_time();
         calculated_dt = (now- last_time);
@@ -179,7 +181,8 @@ void flight_task(void *pv) {
             g_attitude.pitchspeed   = calculation_gyro_y ;
             g_attitude.yawspeed     = calculation_gyro_z ;
         }
-        AHRS::MahonyAHRSupdate(   
+        
+        mahony.MahonyAHRSupdate(   
                             calculation_gyro_x * DEG_TO_RAD,
                             calculation_gyro_y * DEG_TO_RAD, 
                             calculation_gyro_z * DEG_TO_RAD, 
@@ -198,16 +201,15 @@ void flight_task(void *pv) {
         // 수정사항 qgc에 보낼정보는 따로 담아서 보관하도록 해야할것 같다. roll정보를 pid에서 사용하기때문에 변하면 안되다.
         float sinP =0.0f,actual_compass_heading=0.0f;
         {
-            using namespace AHRS;      
-            const float q0q0 = q0 * q0;
-            const float q1q1 = q1 * q1;
-            const float q2q2 = q2 * q2;
-            const float q3q3 = q3 * q3;             
+            const float q0q0 = mahony.q0 * mahony.q0;
+            const float q1q1 = mahony.q1 * mahony.q1;
+            const float q2q2 = mahony.q2 * mahony.q2;
+            const float q3q3 = mahony.q3 * mahony.q3;             
 
-            g_attitude.roll = atan2f(2.0f * (q0 * q1 + q2 * q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
-            sinP      = std::clamp(2.0f * (q0 * q2 - q1 * q3), -1.0f, 1.0f);
+            g_attitude.roll = atan2f(2.0f * (mahony.q0 * mahony.q1 + mahony.q2 * mahony.q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
+            sinP      = std::clamp(2.0f * (mahony.q0 * mahony.q2 - mahony.q1 * mahony.q3), -1.0f, 1.0f);
             g_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
-            actual_compass_heading   = atan2f(2.0f * (q1 * q2 + q0 * q3), q0q0 + q1q1 - q2q2 - q3q3);
+            actual_compass_heading   = atan2f(2.0f * (mahony.q1 * mahony.q2 + mahony.q0 * mahony.q3), q0q0 + q1q1 - q2q2 - q3q3);
         }
         // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
