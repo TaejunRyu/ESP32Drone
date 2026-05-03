@@ -5,6 +5,6 @@ idf_component_register(
     INCLUDE_DIRS    "."
                     "../../main"                  
     REQUIRES    
-        esp_driver_gpio esp_driver_i2c  esp_driver_ledc esp_adc
+        esp_driver_gpio esp_driver_i2c  esp_driver_ledc esp_adc esp_driver_mcpwm
         ryu_config
 )

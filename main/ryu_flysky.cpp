@@ -130,12 +130,11 @@ bool is_disarming_gesture() {
 
 
 // 상수 정의 (매직 넘버 제거)
-namespace Config {
-    constexpr float THR_SCALE = 0.1f;    // (raw - 1000) / 10.0
-    constexpr float ATT_SCALE = 0.2f;    // (raw - 1500) / 5.0
-    constexpr float DEADZONE_RP = 2.0f;
-    constexpr float DEADZONE_YAW = 3.0f;
-}
+
+constexpr float THR_SCALE = 0.1f;    // (raw - 1000) / 10.0
+constexpr float ATT_SCALE = 0.2f;    // (raw - 1500) / 5.0
+constexpr float DEADZONE_RP = 2.0f;
+constexpr float DEADZONE_YAW = 3.0f;
  
 
 void flysky_task(void *pvParameters) {
@@ -163,12 +162,12 @@ void flysky_task(void *pvParameters) {
         }
 
         // 1. 스로틀: 1000~2000 -> 0~100% (범위 제한 필수)
-        g_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * Config::THR_SCALE, 0.0f, 100.0f);
+        g_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
         
         //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
-        g_rc.roll     = apply_deadzone((static_cast<float>(local_ppm[0]) - 1500.0f) * Config::ATT_SCALE, Config::DEADZONE_RP);
-        g_rc.pitch    = apply_deadzone((static_cast<float>(local_ppm[1]) - 1500.0f) * Config::ATT_SCALE, Config::DEADZONE_RP);
-        g_rc.yaw      = apply_deadzone((static_cast<float>(local_ppm[3]) - 1500.0f) * Config::ATT_SCALE, Config::DEADZONE_YAW);
+        g_rc.roll     = apply_deadzone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+        g_rc.pitch    = apply_deadzone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+        g_rc.yaw      = apply_deadzone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
         
         // 4. 스위치 처리 (간결한 삼항 연산자 구조)
         g_rc.aux1 = (local_ppm[4] > 1500) ? 1 : 0;

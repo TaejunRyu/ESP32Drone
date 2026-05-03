@@ -5,7 +5,7 @@
 
 #include "ryu_config.h"
 #include "ryu_buzzer.h"
-#include "ryu_servo.h"
+#include "ryu_motor.h"
 
 
 // 현재 사용하는 센서 이름을 상수로 정의하여 코드 가독성 향상
@@ -67,12 +67,7 @@ void log_information_control(){
  */
 void __attribute__((weak)) esp_panic_handler_reboot(void) {
     // 1. 모든 모터 PWM 핀을 LOW로 강제 고정 (하드웨어적 정지)
-    // 예: GPIO 12, 13, 14, 15가 모터 핀이라면
-    gpio_set_level((gpio_num_t)SERVO::MOTOR_FRONT_LEFT, 0);
-    gpio_set_level((gpio_num_t)SERVO::MOTOR_FRONT_RIGHT, 0);
-    gpio_set_level((gpio_num_t)SERVO::MOTOR_REAR_LEFT, 0);
-    gpio_set_level((gpio_num_t)SERVO::MOTOR_REAR_RIGHT, 0);
-
+    Driver::Motor::get_instance().stop_all_motors();
     // 2. 필요하다면 부저(Driverer)를 울려 경고
     Driver::Buzzer::get_instance().sound_error();
 

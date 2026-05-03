@@ -23,10 +23,7 @@ class Timer{
             static Timer* instance = new Timer(); // 힙에 할당하여 소멸 순서 꼬임 방지
             return *instance;
         }  
-        static constexpr uint8_t DIVIDE_COUNT = 10;
-        static constexpr uint8_t DIVIDE_TIME  = 1000/ DIVIDE_COUNT;
         esp_err_t intiallize();
-        static void vDroneTimerCallback(TimerHandle_t xTimer);
 
         // 콜백 설정
         void set_timer_callback(std::function<void()> callback);

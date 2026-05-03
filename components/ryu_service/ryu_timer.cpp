@@ -35,7 +35,7 @@ esp_err_t Timer::intiallize()
     // 100ms 단위로 처리됨.
     _timer_handle = xTimerCreate(
                 "xTimer_xMs", 
-                pdMS_TO_TICKS(DIVIDE_TIME), 
+                pdMS_TO_TICKS(100), 
                 pdTRUE,
                 this, 
                 timer_callback);

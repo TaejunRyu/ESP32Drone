@@ -5,9 +5,9 @@
 #include "ryu_i2c.h"
 #include "ryu_icm20948.h"
 #include "ryu_ak09916.h"
-#include "ryu_ist8310.h"
 #include "ryu_bmp388.h"
-#include "ryu_servo.h"
+#include "ryu_ist8310.h"
+#include "ryu_motor.h"
 #include "ryu_buzzer.h"
 #include "ryu_config.h"
 
@@ -53,7 +53,7 @@ void error_manager_task(void *pvParameters) {
                 }
 
                 if (ret != ESP_OK){
-                    SERVO::stop_all_motors();
+                    Driver::Motor::get_instance().stop_all_motors();
                     while(true){
                         Driver::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
                     }

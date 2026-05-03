@@ -23,7 +23,7 @@
 // gps에 있는 지자계센서.
 #include "ryu_ist8310.h"
 // motor
-#include "ryu_servo.h"
+#include "ryu_motor.h"
 
 
 namespace FLIGHT
@@ -237,7 +237,7 @@ void flight_task(void *pv) {
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if(!g_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
-            for(auto& comp : SERVO::comparators) mcpwm_comparator_set_compare_value(comp, 1000);
+            Driver::Motor::get_instance().stop_all_motors();
             // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
             auto& pid = Controller::PID::get_instance();
             pid.reset_pid(&pid.pid_roll_angle);
@@ -388,11 +388,7 @@ void flight_task(void *pv) {
             motor[1] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
             motor[2] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
             motor[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
-
-            // static_cast는 유지하되, 타입 추론은 auto에게 맡깁니다.
-            for (size_t i = 0; auto comp : SERVO::comparators) {
-                mcpwm_comparator_set_compare_value(comp, static_cast<uint32_t>(motor[i++]));
-            }
+            Driver::Motor::get_instance().update_compare_value({motor[0],motor[1],motor[2],motor[3]});
         }           
         total_us = esp_timer_get_time() - last_time;
         int64_t current_time;

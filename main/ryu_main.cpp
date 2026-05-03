@@ -139,7 +139,8 @@ void app_main(void) {
     
 	{
 		// 모터 PWM 초기화
-		SERVO::initialize();
+        auto& motor = Driver::Motor::get_instance();
+        motor.initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 		// GPS 초기화
 		GPS::initialize();
@@ -173,8 +174,10 @@ void app_main(void) {
             ESP_LOGE(MAINTAG, "❌ %s SUB에 연결할 수 없습니다!", BARO_NAME_SUB);
 
         ESP_LOGE(MAINTAG, "❌ 필수 센서 미연결! 시스템 중단");
+
         
-        SERVO::stop_all_motors();
+        auto& motor = Driver::Motor::get_instance();
+        motor.stop_all_motors();
         
 
         auto mac_addr = WIFI::get_my_mac_address();
@@ -231,7 +234,8 @@ void app_main(void) {
     if (res != pdPASS) {
         ESP_LOGE(MAINTAG, "❌ 6.Flight Task is Failed! code: %d", res);
         // 모터 안전 정지
-        for(auto& comp : SERVO::comparators) mcpwm_comparator_set_compare_value(comp, 1000);
+        auto& motor = Driver::Motor::get_instance();
+        motor.stop_all_motors();
     } else {
         ESP_LOGI(MAINTAG, "✓ 6.Flight Task is passed...");
     }
