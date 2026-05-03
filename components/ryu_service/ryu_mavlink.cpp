@@ -45,8 +45,13 @@ void Mavlink::send_status_text(const char *text, uint8_t severity)
         severity,
         buf,0,0
     );
-    WIFI::dispatch_mavlink_msg(&msg);
+    send_mavlink_msg(&msg);
 }
+
+void Mavlink::send_mavlink_msg(mavlink_message_t *msg){
+    Service::EspNow::get_instance().dispatch_mavlink_msg(msg);
+}
+
 
 void Mavlink::send_mav_command_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid)
 {
@@ -59,7 +64,7 @@ void Mavlink::send_mav_command_ack(uint16_t command, uint8_t result, uint8_t pro
                     progress, result_param2,    // Progress, Result_param2
                     target_sysid, target_compid // Target System/Component (GCS의 ID)
     );
-    WIFI::dispatch_mavlink_msg(&msg);
+    send_mavlink_msg(&msg);
 }
 
 void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
@@ -73,7 +78,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 0,                                                                      // Param 1: Unix time (us)
                 (uint32_t)(esp_timer_get_time() / 1000)                                 // Param 2: Boot time (ms)
             );
-            WIFI::dispatch_mavlink_msg(&ret_msg);
+            send_mavlink_msg(&ret_msg);
             break;
         }
         // 1. QGC가 "네가 가진 파라미터 다 내놔"라고 할 때 (연결 초기)
@@ -102,7 +107,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                              par.name.data(), val_to_send, par.type,p_mgr.get_param_count(), i);
-                WIFI::dispatch_mavlink_msg(&msg);
+                send_mavlink_msg(&msg);
                 vTaskDelay(pdMS_TO_TICKS(3));
             }
             break;
@@ -134,7 +139,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                                             PARAM::params[req.param_index].type,
                                             p_mgr.get_param_count(),
                                             req.param_index);               
-                WIFI::dispatch_mavlink_msg(&msg);
+                send_mavlink_msg(&msg);
             } 
             break;
         }
@@ -166,7 +171,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
                                             set.param_id, val_to_send, set.param_type,p_mgr.get_param_count(),index);               
-                WIFI::dispatch_mavlink_msg(&msg);
+                send_mavlink_msg(&msg);
             }
             break;
         }
@@ -247,7 +252,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 MAV_MISSION_ACCEPTED,           // 결과: 잘 지웠어!
                 MAV_MISSION_TYPE_MISSION        // 어떤 타입의 미션인지
             );
-            WIFI::dispatch_mavlink_msg(&ack_msg);
+            send_mavlink_msg(&ack_msg);
             break;
         }
         case MAVLINK_MSG_ID_MISSION_REQUEST_LIST: {
@@ -259,7 +264,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 0,                          // 미션 총 개수
                 mavlink_msg_mission_request_list_get_mission_type(msg)        //MAV_MISSION_TYPE_MISSION  //미션 타입 지정
             );
-            WIFI::dispatch_mavlink_msg(&ack_msg);
+            send_mavlink_msg(&ack_msg);
             break;
         }
         case MAVLINK_MSG_ID_SET_MODE:{
@@ -411,7 +416,7 @@ void Mavlink::MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg
     // 3. 버전 정보 패킹 및 전송
     mavlink_message_t ver_msg;
     mavlink_msg_autopilot_version_encode(SYSTEM_ID, COMPONENT_ID, &ver_msg, &version);
-    WIFI::dispatch_mavlink_msg(&ver_msg);
+    send_mavlink_msg(&ver_msg);
 
 }
 
@@ -435,7 +440,7 @@ void Mavlink::MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_comma
             0,                   // spec_version_hash: 보통 0 (또는 git hash의 일부)
             0                    // library_version_hash: 보통 0 (또는 git hash의 일부)
         );
-        WIFI::dispatch_mavlink_msg(&ack_msg);
+        send_mavlink_msg(&ack_msg);
         break;
     case 280: case 259: case 148: case 435: case 397: case 395:
         send_mav_command_ack(cmd.command, MAV_RESULT_UNSUPPORTED,0,0,msg->sysid,msg->compid);
@@ -518,7 +523,7 @@ void Mavlink::MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavl
         0,                   // spec_version_hash: 보통 0 (또는 라이브러리 생성 해시)
         0                    // library_version_hash: 보통 0
     );
-    WIFI::dispatch_mavlink_msg(&ack_msg);
+    send_mavlink_msg(&ack_msg);
 }
 
 
@@ -537,7 +542,7 @@ void Mavlink::on_timer_tick()
                                                 g_attitude.rollspeed    * DEG_TO_RAD, 
                                                 g_attitude.pitchspeed   * DEG_TO_RAD, 
                                                 g_attitude.yawspeed     * DEG_TO_RAD );
-    WIFI::dispatch_mavlink_msg(&msg);
+    send_mavlink_msg(&msg);
 
     static gps_data_t m_gps={};
     static uint32_t last_itow = 0;     // 마지막으로 전송한 iTOW 저장
@@ -573,7 +578,7 @@ void Mavlink::on_timer_tick()
     //         channels[16], channels[17],
     //         200                  // RSSI (신호 세기 0~255)
     //     );
-    //     WIFI::dispatch_mavlink_msg(&msg);
+    //     send_mavlink_msg(&msg);
     //     //break;                        
     // }
 
@@ -603,7 +608,7 @@ void Mavlink::on_timer_tick()
                                         g_heartbeat.base_mode,  
                                         g_heartbeat.custom_mode, 
                                         g_sys.system_status);
-            WIFI::dispatch_mavlink_msg(&msg);
+            send_mavlink_msg(&msg);
             break;
         }
         case 3:{ // 시스템 상태 전송 (배터리, 전압 등)
@@ -643,15 +648,15 @@ void Mavlink::on_timer_tick()
                 battery_voltage, current_battery, battery_remaining, 
                 comms_drop_rate, comms_errors, 0, 0, 0, 0,0,0,0
             );
-            WIFI::dispatch_mavlink_msg(&msg);
+            send_mavlink_msg(&msg);
             break;
         }    
         case 6:{ // 라디오 상태 전송 (RSSI, Noise)
              mavlink_msg_radio_status_pack_chan(
                             SYSTEM_ID, COMPONENT_ID,MAVLINK_COMM_1, &msg, 
-                            WIFI::current_rssi, // 드론이 받은 브릿지의  신호
-                            0,0, WIFI::noise_floor, 0, 0, 0);
-            WIFI::dispatch_mavlink_msg(&msg);
+                            Service::EspNow::get_instance().current_rssi, // 드론이 받은 브릿지의  신호
+                            0,0, Service::EspNow::get_instance().noise_floor, 0, 0, 0);
+            send_mavlink_msg(&msg);
             break;
         }
         case 9:{ // gps 정보 
@@ -675,7 +680,7 @@ void Mavlink::on_timer_tick()
                         0,                                          // hdg_acc – [degE5] Heading / track uncertainty
                         static_cast<uint16_t>(g_attitude.heading * 100.0f) // yaw (cdeg 단위로 변환)
                     );
-                    WIFI::dispatch_mavlink_msg(&msg);
+                    send_mavlink_msg(&msg);
             }
             break;
         }
@@ -697,7 +702,7 @@ void Mavlink::on_timer_tick()
                     static_cast<int16_t>(m_gps.velE),
                     static_cast<int16_t>(m_gps.velD),
                     static_cast<int16_t>(g_attitude.heading * 100.0f));
-                    WIFI::dispatch_mavlink_msg(&msg);
+                    send_mavlink_msg(&msg);
             }
             break;
         }

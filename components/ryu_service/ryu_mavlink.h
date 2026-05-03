@@ -23,6 +23,7 @@ class Mavlink{
             return *instance;
         }  
         void send_status_text(const char *text, uint8_t severity = MAV_SEVERITY_INFO);
+        void send_mavlink_msg(mavlink_message_t *msg);
         void send_mav_command_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid);
         void handle_mavlink_message(mavlink_message_t *msg);
 

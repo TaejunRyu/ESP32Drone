@@ -45,8 +45,16 @@ void app_main(void) {
 	
     watch_dog_initialize();
   
-    WIFI::init_wifi();
-    WIFI::init_esp_now();         // ESP-NOW 초기화 (송수신)
+
+    auto& espnow = Service::EspNow::get_instance();
+    espnow.initialize();
+
+    auto mac_addr = espnow.get_my_mac_address();
+    ESP_LOGI(MAINTAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
+                mac_addr[0], mac_addr[1], mac_addr[2],
+                mac_addr[3], mac_addr[4], mac_addr[5]);
+    //WIFI::init_wifi();
+    //WIFI::init_esp_now();         // ESP-NOW 초기화 (송수신)
         
     {// 배터리 체크 ADC 초기화
         Driver::Battery::get_instance().initialize();
@@ -180,10 +188,7 @@ void app_main(void) {
         Driver::Motor::get_instance().stop_all_motors();
         
 
-        auto mac_addr = WIFI::get_my_mac_address();
-        ESP_LOGE(MAINTAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
-                 mac_addr[0], mac_addr[1], mac_addr[2],
-                 mac_addr[3], mac_addr[4], mac_addr[5]);
+        
 
         // 무한 대기 (리부팅 필요)
         while (true) {
@@ -199,14 +204,14 @@ void app_main(void) {
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
 
-    WIFI::mavlink_tx_queue      = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
-    TELEM::mavlink_rx_queue     = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
+    //WIFI::mavlink_tx_queue      = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
+    TELEM::mavlink_rx_queue     = xQueueCreate(Service::EspNow::MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
 
     auto& mavlink =  Service::Mavlink::get_instance();
     mavlink.initialize();
 
-    // 2. 송신 Task 생성 (우선순위를 높게 설정)
-    xTaskCreatePinnedToCore(WIFI::mavlink_tx_task, "mavlink_tx_task", 4096, NULL, 15, NULL, 0);
+    // 0. espnow tx task
+    espnow.start_task();
 
     auto& flysky = Service::Flysky::get_instance();
     flysky.start_task();
@@ -239,7 +244,7 @@ void app_main(void) {
     ESP_LOGI(MAINTAG, "✅ All Processes is passed... Flight ready!");
     
     // 콜백이 등록되어야지 데이터가 들어온다.
-    WIFI::connect_callback();
+    espnow.connect_callback();
     
     {// Timer service 초기화
         auto& timer = Service::Timer::get_instance();

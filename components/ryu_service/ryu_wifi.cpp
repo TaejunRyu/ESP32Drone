@@ -6,16 +6,38 @@
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
 
-namespace WIFI
+namespace Service
 {   
 
-static const char *TAG = "WIFI";    
+const char* EspNow::TAG = "EspNow";
+EspNow::EspNow()
+    :mavlink_tx_queue(nullptr),_initialized(false)
+{
 
-esp_now_peer_info_t peer_info = {}; 
+}
+EspNow::~EspNow()
+{
+}
+void EspNow::initialize()
+{
+    if(_initialized) return;
+    
+    current_rssi = 0;
+    noise_floor  = 0;
+    
+    peer_info = {}; 
+    
+    bridge_mac[0] = 0x1C;
+    bridge_mac[1] = 0xDB; 
+    bridge_mac[2] = 0xD4; 
+    bridge_mac[3] = 0xAE; 
+    bridge_mac[4] = 0x82;
+    bridge_mac[5] = 0x04;
 
-//ESP-NOW 전용
-void init_wifi(){
-  // NVS 초기화
+    mavlink_tx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(mav_tx_packet_t));
+
+    //-----------WIFI 초기화----------
+    // NVS 초기화
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         nvs_flash_erase();
@@ -38,11 +60,9 @@ void init_wifi(){
     ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
     ESP_LOGI(TAG, "WiFi STA 모드 초기화 완료, 채널: %d", ESPNOW_CHANNEL);
-}
 
-// ESP-NOW 전용 (ESP-NOW 초기화)
-void init_esp_now(void) {
-    // ESP-NOW 초기화
+
+    // -----------ESP-NOW 초기화-----------
     ESP_ERROR_CHECK(esp_now_init());
 
     // Bridge peer 등록
@@ -75,68 +95,18 @@ void init_esp_now(void) {
                  bridge_mac[0], bridge_mac[1], bridge_mac[2],
                  bridge_mac[3], bridge_mac[4], bridge_mac[5]);    
     ESP_LOGI(TAG, "ESP-NOW 초기화 완료");
-}
-
-void connect_callback(){
-    //callback 함수가 데이터를 받아서 mavlink의 데이터 처리를 하기 때문에 콜백함수를 반드시 등록해야함.
-    esp_err_t err = esp_now_register_recv_cb(on_esp_now_recv);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "recv callback 등록 실패: %s", esp_err_to_name(err));
-    }
-    err = esp_now_register_send_cb(on_esp_now_send);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "send callback 등록 실패: %s", esp_err_to_name(err));
-    }
-}
-
-int8_t current_rssi = 0;
-int8_t noise_floor = 0;
-
-
-/**
- * @brief QGC raw(1000 단위) -> 퍼센트(100 단위) -> i-BUS(1000~2000) 통합 변환
- */
-uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
-    float percent;
-    uint16_t ibus_val;
-
-    if (is_throttle) {
-        // 1. 0~1000 -> 0~100 매핑
-        percent = raw_val / 10.0f;
-        if (percent < 0) percent = 0;
-        if (percent > 100) percent = 100;
-
-        // 2. 0~100 -> 1000~2000 변환
-        ibus_val = (uint16_t)(percent * 10.0f) + 1000;
-    } else {
-        // 1. -1000~1000 -> -100~100 매핑
-        percent = raw_val / 10.0f;
-        if (percent < -100) percent = -100;
-        if (percent > 100) percent = 100;
-
-        // 2. -100~100 -> 1000~2000 변환 (0점 1500)
-        ibus_val = (uint16_t)(percent * 5.0f) + 1500;
-    }
-
-    return ibus_val;
+    _initialized = true;
 }
 
 
+void EspNow::on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len)
+{
+if (len <= 0 || data == nullptr || recv_info == nullptr) return;
 
-/**
- * @brief 
- *      이 call back 에서 esp-now로 오는 데이터를 telemetry task로 보냄.... * 
- * @param recv_info 
- * @param data 
- * @param len 
- */
-void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len) {
-    if (len <= 0 || data == nullptr || recv_info == nullptr) return;
-
-
+    auto& espnow = Service::EspNow::get_instance();
     // 실시간 정보를 구해서 bridge로 보낸다.
-    current_rssi = recv_info->rx_ctrl->rssi;
-    noise_floor  = recv_info->rx_ctrl->noise_floor;
+    espnow.current_rssi = recv_info->rx_ctrl->rssi;
+    espnow.noise_floor  = recv_info->rx_ctrl->noise_floor;
 
     // 7,8,9번째 바이트가 메시지 ID(109)인지 확인 (Little Endian)
     // [ 00000000 ] [ data[9] ] [ data[8] ] [ data[7] ] (총 32비트 중 24비트 사용)
@@ -155,10 +125,10 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
         
         //flysky의 ppm_values 에 데이터를 넣어  똑같은 진행으로 처리한다.
 
-        g_rc.roll       = map_qgc_to_ibus_final(roll,false);
-        g_rc.pitch      = map_qgc_to_ibus_final(pitch,false);
-        g_rc.throttle   = map_qgc_to_ibus_final(throttle,true);
-        g_rc.yaw        = map_qgc_to_ibus_final(yaw,false);
+        g_rc.roll       = espnow.map_qgc_to_ibus_final(roll,false);
+        g_rc.pitch      = espnow.map_qgc_to_ibus_final(pitch,false);
+        g_rc.throttle   = espnow.map_qgc_to_ibus_final(throttle,true);
+        g_rc.yaw        = espnow.map_qgc_to_ibus_final(yaw,false);
         g_rc.aux1       = button; 
     
         //*********************************************************************************************************8 */
@@ -182,11 +152,11 @@ void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, 
                 // ESP_LOGW("ESP_NOW", "RX Queue Full"); 
             }
         }
-    }
-   
+    }    
 }
 
-void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status) {
+void EspNow::on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status)
+{
     if(status == ESP_NOW_SEND_SUCCESS){
         // 성공시 
     }else{
@@ -195,7 +165,21 @@ void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t stat
     //ESP_LOGI(TAG, "Send status=%s", status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
 }
 
-esp_err_t send_esp_now(const uint8_t *data, size_t len) {
+void EspNow::connect_callback()
+{
+    //callback 함수가 데이터를 받아서 mavlink의 데이터 처리를 하기 때문에 콜백함수를 반드시 등록해야함.
+    esp_err_t err = esp_now_register_recv_cb(on_esp_now_recv);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "recv callback 등록 실패: %s", esp_err_to_name(err));
+    }
+    err = esp_now_register_send_cb(on_esp_now_send);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "send callback 등록 실패: %s", esp_err_to_name(err));
+    }
+}
+
+esp_err_t EspNow::send_esp_now(const uint8_t *data, size_t len)
+{
     if (data == nullptr || len == 0) 
         return ESP_ERR_INVALID_ARG;
     
@@ -223,74 +207,8 @@ esp_err_t send_esp_now(const uint8_t *data, size_t len) {
     return err;
 }
 
-
-/**
- * @brief espnow로 데이터 전송시 재시도 루틴 esp_now_send()을 대신하여 재시도를 할수 있도록 처리
- * 
- * @param mac_addr 
- * @param data 
- * @param len 
- * @return esp_err_t 
- */
-esp_err_t esp_now_send_retry(const uint8_t *mac_addr, const uint8_t *data, size_t len) {
-    const int max_attempts = 5;
-    esp_err_t err = ESP_FAIL;
-    for (int i = 0; i < max_attempts; i++) {
-        err = esp_now_send(mac_addr, data, len);
-        if (err == ESP_OK) {
-            if (i > 0) {
-                ESP_LOGI(TAG, "ESP-NOW 전송 성공 (재시도 %d/%d 후)", i + 1, max_attempts);
-            }
-            return ESP_OK;
-        }
-        if (err != ESP_ERR_ESPNOW_NO_MEM && err != ESP_ERR_NO_MEM) {
-            break;
-        }
-        vTaskDelay(pdMS_TO_TICKS(1 + i * 1));
-    }
-    ESP_LOGE(TAG, "ESP-NOW 전송 최종 실패: %s (최대 %d회 재시도)", esp_err_to_name(err), max_attempts);
-    return err;
-}
-
-
-
-QueueHandle_t mavlink_tx_queue = NULL;
-void mavlink_tx_task(void *pvParameters) {
-    mav_tx_packet_t tx_pkt;
-    if(mavlink_tx_queue ==NULL) return;
-
-    while (true) {
-        // 큐에서 데이터 대기 (데이터가 올 때까지 Blocked 상태로 CPU 점유 0)
-        if (xQueueReceive(mavlink_tx_queue, &tx_pkt, portMAX_DELAY) == pdPASS) {
-            // 2. 정상 전송
-            // ESP_OK : succeed - 
-            // ESP_ERR_ESPNOW_NOT_INIT : ESPNOW is not initialized - 
-            // ESP_ERR_ESPNOW_ARG : invalid argument - 
-            // ESP_ERR_ESPNOW_INTERNAL : internal error - 
-            // ESP_ERR_ESPNOW_NO_MEM : out of memory, when this happens, you can delay a while before sending the next data - 
-            // ESP_ERR_ESPNOW_NOT_FOUND : peer is not found - 
-            // ESP_ERR_ESPNOW_IF : current Wi-Fi interface doesn't match that of peer - 
-            // ESP_ERR_ESPNOW_CHAN: current Wi-Fi channel doesn't match that of peer
-            esp_err_t result = esp_now_send(WIFI::bridge_mac, tx_pkt.buffer, tx_pkt.len);
-            if(result == ESP_ERR_ESPNOW_NO_MEM){
-                // 버퍼가 찰 때까지 너무 빨리 보낸 것이므로 잠시 쉬어줍니다.
-                vTaskDelay(pdMS_TO_TICKS(1)); 
-                // 재시도 로직 실행
-                esp_now_send(WIFI::bridge_mac, tx_pkt.buffer, tx_pkt.len);
-            } else if (result != ESP_OK) {
-                // 그 외 에러는 기록 후 패킷 폐기 (무한 루프 방지)
-                ESP_LOGD(TAG, "Send failed: %s", esp_err_to_name(result));
-            }
-        }
-    }
-}
-
-
-/**
- * @brief 모든 MAVLink 메시지 송신의 유일한 통로
- * @param msg 구성이 완료된 mavlink_message_t 구조체
- */
-void dispatch_mavlink_msg(mavlink_message_t *msg) {
+void EspNow::dispatch_mavlink_msg(mavlink_message_t *msg)
+{
     if ( mavlink_tx_queue == NULL){
         return;
     }
@@ -307,13 +225,82 @@ void dispatch_mavlink_msg(mavlink_message_t *msg) {
     }
 }
 
-std::array<uint8_t,6> get_my_mac_address(void){
+std::array<uint8_t, 6> EspNow::get_my_mac_address(void)
+{
     std::array<uint8_t, 6> mac;
     // std::array의 내부 배열 주소를 직접 넘겨줌 (.data() 사용)
     esp_read_mac(mac.data(), ESP_MAC_WIFI_STA);
     return mac;
 }
 
+/**
+ * @brief QGC raw(1000 단위) -> 퍼센트(100 단위) -> i-BUS(1000~2000) 통합 변환
+ */
+uint16_t EspNow::map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
+    float percent;
+    uint16_t ibus_val;
 
-} //namespace WIFI
+    if (is_throttle) {
+        // 1. 0~1000 -> 0~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
 
+        // 2. 0~100 -> 1000~2000 변환
+        ibus_val = (uint16_t)(percent * 10.0f) + 1000;
+    } else {
+        // 1. -1000~1000 -> -100~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < -100) percent = -100;
+        if (percent > 100) percent = 100;
+
+        // 2. -100~100 -> 1000~2000 변환 (0점 1500)
+        ibus_val = (uint16_t)(percent * 5.0f) + 1500;
+    }
+
+    return ibus_val;
+}
+
+
+
+void EspNow::mavlink_tx_task(void *pvParameters)
+{
+    auto espnow = static_cast<Service::EspNow*>(pvParameters);
+
+    mav_tx_packet_t tx_pkt;
+    if(espnow->mavlink_tx_queue ==NULL) return;
+
+    while (true) {
+        // 큐에서 데이터 대기 (데이터가 올 때까지 Blocked 상태로 CPU 점유 0)
+        if (xQueueReceive(espnow->mavlink_tx_queue, &tx_pkt, portMAX_DELAY) == pdPASS) {
+            // 2. 정상 전송
+            // ESP_OK : succeed - 
+            // ESP_ERR_ESPNOW_NOT_INIT : ESPNOW is not initialized - 
+            // ESP_ERR_ESPNOW_ARG : invalid argument - 
+            // ESP_ERR_ESPNOW_INTERNAL : internal error - 
+            // ESP_ERR_ESPNOW_NO_MEM : out of memory, when this happens, you can delay a while before sending the next data - 
+            // ESP_ERR_ESPNOW_NOT_FOUND : peer is not found - 
+            // ESP_ERR_ESPNOW_IF : current Wi-Fi interface doesn't match that of peer - 
+            // ESP_ERR_ESPNOW_CHAN: current Wi-Fi channel doesn't match that of peer
+            esp_err_t result = esp_now_send(espnow->bridge_mac, tx_pkt.buffer, tx_pkt.len);
+            if(result == ESP_ERR_ESPNOW_NO_MEM){
+                // 버퍼가 찰 때까지 너무 빨리 보낸 것이므로 잠시 쉬어줍니다.
+                vTaskDelay(pdMS_TO_TICKS(1)); 
+                // 재시도 로직 실행
+                esp_now_send(espnow->bridge_mac, tx_pkt.buffer, tx_pkt.len);
+            } else if (result != ESP_OK) {
+                // 그 외 에러는 기록 후 패킷 폐기 (무한 루프 방지)
+                ESP_LOGD(TAG, "Send failed: %s", esp_err_to_name(result));
+            }
+        }
+    }    
+}
+
+void EspNow::start_task()
+{
+    auto res = xTaskCreatePinnedToCore(mavlink_tx_task, "mavlink_tx_task", 4096, this, 15,nullptr, 0);
+    if (res != pdPASS) ESP_LOGE(TAG, "❌ 0.ESP TX Task is Failed! code: %d", res);
+    else ESP_LOGI(TAG, "✓ 0.ESP TX Task is passed... ");
+}
+
+} // namespace WIFI
