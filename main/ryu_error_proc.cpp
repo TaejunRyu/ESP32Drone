@@ -7,6 +7,8 @@
 #include "ryu_bmp388.h"
 #include "ryu_servo.h"
 #include "ryu_buzzer.h"
+#include "ryu_config.h"
+
 namespace ERR{
 
 // 태스크 핸들 (Core 0의 에러 태스크를 지칭)
@@ -51,7 +53,7 @@ void error_manager_task(void *pvParameters) {
                 if (ret != ESP_OK){
                     SERVO::stop_all_motors();
                     while(true){
-                        BUZZ::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
+                        Driver::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
                     }
                 }
                 printf("⚠️ WARNING: IMU/MAG/BARO Not Working Detected!\n");
@@ -59,7 +61,7 @@ void error_manager_task(void *pvParameters) {
 
             // 2. 조종기 신호 상실 처리
             if (notifiedValue & ERR_RC_LOST) {
-                BUZZ::Buzzer::get_instance().sound_emergency();
+                Driver::Buzzer::get_instance().sound_emergency();
                 g_sys.error_hold_mode = false;                
                 // Telemetry로 경고 전송 및 로그 저장 로직
                 //save_error_to_nvs("RC_LOST");
@@ -68,13 +70,13 @@ void error_manager_task(void *pvParameters) {
 
             // 3. 배터리 저전압 처리
             if (notifiedValue & ERR_BATTERY_LOW) {
-                BUZZ::Buzzer::get_instance().sound_low_battery();
+                Driver::Buzzer::get_instance().sound_low_battery();
                 printf("⚠️ WARNING: Low Battery Detected!\n");
             }
             
             // 4. GPS TIMEOUT
             if (notifiedValue & ERR_GPS_TIMEOUT) {
-                //BUZZ::sound_emergency();
+                //Driver::sound_emergency();
                 g_sys.error_hold_mode = false;                
                 printf(" {(%lld): ⚠️ WARNING: Gps Timeout Detected!\n",esp_timer_get_time());
             }

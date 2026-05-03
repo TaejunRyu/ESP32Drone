@@ -2,10 +2,9 @@
 
 #include <driver/ledc.h>
 #include <freertos/FreeRTOS.h>
-#include <freertos/task.h>
-#include "ryu_config.h"
+#include <esp_log.h>
 
-namespace BUZZ
+namespace Driver
 {
 
 const char* Buzzer::TAG = "BUZZER";
@@ -38,7 +37,7 @@ void Buzzer::initialize()
     ledc_timer_config(&ledc_timer);
 
     ledc_channel_config_t ledc_channel = {};
-    ledc_channel.gpio_num       = BUZZ::Buzzer::BUZZER_GPIO;
+    ledc_channel.gpio_num       = Driver::Buzzer::BUZZER_GPIO;
     ledc_channel.speed_mode     = LEDC_LOW_SPEED_MODE;
     ledc_channel.channel        = LEDC_CHANNEL_0;
     ledc_channel.intr_type      = LEDC_INTR_DISABLE;

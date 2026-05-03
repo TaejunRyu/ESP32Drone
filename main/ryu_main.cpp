@@ -31,8 +31,8 @@ void app_main(void) {
         gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화
         gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // 출력 모드로 설정
         // buzzer 초기화및 fc의 시작을 알린다.
-        BUZZ::Buzzer::get_instance().initialize();
-        BUZZ::Buzzer::get_instance().sound_system_start();
+        Driver::Buzzer::get_instance().initialize();
+        Driver::Buzzer::get_instance().sound_system_start();
         gpio_set_level(GPIO_NUM_2,1);
     }
     
@@ -199,7 +199,7 @@ void app_main(void) {
             static bool blink_led = false;
             gpio_set_level(GPIO_NUM_2,(blink_led = !blink_led));
             vTaskDelay(pdMS_TO_TICKS(100));
-            BUZZ::Buzzer::get_instance().sound_error();
+            Driver::Buzzer::get_instance().sound_error();
         }
     }
     

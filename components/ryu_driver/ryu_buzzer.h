@@ -3,8 +3,9 @@
 #include <stdint.h>
 #include <driver/gpio.h>
 
-namespace BUZZ{
+namespace Driver{
 
+    
 class Buzzer{
 private:
     Buzzer();
