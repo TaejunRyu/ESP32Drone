@@ -16,7 +16,7 @@ idf_component_register(
                 bootloader_support  esp_pm              freertos
                 esp_system          lwip                mavlink
                 ryu_sensor          ryu_config          ryu_driver
-                ryu_controller
+                ryu_controller      ryu_service
                 
     PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
 )

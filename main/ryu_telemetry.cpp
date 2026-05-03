@@ -3,6 +3,7 @@
 #include <esp_log.h>
 #include <c_library_v2/common/mavlink.h>
 #include "ryu_mavlink.h"
+#include "ryu_wifi.h"
 
 
 
@@ -15,6 +16,10 @@ QueueHandle_t mavlink_rx_queue = NULL;
 static mavlink_status_t status;
 
 void telemetry_task(void *pv) {
+
+    auto& mavlink =  Service::Mavlink::get_instance();
+//    mavlink.initialize();
+
     mavlink_message_t msg;
     TELEM::esp_now_data_t pkt;
     
@@ -24,7 +29,7 @@ void telemetry_task(void *pv) {
             for (int i = 0; i < pkt.len; ++i) {
                 if (mavlink_parse_char(MAVLINK_COMM_2, pkt.data[i], &msg, &status)) {
                     //printf("msgid : %4d msgseq: %4d sysid: %4d compid : %4d\n",msg.msgid,msg.seq,msg.sysid,msg.compid);
-                    MAV::handle_mavlink_message(&msg);
+                    mavlink.handle_mavlink_message(&msg);
                 }
             }
 

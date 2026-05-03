@@ -2,6 +2,7 @@
 
 #include <tuple>
 #include <freertos/FreeRTOS.h>
+#include <esp_timer.h>
 #include "ryu_i2c.h"
 
 namespace Sensor{

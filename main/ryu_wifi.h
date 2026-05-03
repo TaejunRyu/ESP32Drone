@@ -1,15 +1,13 @@
 #pragma once
-
-#include <esp_wifi.h>
 #include <esp_event.h>
 #include <nvs_flash.h>
 #include <esp_log.h>
 #include <lwip/sockets.h>
-#include <esp_wifi.h>
 #include <esp_now.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h> 
 #include <c_library_v2/common/mavlink.h>
+#include <esp_wifi.h>
 
 #include "ryu_config.h"
 

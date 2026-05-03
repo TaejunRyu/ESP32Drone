@@ -14,7 +14,8 @@
 #include "ryu_timer.h"
 #include "ryu_flight_task.h"
 #include "ryu_bmp388.h"
-
+#include "ryu_mavlink.h"
+#include "ryu_wifi.h"
 
 
 static const char *MAINTAG = "MAIN";
@@ -47,10 +48,9 @@ void app_main(void) {
     WIFI::init_esp_now();         // ESP-NOW 초기화 (송수신)
         
     {// 배터리 체크 ADC 초기화
-        BATT::initialize();
+        Driver::Battery::get_instance().initialize();
 	}
-
-
+    
     {// ========== [1단계] I2C 버스 생성 ==========
 		Driver::I2C::get_instance().initialize(); 
 		if(Driver::I2C::get_instance().get_bus_handle() == nullptr)
@@ -99,18 +99,6 @@ void app_main(void) {
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
     
-
-    // 주소 체크 및 센서 연결 상태 확인을 위해 I2C 버스 스캔 함수를 호출합니다.
-    //I2C::scan_bus(i2c_handle);                 
-
-    // ========== TASK 시작전에 기타 확인할 정보 처리 구간 ==========
-    // 지자계 센서의 하드아이언 보정 (중요)
-    // BUZZ::sound_processing();
-    // AK09916::calibrate_hard_iron(mag_handle[1]); 
-    // BUZZ::sound_success();
-    // while(true)(vTaskDelay(pdMS_TO_TICKS(1000)));
-
-
     {// 기압계센서를 초기화하고 현재 위치의 기압을 체크한다.(나중에 상대 고도의 기준이 되는 값.)
         ret_code = Sensor::BMP388::Main().initialize();
         if (ret_code !=ESP_OK){
@@ -202,7 +190,11 @@ void app_main(void) {
             Driver::Buzzer::get_instance().sound_error();
         }
     }
+
+    auto& mavlink =  Service::Mavlink::get_instance();
+    mavlink.initialize();
     
+
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
 
@@ -224,7 +216,8 @@ void app_main(void) {
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 3.Telemetry Task is failed! code: %d", res);
     else ESP_LOGI(MAINTAG, "✓ 3.Telemetry task is passed...");
     
-    res= xTaskCreatePinnedToCore(BATT::battery_check_task, "Battery", 4096, NULL, 10, NULL, 0);
+    auto& bat = Driver::Battery::get_instance();
+    res= xTaskCreatePinnedToCore(Driver::Battery::battery_check_task, "Battery", 4096, &bat, 10, NULL, 0);
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 4.Battery Check Task is failed! code: %d", res);
     else ESP_LOGI(MAINTAG, "✓ 4.Battery Task is passed...");
     
@@ -247,8 +240,13 @@ void app_main(void) {
     
     // 콜백이 등록되어야지 데이터가 들어온다.
     WIFI::connect_callback();
-    TIMER::setupTimer();
-
+    
+    {// Timer service 초기화
+        auto& timer = Service::Timer::get_instance();
+        timer.intiallize();
+        timer.Start();
+    }
+    
     while (true) {
         static bool led_state = false;
         gpio_set_level(GPIO_NUM_2, (led_state = !led_state));

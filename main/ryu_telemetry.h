@@ -7,15 +7,13 @@ Heartbeat (1Hz): 20번에 한 번 (10번 슬롯)
 #pragma once
 #include <freertos/FreeRTOS.h>
 #include <freertos/queue.h>
-#include "ryu_config.h"
-#include "ryu_wifi.h"
 
 
 namespace TELEM
 {
 
 typedef struct {
-    uint8_t data[WIFI::ESP_NOW_MAX_LEN];
+    uint8_t data[290];
     size_t len;
 } esp_now_data_t;
 

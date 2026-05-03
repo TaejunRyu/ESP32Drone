@@ -8,17 +8,19 @@
  *            get_battery_voltage() 출력값과 차이가 있다면 이 값을 소수점 단위로 미세 조정(예: 11.12f)하여 캘리브레이션하세요.
  * 
  */
-namespace BATT
+namespace Driver
 {
-// 저항 분배 수식 (10k / 1k 기준)
-// 현재 VOLTAGE_DIVIDER_RATIO = 11.0f (10k / 1k)를 사용 중이신데, 실제 저항의 오차(1% 등)에 따라 실제 측정값이 다를 수 있습니다.
-inline constexpr float VOLTAGE_DIVIDER_RATIO  = 11.0f;
+const char* Battery::TAG ="Baterry" ;
 
-adc_oneshot_unit_handle_t adc_unit_handle = NULL;
-adc_cali_handle_t adc_cali_handle = NULL;
-bool do_calibration = false;
+Battery::Battery():_initialized(false)
+{
+}
 
-void initialize(void) {
+Battery::~Battery()
+{
+}
+void Battery::initialize()
+{
     // 1. ADC 유닛 초기화
     adc_oneshot_unit_init_cfg_t init_config = {};
     init_config.unit_id = ADC_UNIT_1;
@@ -45,30 +47,8 @@ void initialize(void) {
     }
 }
 
-float get_battery_voltage(void) {
-    int adc_raw = 0;
-    int voltage_mv = 0;
-
-    // 1. Raw 값 읽기
-    adc_oneshot_read(adc_unit_handle, BATTERY_ADC_CH, &adc_raw);
-
-    // [추가] Zero-cut 로직: Raw가 0이면 보정 수식 무시하고 0V 반환
-    if (adc_raw == 0) {
-        return 0.0f;
-    }
-    // 2. 보정 적용 (Raw가 0이 아닐 때만 실행)
-    if (do_calibration && adc_cali_handle != NULL) {
-        adc_cali_raw_to_voltage(adc_cali_handle, adc_raw, &voltage_mv);
-    } else {
-        voltage_mv = (adc_raw * 3113) / 4095; // 3.3V 연결 시 확인한 3113mV 기준
-    }
-    //printf("DEBUG: Raw=%d, mV=%d\n", adc_raw, voltage_mv);
-    // 3. 실제 전압 복원 (11.0배)
-    return (voltage_mv / 1000.0f) * VOLTAGE_DIVIDER_RATIO;
-}
-
-// 예시: 10번 읽어서 평균 내기
-float get_avg_battery_voltage(void) {
+float Battery::get_battery_voltage()
+{
     int adc_raw = 0;
     int voltage_mv = 0;
     int adc_raw_sum = 0;
@@ -93,15 +73,12 @@ float get_avg_battery_voltage(void) {
     return (voltage_mv / 1000.0f) * VOLTAGE_DIVIDER_RATIO;
 }
 
-/**
- * @brief 주의사항: get_battery_voltage()에서 0V가 나올 때는 배터리가 없는 상태일 수 있으니, 
- *        voltage > 0.5f 처럼 배터리 연결 여부를 먼저 확인하는 조건문을 넣는 것이 좋습니다.
- * 
- * @param pvParameters 
- */
-void battery_check_task(void* pvParameters) {
+void Battery::battery_check_task(void *pvParameters)
+{
+    Battery* bat = static_cast<Battery*>(pvParameters);
+
     while (true) {
-        float voltage = get_battery_voltage();
+        float voltage = bat->get_battery_voltage();
         // 예: 1셀당 3.5V 미만일 때 (3S 배터리 기준 10.5V)
         if (voltage > 0.5f && voltage < 10.5f) { 
             // 에러 핸들러 태스크에 '저전압 비트' 세팅
@@ -110,5 +87,4 @@ void battery_check_task(void* pvParameters) {
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1초마다 확인
     }
 }
-
 }

@@ -211,12 +211,5 @@ void check_safe_drop(double cur_lat, double cur_lon, float cur_alt) {
 
 
 
-//         // // 비행 제어 루프 내부 (예: 20ms 주기)
-//         // float current_alt = get_lpf_altitude();
-
-//         // if (is_target_reached && current_alt <= 4.0f && current_alt >= 2.0f) {
-//         //     // 필터링된 고도가 2m~4m 사이일 때만 안전하게 투하
-//         //     execute_drop();
-//         // }
 
 }

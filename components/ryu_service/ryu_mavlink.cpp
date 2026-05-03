@@ -3,6 +3,8 @@
 #include <cmath>   // float, double용 std::abs
 #include <ranges>
 #include <string_view>
+#include <freertos/FreeRTOS.h>  // FreeRTOS 기본 설정 및 정의
+#include <freertos/timers.h>    // 소프트웨어 타이머 API 전용 헤더
 #include <driver/uart.h>
 #include <lwip/sockets.h>
 #include <esp_timer.h>
@@ -12,43 +14,26 @@
 #include "ryu_wifi.h"
 #include "ryu_buzzer.h"
 #include "ryu_config.h"
+#include "ryu_timer.h"
+#include "ryu_gps.h"
+#include "ryu_battery.h"
+#include "ryu_flight_task.h"
 
-/**
- * @brief MAVLink 메시지 전송 함수
- * 
- * @param msg 
- * @return * void 
- */
+namespace Service{
 
-namespace MAV{
+const char* Mavlink::TAG = "Mavlink";
 
-static const char *TAG = "MAVLINK";    
-
-inline void send_mav_command_ack(  uint16_t command, 
-                uint8_t result,
-                uint8_t progress, 
-                int32_t result_param2,
-                uint8_t target_sysid,
-                uint8_t target_compid) {
-    mavlink_message_t msg;
-    mavlink_msg_command_ack_pack(
-                    SYSTEM_ID, COMPONENT_ID,    // FC의 System/Component ID
-                    &msg,
-                    command,                    // 응답할 명령 번호 
-                    result,                     // 결과 (MAV_RESULT_ACCEPTED)
-                    progress, result_param2,    // Progress, Result_param2
-                    target_sysid, target_compid // Target System/Component (GCS의 ID)
-    );
-    WIFI::dispatch_mavlink_msg(&msg);
+Mavlink::Mavlink()
+    :_initialized(false)
+{
+    ESP_LOGI(TAG,"Initializing TimerService...");
+}
+Mavlink::~Mavlink()
+{
 }
 
-// QGC(Mission Planner 포함)는 STATUSTEXT 메시지가 수신되면 설정에 따라 이를 화면에 표시하고 영문/국문 음성으로 읽어줍니다.
-// 사용 예시
-// 1. 시스템 시작 시   : send_status_text("Bridge Started!", MAV_SEVERITY_INFO);
-// 2. 드론 연결 시     : send_status_text("Drone Connected", MAV_SEVERITY_NOTICE);
-// 3. 심각한 에러 발생 시: send_status_text("Queue Full! Data Loss", MAV_SEVERITY_ALERT);
-
-void send_status_text(const char* text, uint8_t severity) {
+void Mavlink::send_status_text(const char *text, uint8_t severity)
+{
     mavlink_message_t msg;
     char buf[50] = {};
     strncpy(buf, text, sizeof(buf) - 1);
@@ -63,12 +48,22 @@ void send_status_text(const char* text, uint8_t severity) {
     WIFI::dispatch_mavlink_msg(&msg);
 }
 
-/**
- * @brief telemetry에서 데이터를 받으면 분석하여 각 msg/command별로 나누어서 실행한다.
- * 
- * @param msg 
- */
-void handle_mavlink_message(mavlink_message_t *msg) {
+void Mavlink::send_mav_command_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid)
+{
+    mavlink_message_t msg;
+    mavlink_msg_command_ack_pack(
+                    SYSTEM_ID, COMPONENT_ID,    // FC의 System/Component ID
+                    &msg,
+                    command,                    // 응답할 명령 번호 
+                    result,                     // 결과 (MAV_RESULT_ACCEPTED)
+                    progress, result_param2,    // Progress, Result_param2
+                    target_sysid, target_compid // Target System/Component (GCS의 ID)
+    );
+    WIFI::dispatch_mavlink_msg(&msg);
+}
+
+void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
+{
     const mavlink_message_info_t *ret_msg= mavlink_get_message_info_by_id(msg->msgid);    
     
     switch (msg->msgid) {      
@@ -333,14 +328,14 @@ void handle_mavlink_message(mavlink_message_t *msg) {
         default:{            
            //ESP_LOGI(TAG, "SWITCH default msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
         }
-    }
+    }    
 }
 
 
 
 // telemetry_task에서 시동 상태에 따라 시스템 상태를 관리하는 로직이 이미 구현되어 있기 때문에, 
 // 여기서는 시동 상태만 업데이트하고 ACK만 보내도록 수정합니다.
-void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
+void Mavlink::MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid); 
     //시동이 자동으로 꺼지니 일단 막아놓는다.
     if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
@@ -360,7 +355,7 @@ void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_l
 // Param 6	Longitude	이륙 지점의 경도 (Target Longitude). 0이면 현재 위치를 사용합니다.
 // Param 7	Altitude	이륙 목표 고도 (단위: 미터, m). 지면으로부터의 상대 고도(Relative Altitude)를 의미합니다.
 // 각 파라메터의 값에 따라 takeoff시에 고도를 얼마에 유지하면 안정적인 상황에서 대기 상태를 유지할 수 있을지 결정하는데 사용됩니다.
-void MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd){    
+void Mavlink::MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd){    
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);    
     // float tmp_yaw = cmd.param4; // yaw 각도 (deg)
     // float tmp_lat = cmd.param5; // 위도 (deg)
@@ -372,7 +367,7 @@ void MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd
 }
 
 
-void MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
+void Mavlink::MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     if (cmd.param1 == 1){
         // Param 1이 1이면 현재 센서(GPS) 위치를 홈으로 설정
@@ -393,7 +388,7 @@ void MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd
     
 }
 
-void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
+void Mavlink::MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
 
     // 1. ACK 패킹 및 전송
@@ -421,7 +416,7 @@ void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink
 }
 
 //QGC에서 MESSAGE : 76 , Command : 512 
-void MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_command_long_t cmd)  
+void Mavlink::MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_command_long_t cmd)  
 {
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     uint32_t requested_id = static_cast<uint32_t>(cmd.param1);
@@ -452,7 +447,7 @@ void MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_command_long_t
     
 }
 
-void MAV_CMD_PREFLIGHT_CALIBRATION_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
+void Mavlink::MAV_CMD_PREFLIGHT_CALIBRATION_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     bool calibrate_gyro   = (cmd.param1 == 1.0f);
     bool calibrate_mag    = (cmd.param2 == 1.0f);
     bool calibrate_level  = (cmd.param3 == 1.0f);
@@ -471,7 +466,7 @@ void MAV_CMD_PREFLIGHT_CALIBRATION_func(mavlink_message_t *msg, mavlink_command_
 
 
 
-void MAV_CMD_SET_MESSAGE_INTERVAL_func(mavlink_message_t *msg, mavlink_command_long_t cmd) {
+void Mavlink::MAV_CMD_SET_MESSAGE_INTERVAL_func(mavlink_message_t *msg, mavlink_command_long_t cmd) {
     // Param 1: 메시지 ID (예: MAVLINK_MSG_ID_ATTITUDE 등)
     // Param 2: 전송 간격 (마이크로초, us 단위)
     // -1: 전송 중지
@@ -510,7 +505,7 @@ void MAV_CMD_SET_MESSAGE_INTERVAL_func(mavlink_message_t *msg, mavlink_command_l
     }
 }
 
-void MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
+void Mavlink::MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     mavlink_message_t ack_msg;
     mavlink_msg_protocol_version_pack(
@@ -525,4 +520,203 @@ void MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_comma
     );
     WIFI::dispatch_mavlink_msg(&ack_msg);
 }
+
+
+
+void Mavlink::on_timer_tick()
+{
+    //auto& mavlink = Service::Mavlink::get_instance();
+
+    static uint8_t step = 0;
+    mavlink_message_t msg;
+    // 10hz로 구분하고 있으므로 매번 처리...
+    mavlink_msg_attitude_pack(SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000, 
+                                                -g_attitude.roll   * DEG_TO_RAD, 
+                                                -g_attitude.pitch  * DEG_TO_RAD, 
+                                                g_attitude.yaw    * DEG_TO_RAD, 
+                                                g_attitude.rollspeed    * DEG_TO_RAD, 
+                                                g_attitude.pitchspeed   * DEG_TO_RAD, 
+                                                g_attitude.yawspeed     * DEG_TO_RAD );
+    WIFI::dispatch_mavlink_msg(&msg);
+
+    static gps_data_t m_gps={};
+    static uint32_t last_itow = 0;     // 마지막으로 전송한 iTOW 저장
+
+    // {
+    //     // 1. RC 채널 데이터 가상 생성 (1000~2000 사이의 값)
+    //     uint16_t channels[18] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500, 
+    //                             UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
+    //                             UINT16_MAX, UINT16_MAX, UINT16_MAX, UINT16_MAX, 
+    //                             UINT16_MAX, UINT16_MAX};
+    //     // 2. 메시지 패키징 (ID: 65)
+    //     // time_boot_ms: 부팅 후 시간, chancount: 채널수, rssi: 신호세기(0~255)
+    //     // mavlink_msg_rc_channels_raw_pack(
+    //     //     SYSTEM_ID,      // System ID (드론 ID, 보통 1)
+    //     //     COMPONENT_ID,      // Component ID (보통 1: Autopilot)
+    //     //     &msg, 
+    //     //     esp_log_timestamp(), // time_boot_ms
+    //     //     0,                   // chancount (8채널 사용)
+    //     //     channels[0], channels[1], channels[2], channels[3], 
+    //     //     channels[4], channels[5], channels[6], channels[7],                    
+    //     //     100                  // RSSI (신호 세기 0~255)
+    //     // );
+    //     mavlink_msg_rc_channels_pack(
+    //         SYSTEM_ID,      // System ID (드론 ID, 보통 1)
+    //         COMPONENT_ID,      // Component ID (보통 1: Autopilot)
+    //         &msg, 
+    //         esp_log_timestamp(), // time_boot_ms
+    //         8,                   // chancount (8채널 사용)
+    //         channels[0], channels[1], channels[2], channels[3], 
+    //         channels[4], channels[5], channels[6], channels[7],
+    //         channels[8], channels[9], channels[10], channels[11],
+    //         channels[12], channels[13], channels[14], channels[15],
+    //         channels[16], channels[17],
+    //         200                  // RSSI (신호 세기 0~255)
+    //     );
+    //     WIFI::dispatch_mavlink_msg(&msg);
+    //     //break;                        
+    // }
+
+    
+    switch(step){
+        case 1: case 8: case 9:{
+            // g_gps 공동 변수에서 읽어와 사용한다.
+            // 정확한 데이터 보장이 필요하기 때문에 시간별 다름을 없애는 목적......
+            // gps시간이 다르면 복사하고 아니면 이전 데이터 사용
+            if (xSemaphoreTake(GPS::xGpsMutex, 0 )== pdTRUE) {
+                if (g_gps.iTOW != last_itow){
+                    m_gps       = g_gps;
+                    last_itow   = g_gps.iTOW;         
+                    m_gps.last_update_tick = xTaskGetTickCount();      
+                }
+                xSemaphoreGive(GPS::xGpsMutex);
+            }
+        }
+    }
+
+    switch (step) {
+        case 0:{ // 하트비트 전송
+            mavlink_msg_heartbeat_pack(SYSTEM_ID, COMPONENT_ID,&msg, 
+                                        MAV_TYPE_QUADROTOR, 
+                                        //MAV_AUTOPILOT_GENERIC,
+                                        MAV_AUTOPILOT_PX4,
+                                        g_heartbeat.base_mode,  
+                                        g_heartbeat.custom_mode, 
+                                        g_sys.system_status);
+            WIFI::dispatch_mavlink_msg(&msg);
+            break;
+        }
+        case 3:{ // 시스템 상태 전송 (배터리, 전압 등)
+            uint32_t sensors_present = 
+                        MAV_SYS_STATUS_SENSOR_3D_ACCEL | 
+                        MAV_SYS_STATUS_SENSOR_3D_ACCEL2 | // 두 번째 IMU 가속도
+                        MAV_SYS_STATUS_SENSOR_3D_GYRO |
+                        MAV_SYS_STATUS_SENSOR_3D_GYRO2 |
+                        MAV_SYS_STATUS_SENSOR_3D_MAG |
+                        MAV_SYS_STATUS_SENSOR_3D_MAG2| 
+                        MAV_SYS_STATUS_SENSOR_ABSOLUTE_PRESSURE  |
+                        MAV_SYS_STATUS_SENSOR_DIFFERENTIAL_PRESSURE|
+                        MAV_SYS_STATUS_AHRS|
+                        MAV_SYS_STATUS_SENSOR_BATTERY|
+                        MAV_SYS_STATUS_SENSOR_RC_RECEIVER
+                        ;   // 두 번째 IMU 자이로
+            uint32_t sensors_enabled = sensors_present; // 모두 활성화됨
+            uint32_t sensors_health  = sensors_present;  // 모두 정상(Healthy)
+
+            // 1. CPU Load 계산 (0 ~ 1000 사이의 값으로 변환)
+            // 로그상 1700us / 2500us 라면 약 680이 됨
+            uint16_t load = (uint16_t)((FLIGHT::total_us * 1000) / FLIGHT::INTERVAL_US);
+            
+            auto& bat = Driver::Battery::get_instance();
+            // 2. 배터리 가짜 데이터 (12.6V, 10.5A, 85% 잔량)
+            uint16_t battery_voltage = (uint16_t)(bat.get_battery_voltage() * 1000.0f); //mv
+            int16_t current_battery = 1050;   // [10mA 단위, 즉 10.5A]
+            int8_t battery_remaining = 85;    // [%]
+            uint16_t comms_drop_rate = 0;     // 통신 패킷 드랍률 (0.01% 단위)
+            uint16_t comms_errors = 0;        // 통신 에러 횟수
+            
+            // 시스템 상태 패킷 구성 예시
+            mavlink_msg_sys_status_pack(
+                SYSTEM_ID, COMPONENT_ID, &msg, 
+                sensors_present, sensors_enabled, sensors_health,         // 센서 상태 비트마스크
+                load,        // CPU Load (0~1000)
+                battery_voltage, current_battery, battery_remaining, 
+                comms_drop_rate, comms_errors, 0, 0, 0, 0,0,0,0
+            );
+            WIFI::dispatch_mavlink_msg(&msg);
+            break;
+        }    
+        case 6:{ // 라디오 상태 전송 (RSSI, Noise)
+             mavlink_msg_radio_status_pack_chan(
+                            SYSTEM_ID, COMPONENT_ID,MAVLINK_COMM_1, &msg, 
+                            WIFI::current_rssi, // 드론이 받은 브릿지의  신호
+                            0,0, WIFI::noise_floor, 0, 0, 0);
+            WIFI::dispatch_mavlink_msg(&msg);
+            break;
+        }
+        case 9:{ // gps 정보 
+            if (m_gps.home_alt > -9000.0f && m_gps.fixType >= 3) {
+                mavlink_msg_gps_raw_int_pack(
+                        SYSTEM_ID, COMPONENT_ID, &msg, 
+                        esp_timer_get_time() / 1000,               
+                        m_gps.fixType,                              // 실제 Fix 타입을 그대로 전달 (0~4)                     
+                        static_cast<int32_t>(m_gps.lat * 1e7),      // 위도
+                        static_cast<int32_t>(m_gps.lon * 1e7),      // 경도
+                        static_cast<int32_t>(m_gps.hMSL), // 해발 고도 (MSL, mm)
+                        static_cast<uint16_t>(m_gps.pDOP),          
+                        static_cast<uint16_t>(m_gps.pDOP),          // VDOP 대신 pDOP 사용 가능
+                        static_cast<uint16_t>(m_gps.gSpeed),        // 지표속도
+                        static_cast<uint16_t>(m_gps.headMot),       // 이동방향
+                        static_cast<uint8_t>(m_gps.sats),           // 위성수
+                        static_cast<int32_t>(m_gps.height),         // alt_ellipsoid (mm 단위 그대로)
+                        m_gps.hAcc,                                 // 수평 정확도 (mm)
+                        m_gps.vAcc,                                 // 수직 정확도 (mm)
+                        m_gps.sAcc,                                 // 속도 정확도 (mm/s)
+                        0,                                          // hdg_acc – [degE5] Heading / track uncertainty
+                        static_cast<uint16_t>(g_attitude.heading * 100.0f) // yaw (cdeg 단위로 변환)
+                    );
+                    WIFI::dispatch_mavlink_msg(&msg);
+            }
+            break;
+        }
+        case 1: case 8:{
+            if (m_gps.home_alt > -9000.0f && m_gps.fixType >= 3) {
+                //현재고도
+                int32_t alt_msl = static_cast<int32_t>(m_gps.hMSL );
+                
+                // 상대 고도 (Relative) mm 단위
+                int32_t alt_rel = static_cast<int32_t>((m_gps.hMSL - m_gps.home_alt) );
+                
+                mavlink_msg_global_position_int_pack(
+                    SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000,
+                    static_cast<int32_t>(m_gps.lat * 1e7), 
+                    static_cast<int32_t>(m_gps.lon * 1e7),
+                    static_cast<int32_t>(alt_msl),      // 해수면 고도
+                    static_cast<int32_t>(alt_rel),      // 이것은 기압계로 측정한 고도 => g_baro.filtered_altitude * 1000.0f),
+                    static_cast<int16_t>(m_gps.velN),   // 단위(cm/s) gps에서 데이터를 받아 처리 VGT문장에서 받으면 된다.
+                    static_cast<int16_t>(m_gps.velE),
+                    static_cast<int16_t>(m_gps.velD),
+                    static_cast<int16_t>(g_attitude.heading * 100.0f));
+                    WIFI::dispatch_mavlink_msg(&msg);
+            }
+            break;
+        }
+        case 2:
+        case 4:
+        case 5:
+        case 7:
+            break;
+    }
+    // 0 -> 1 -> 2 순환
+    step = (step + 1) % 10;
+}
+
+void Mavlink::initialize()
+{
+    auto& timer = Service::Timer::get_instance();
+    timer.set_timer_callback([this](){on_timer_tick();});
+    _initialized = true;
+    ESP_LOGI(TAG,"MavlinkService initiaizeed.");
+}
+
 } // namespace MAV
