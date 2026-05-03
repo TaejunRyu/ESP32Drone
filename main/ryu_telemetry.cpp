@@ -12,22 +12,21 @@ namespace TELEM
 
  static const char *TAG = "TELEMETRY";
    
-QueueHandle_t mavlink_rx_queue = NULL;
+
 static mavlink_status_t status;
 
 void telemetry_task(void *pv) {
 
     auto& mavlink =  Service::Mavlink::get_instance();
-//    mavlink.initialize();
 
     mavlink_message_t msg;
-    TELEM::esp_now_data_t pkt;
+    Service::EspNow::esp_now_data_t pkt;
     
     while (true) 
     {
-        if (xQueueReceive(mavlink_rx_queue, &pkt, portMAX_DELAY)) {                
+        if (xQueueReceive(Service::EspNow::get_instance().mavlink_rx_queue, &pkt, portMAX_DELAY)) {                
             for (int i = 0; i < pkt.len; ++i) {
-                if (mavlink_parse_char(MAVLINK_COMM_2, pkt.data[i], &msg, &status)) {
+                if (mavlink_parse_char(MAVLINK_COMM_2, pkt.buffer[i], &msg, &status)) {
                     //printf("msgid : %4d msgseq: %4d sysid: %4d compid : %4d\n",msg.msgid,msg.seq,msg.sysid,msg.compid);
                     mavlink.handle_mavlink_message(&msg);
                 }

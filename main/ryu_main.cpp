@@ -204,9 +204,6 @@ void app_main(void) {
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
 
-    //WIFI::mavlink_tx_queue      = xQueueCreate(WIFI::MAVLINK_TX_QUEUE_SIZE, sizeof(WIFI::mav_tx_packet_t));
-    TELEM::mavlink_rx_queue     = xQueueCreate(Service::EspNow::MAVLINK_TX_QUEUE_SIZE , sizeof(TELEM::esp_now_data_t));
-
     auto& mavlink =  Service::Mavlink::get_instance();
     mavlink.initialize();
 

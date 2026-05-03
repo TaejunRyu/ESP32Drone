@@ -12,13 +12,6 @@ Heartbeat (1Hz): 20번에 한 번 (10번 슬롯)
 namespace TELEM
 {
 
-typedef struct {
-    uint8_t data[290];
-    size_t len;
-} esp_now_data_t;
-
-extern QueueHandle_t mavlink_rx_queue;
-
 extern void initialize();
 extern void telemetry_task(void *pv);
 }

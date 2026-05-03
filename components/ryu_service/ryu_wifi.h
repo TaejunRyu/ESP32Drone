@@ -40,10 +40,14 @@ class  EspNow{
         typedef struct {
             uint8_t buffer[290]; // MAVLink 2.0 최대 크기 대응
             uint16_t len;
-        } mav_tx_packet_t;
+        } esp_now_data_t; 
+        
 
         int8_t current_rssi;
         int8_t noise_floor;
+        
+        QueueHandle_t mavlink_tx_queue;
+        QueueHandle_t mavlink_rx_queue; 
 
         void initialize();
 
@@ -59,7 +63,7 @@ class  EspNow{
         
 
     private:
-        QueueHandle_t mavlink_tx_queue;
+        
         uint8_t bridge_mac[6] = {};
         esp_now_peer_info_t peer_info = {}; 
         bool _initialized;

@@ -11,7 +11,7 @@ namespace Service
 
 const char* EspNow::TAG = "EspNow";
 EspNow::EspNow()
-    :mavlink_tx_queue(nullptr),_initialized(false)
+    :mavlink_tx_queue(nullptr),mavlink_rx_queue(nullptr),_initialized(false)
 {
 
 }
@@ -34,7 +34,8 @@ void EspNow::initialize()
     bridge_mac[4] = 0x82;
     bridge_mac[5] = 0x04;
 
-    mavlink_tx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(mav_tx_packet_t));
+    mavlink_tx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(esp_now_data_t));
+    mavlink_rx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(esp_now_data_t));
 
     //-----------WIFI 초기화----------
     // NVS 초기화
@@ -140,14 +141,14 @@ if (len <= 0 || data == nullptr || recv_info == nullptr) return;
         //                 g_rc.aux1);
 
     } else {
-        if (TELEM::mavlink_rx_queue != NULL) {
-            TELEM::esp_now_data_t pkt;
+        if (espnow.mavlink_rx_queue != NULL) {
+            Service::EspNow::esp_now_data_t pkt;
             pkt.len = len;
             // 실제 수신된 'data'를 pkt.data로 복사해야 함!
-            memcpy(pkt.data, data, len); 
+            memcpy(pkt.buffer, data, len); 
 
             // 큐에 넣기 (ISR이 아니므로 xQueueSend 사용 가능, 대기시간 0)
-            if (xQueueSend(TELEM::mavlink_rx_queue, &pkt, 0) != pdTRUE) {
+            if (xQueueSend(espnow.mavlink_rx_queue, &pkt, 0) != pdTRUE) {
                 // 큐가 꽉 차서 버려지는 경우만 로그 출력
                 // ESP_LOGW("ESP_NOW", "RX Queue Full"); 
             }
@@ -212,7 +213,7 @@ void EspNow::dispatch_mavlink_msg(mavlink_message_t *msg)
     if ( mavlink_tx_queue == NULL){
         return;
     }
-    mav_tx_packet_t pkt;
+    esp_now_data_t pkt;
     pkt.len = mavlink_msg_to_send_buffer(pkt.buffer, msg);
 
     // ISR(콜백) 여부에 따른 안전한 큐 삽입
@@ -267,7 +268,7 @@ void EspNow::mavlink_tx_task(void *pvParameters)
 {
     auto espnow = static_cast<Service::EspNow*>(pvParameters);
 
-    mav_tx_packet_t tx_pkt;
+    esp_now_data_t tx_pkt;
     if(espnow->mavlink_tx_queue ==NULL) return;
 
     while (true) {
