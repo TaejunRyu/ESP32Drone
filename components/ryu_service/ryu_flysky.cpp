@@ -25,15 +25,15 @@ Flysky::Flysky(){
 }
 Flysky::~Flysky(){}
 
-void Flysky::initialize()
+esp_err_t Flysky::initialize()
 {
-    if (_initialized) return;
+    if (_initialized) return ESP_OK;
 
     mcpwm_capture_timer_config_t timer_config = {};
     timer_config.group_id = 0;
     timer_config.clk_src = MCPWM_CAPTURE_CLK_SRC_DEFAULT;
 
-    mcpwm_new_capture_timer(&timer_config, &_cap_timer);
+    ESP_ERROR_CHECK(mcpwm_new_capture_timer(&timer_config, &_cap_timer));
 
     mcpwm_cap_channel_handle_t cap_chan = NULL;
     mcpwm_capture_channel_config_t chan_config = {};
@@ -42,18 +42,19 @@ void Flysky::initialize()
     chan_config.flags.pos_edge = false;
     chan_config.flags.neg_edge = true;
  
-    mcpwm_new_capture_channel(_cap_timer, &chan_config, &cap_chan);
+    ESP_ERROR_CHECK(mcpwm_new_capture_channel(_cap_timer, &chan_config, &cap_chan));
 
     mcpwm_capture_event_callbacks_t cbs = {};
     cbs.on_cap = ppm_capture_callback;
 
-    mcpwm_capture_channel_register_event_callbacks(cap_chan, &cbs, this);
-    mcpwm_capture_channel_enable(cap_chan);
-    mcpwm_capture_timer_enable(_cap_timer);
-    mcpwm_capture_timer_start(_cap_timer);
+    ESP_ERROR_CHECK(mcpwm_capture_channel_register_event_callbacks(cap_chan, &cbs, this));
+    ESP_ERROR_CHECK(mcpwm_capture_channel_enable(cap_chan));
+    ESP_ERROR_CHECK(mcpwm_capture_timer_enable(_cap_timer));
+    ESP_ERROR_CHECK(mcpwm_capture_timer_start(_cap_timer));
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
 }
 
 void Flysky::flysky_task(void *pvParameters)
@@ -78,7 +79,7 @@ void Flysky::flysky_task(void *pvParameters)
         if(g_sys.is_armed){  // 신호 이상~~~~ 비상~~~~~~
             if (local_ppm[0] < 800 || local_ppm[0] > 2200){
                 auto& failsafe = Service::FailSafe::get_instance();
-                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
+                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
             }
         }
 

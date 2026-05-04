@@ -17,12 +17,13 @@ Telemetry::Telemetry(){
 Telemetry::~Telemetry(){
 }
 
-void Telemetry::initialize()
+esp_err_t Telemetry::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;
     //
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
 }
 
 void Telemetry::telemetry_task(void *pv)
@@ -61,7 +62,7 @@ void Telemetry::telemetry_task(void *pv)
 
 void Telemetry::start_task()
 {
-    auto res = xTaskCreatePinnedToCore(telemetry_task, "telemetry", 8192, this, 15, NULL, 0);
+    auto res = xTaskCreatePinnedToCore(telemetry_task, "telemetry", 8192, this, 15,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 3.Telemetry Task is failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 3.Telemetry task is passed...");
 }

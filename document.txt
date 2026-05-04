@@ -1,3 +1,36 @@
+namespace Controller{
+    class PID;
+    class Flight
+}
+
+namespace Driver{
+    class Battery;
+    class Buzzer;
+    class I2C;
+    class Motor;
+}
+
+namespace Sensor{
+    class AK09916;
+    class BMP388;
+    class ICM20948;
+    class IST8310;
+    class Gps;
+}
+
+namespace Service{
+    class FailSafe;
+    class Flysky;
+    class Mahony;
+    class Mavlink;
+    class ParamMgr;
+    class Telemetry;
+    class Timer;
+    class Espnow;
+}
+
+
+
     esp_log_level_set("*", ESP_LOG_NONE);   //(0): 로그 끔
     // esp_log_level_set("*", ESP_LOG_ERROR);  //(1): 치명적 오류만 출력
     // esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력

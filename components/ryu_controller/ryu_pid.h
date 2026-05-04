@@ -1,4 +1,6 @@
 #pragma once
+
+#include <esp_err.h>
 /*
  * PID 제어 관련 함수와 변수 선언
  * PID 상수는 paramtable_ryu.h의 파라미터 테이블에서 불러오도록 설계되어 있습니다.
@@ -45,7 +47,7 @@ class PID{
         float run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is_yaw);
         float run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt);
         void  sync_pid_from_params();
-        void  initialize();
+        esp_err_t  initialize();
 
         drone_pid_t pid_alt_pos {};     //목표고도유지 
         drone_pid_t pid_alt_rate {};    //상승/하강 속도제어

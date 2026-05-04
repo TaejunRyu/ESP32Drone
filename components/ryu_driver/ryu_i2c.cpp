@@ -18,10 +18,10 @@ I2C::~I2C()
     deinitialize();
 }
 
-i2c_master_bus_handle_t I2C::initialize()
+esp_err_t I2C::initialize()
 {        
     if(_initialized){
-        return _bus_handle;
+        return ESP_OK;
     }
 
     i2c_master_bus_config_t bus_cfg = {};
@@ -40,12 +40,12 @@ i2c_master_bus_handle_t I2C::initialize()
     if (ret != ESP_OK)
     {
         ESP_LOGI(TAG, "Initialize Failed.");
-        return nullptr; // 실패 시 NULL 반환
+        return ret; // 실패 시 NULL 반환
     }
 
     _initialized = true;
     ESP_LOGI(TAG, "Initialized successfully.");
-    return _bus_handle; // 생성된 핸들 반환
+    return ret; // 생성된 핸들 반환
     
 }
 

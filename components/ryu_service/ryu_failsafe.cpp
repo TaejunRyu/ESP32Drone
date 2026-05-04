@@ -22,12 +22,13 @@ FailSafe::FailSafe(){
 
 FailSafe::~FailSafe(){}
 
-void FailSafe::initialize()
+esp_err_t FailSafe::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;
     //
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
 }
 
 esp_err_t FailSafe::reinit_all_sensors()
@@ -157,7 +158,7 @@ void FailSafe::failsafe_manager_task(void * pvParameters)
 
 void FailSafe::start_task()
 {
-    auto res= xTaskCreatePinnedToCore(failsafe_manager_task, "failsafe_manager_task", 4096, this, 10, &xErrorHandle, 0);
+    auto res= xTaskCreatePinnedToCore(failsafe_manager_task, "failsafe_manager_task", 4096, this, 10,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 5.Error Check Task is failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 5.Error Check Task is passed...");
 }

@@ -37,7 +37,7 @@ class AK09916{
         static inline constexpr float MAG_OFFSET_Z =   -170.50f;
 
         void deinitialize();
-        i2c_master_dev_handle_t initialize();
+        esp_err_t initialize();
         std::tuple<esp_err_t, std::array<float, 3>> read_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset(); 
         std::tuple<esp_err_t,uint8_t> ready_data();

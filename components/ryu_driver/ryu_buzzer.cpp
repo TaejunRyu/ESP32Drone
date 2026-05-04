@@ -19,10 +19,10 @@ Buzzer::~Buzzer(){
 }
 
 
-void Buzzer::initialize()
+esp_err_t Buzzer::initialize()
 {
     if (_initialized) {
-        return;
+        return ESP_OK;
     }
     ledc_timer_config_t ledc_timer = {};
     ledc_timer.speed_mode       = LEDC_LOW_SPEED_MODE;
@@ -31,8 +31,10 @@ void Buzzer::initialize()
     ledc_timer.freq_hz          = 2000;  // 초기 주파수 2kHz
     ledc_timer.clk_cfg          = LEDC_AUTO_CLK;
     
-    ledc_timer_config(&ledc_timer);
-
+    esp_err_t err =ledc_timer_config(&ledc_timer);
+    if (err != ESP_OK){
+        return err;
+    }
     ledc_channel_config_t ledc_channel = {};
     ledc_channel.gpio_num       = Driver::Buzzer::BUZZER_GPIO;
     ledc_channel.speed_mode     = LEDC_LOW_SPEED_MODE;
@@ -42,9 +44,13 @@ void Buzzer::initialize()
     ledc_channel.duty           = 0; // 처음엔 소리 안 나게
     ledc_channel.hpoint         = 0;
 
-    ledc_channel_config(&ledc_channel);
+    err = ledc_channel_config(&ledc_channel);
+    if (err != ESP_OK){
+        return err;
+    }
     ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
+    return err;
 }
 
 void Buzzer::deinitialize()

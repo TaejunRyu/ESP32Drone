@@ -24,7 +24,7 @@ public:
 
     static inline constexpr gpio_num_t BUZZER_GPIO = GPIO_NUM_14;  // 부저가 연결된 GPIO 번호
  
-    void initialize();
+    esp_err_t initialize();
     void deinitialize();
     void play_tone(uint32_t freq_hz, uint32_t duration_ms);
     void sound_success();

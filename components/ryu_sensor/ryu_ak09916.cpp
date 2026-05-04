@@ -33,10 +33,10 @@ void AK09916::deinitialize()
     ESP_LOGI(TAG, "deinitialzed.");
 }
 
-i2c_master_dev_handle_t AK09916::initialize()
+esp_err_t AK09916::initialize()
 {
     if(_initialized){
-        return _dev_handle;
+        return ESP_OK;
     } 
     _bus_handle = Driver::I2C::get_instance().get_bus_handle();
 
@@ -45,33 +45,41 @@ i2c_master_dev_handle_t AK09916::initialize()
     mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     mag_cfg.device_address  = ADDR;
     mag_cfg.scl_speed_hz    = Driver::I2C::I2C_SPEED;;
-
-    if (i2c_master_bus_add_device(_bus_handle, &mag_cfg, &_dev_handle) != ESP_OK) {
+    esp_err_t err = i2c_master_bus_add_device(_bus_handle, &mag_cfg, &_dev_handle);
+    if (err != ESP_OK) {
         ESP_LOGE(TAG, "Bus 추가 실패");
-        return nullptr;
+        return err;
     }
 
     // 3. WHO_AM_I 확인 (AK09916의 ID는 0x09)
     uint8_t who_reg = WHO_AM_I;
     uint8_t who_val = 0;
-    i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    if (err != ESP_OK) {
+        return err;
+    }
     
     if (who_val != 0x09) {
         ESP_LOGE(TAG, "Connection failed! ID: 0x%02X (Expected value: 0x09)", who_val);
-        return nullptr;
+        return err;
     }
     //4. AK09916 소프트 리셋 및 모드 설정
     uint8_t reset_cmd[] = {CNTL3, 0x01};
-    i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    if (err != ESP_OK) {
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(50));
 
     // CNTL2: 0x08 (Continuous measurement mode 4 - 100Hz)
     uint8_t mode_cmd[] = {CNTL2, 0x08}; 
-    i2c_master_transmit(_dev_handle, mode_cmd, 2, pdMS_TO_TICKS(100));
-    
+    err = i2c_master_transmit(_dev_handle, mode_cmd, 2, pdMS_TO_TICKS(100));
+    if (err != ESP_OK) {
+        return err;
+    }    
     _initialized = true;
     ESP_LOGI(TAG, "Initialized successfully. (ID: 0x09)");
-    return _dev_handle;
+    return err;
 }
 
 std::tuple<esp_err_t, std::array<float, 3>> AK09916::read_data()

@@ -41,7 +41,7 @@ class ICM20948{
         void icm20948_select_bank(uint8_t bank);
         esp_err_t enable_mag_bypass();
         void calibrate();
-        i2c_master_dev_handle_t initialize();
+        esp_err_t initialize();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();
 

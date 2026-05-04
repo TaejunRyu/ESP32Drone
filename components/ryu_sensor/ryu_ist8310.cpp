@@ -20,65 +20,86 @@ IST8310::~IST8310()
 }
 
 
-i2c_master_dev_handle_t IST8310::initialize()
+esp_err_t IST8310::initialize()
 {
-
     this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
-
 
     i2c_device_config_t mag_cfg = {};
     mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     mag_cfg.device_address  = ADDR; // 스캔 결과 확인된 주소
     mag_cfg.scl_speed_hz    = Driver::I2C::I2C_SPEED;;
 
-    if (i2c_master_bus_add_device(this->_bus_handle, &mag_cfg, &_dev_handle) != ESP_OK){
-
-        return nullptr;
+    esp_err_t err = i2c_master_bus_add_device(this->_bus_handle, &mag_cfg, &_dev_handle);
+    if (err != ESP_OK){
+        return err;
     }
 
     // 1. 소프트 리셋 (중요: 리셋 후 반드시 50ms 이상 대기)
     uint8_t reset_cmd[] = {CONTROL2, 0x01}; // CNTL2, Soft Reset
-    i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    if (err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(100));
 
     //2. WHO_AM_I 확인 (정상 연결 체크)
     uint8_t who_reg = 0x00, who_val = 0;
-    i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    if (err != ESP_OK){
+        return err;
+    }
     if (who_val != 0x10) {
         ESP_LOGE(TAG, "연결 실패! ID: 0x%02X (기대값: 0x10)", who_val);
-        return nullptr;
+        return ESP_FAIL;
     }
 
     // 3. 센서 내부 동작 환경 설정 (이 루틴이 없으면 데이터 갱신 안됨)
     // AVGCNTL(0x41): 0x24 (X,Y,Z 모두 16회 평균으로 노이즈 제거)
     uint8_t avg_data[] = {AVGCNTL, 0x24};
-    i2c_master_transmit(_dev_handle, avg_data, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, avg_data, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(50));
 
     // PDCNTL(0x42): 0xC0 (Pulse Duration 권장값)
     uint8_t pd_data[] = {PDCNTL, 0xC0};
-    i2c_master_transmit(_dev_handle, pd_data, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, pd_data, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        return err;
+    }
+
     vTaskDelay(pdMS_TO_TICKS(50));
  
     // CROSS  AXIS 1
     uint8_t mode_cmd_axis1[] = {CROSSAXIS1, 0x01};
-    i2c_master_transmit(_dev_handle, mode_cmd_axis1, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, mode_cmd_axis1, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        return err;
+    }
+
     vTaskDelay(pdMS_TO_TICKS(50));
 
     // CROSS  AXIS 2
     uint8_t mode_cmd_axis2[] = {CROSSAXIS2, 0x01};
-    i2c_master_transmit(_dev_handle, mode_cmd_axis2, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, mode_cmd_axis2, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(50));
 
     // 4. 모드 설정: 100Hz 연속 측정 모드 (CNTL1)
     // 0x08 = 100Hz Continuous Mode
     uint8_t mode_cmd_continuous[] = {CONTROL1, 0x0B};
-    i2c_master_transmit(_dev_handle, mode_cmd_continuous, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, mode_cmd_continuous, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(50));
 
     this->_initialized = true;
     ESP_LOGI(TAG, "Initialized successfully. (ID: 0x10, 100Hz mode)");
-    return _dev_handle;
+    return ESP_OK;
 }
 
 

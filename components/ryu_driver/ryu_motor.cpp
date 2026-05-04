@@ -12,9 +12,9 @@ Motor::Motor(){
     ESP_LOGI(TAG,"Initializing Motor Driver...");
 }
 
-void Motor::initialize()
+esp_err_t Motor::initialize()
 {
-    if (_initialized) return;
+    if (_initialized) return ESP_OK;
 
     // 1. MCPWM 타이머 설정 (예: 50Hz - 서보모터용)
     // 해상도: 1MHz로 설정하여 1틱(tick)당 1마이크로초(1us)가 걸리게 만듭니다.
@@ -27,7 +27,10 @@ void Motor::initialize()
     t_cfg.period_ticks = 20000;                     // 5번째
     t_cfg.intr_priority = 0;                        // (생략 가능하나 순서상 여기)
 
-    mcpwm_new_timer(&t_cfg, &_timer);
+    esp_err_t err = mcpwm_new_timer(&t_cfg, &_timer);
+    if(err != ESP_OK){
+        return err;
+    }
 
     // 2. 오퍼레이터 생성
     // 오퍼레이터는 타이머를 받아 실제 PWM 파형을 어떻게 요리할지 결정하는 단위입니다. 
@@ -37,8 +40,15 @@ void Motor::initialize()
     o_cfg.group_id = 0;
 
     for (int i = 0; i < 3; i++) {
-        mcpwm_new_operator(&o_cfg, &opers[i]);
-        mcpwm_operator_connect_timer(opers[i], _timer);
+        err = mcpwm_new_operator(&o_cfg, &opers[i]);
+        if(err != ESP_OK){
+            return err;
+        }
+
+        err = mcpwm_operator_connect_timer(opers[i], _timer);
+        if(err != ESP_OK){
+            return err;
+        }
     }
 
     // 제너레이터: MOTOR_PINS[i]에 설정된 실제 하드웨어 핀으로 신호를 내보내는 역할을 합니다.
@@ -49,20 +59,40 @@ void Motor::initialize()
         mcpwm_generator_config_t g_cfg ={};
         g_cfg.gen_gpio_num = MOTOR_PINS[i];
 
-        mcpwm_new_generator(opers[i/2], &g_cfg, &gen);
+        err = mcpwm_new_generator(opers[i/2], &g_cfg, &gen);
+        if(err != ESP_OK){
+            return err;
+        }
+
         // 4    . 컴퍼레이터 생성 (듀티 조절용)
         mcpwm_comparator_config_t cmpr_config = {};
         cmpr_config.flags.update_cmp_on_tez = true;
 
-        mcpwm_new_comparator(opers[i/2], &cmpr_config, &_comparators[i]);
+        err = mcpwm_new_comparator(opers[i/2], &cmpr_config, &_comparators[i]);
+        if(err != ESP_OK){
+            return err;
+        }
+
         // 5. 신호 발생 규칙 설정 (비교값에 따라 High/Low 전환) 
         //    이 부분이 PWM 파형의 모양을 결정합니다.
-        mcpwm_generator_set_action_on_timer_event(gen, MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
-        mcpwm_generator_set_action_on_compare_event(gen, MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, _comparators[i], MCPWM_GEN_ACTION_LOW));
+        err = mcpwm_generator_set_action_on_timer_event(gen, MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
+        if(err != ESP_OK){
+            return err;
+        }
+
+        err = mcpwm_generator_set_action_on_compare_event(gen, MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, _comparators[i], MCPWM_GEN_ACTION_LOW));
+        if(err != ESP_OK){
+            return err;
+        }
+
         // 6. 듀티 사이클 설정 및 시작
         // 초기 비교값을 1000으로 잡았습니다. 전체 20,000 중 1,000이므로 5% 듀티 사이클(1ms) 신호가 나갑니다. 
         // 보통 서보모터에서 1ms~1.5ms는 정지 또는 특정 각도를 의미합니다.
-        mcpwm_comparator_set_compare_value(_comparators[i], 1000); // Stop
+        err = mcpwm_comparator_set_compare_value(_comparators[i], 1000); // Stop
+        if(err != ESP_OK){
+            return err;
+        }
+
     }
 
     // 3-서보. 제너레이터 생성 (25번 핀)
@@ -71,26 +101,55 @@ void Motor::initialize()
     s_g_cfg.gen_gpio_num = SERVO_MOTOR_PIN; // 낚시 투하용 핀
     
     // 기존 opers[1] (2번 오퍼레이터)의 남는 자리에 연결하거나 새 오퍼레이터 생성 가능
-    mcpwm_new_generator(opers[2], &s_g_cfg, &_servo_gen); 
+    err = mcpwm_new_generator(opers[2], &s_g_cfg, &_servo_gen); 
+    if(err != ESP_OK){
+        return err;
+    }
+
 
     // 4-서보. 컴퍼레이터 생성
     mcpwm_comparator_config_t s_cmpr_cfg ={};
     s_cmpr_cfg.flags.update_cmp_on_tez = true;
 
-    mcpwm_new_comparator(opers[2], &s_cmpr_cfg, &_servo_comparator);
+    err = mcpwm_new_comparator(opers[2], &s_cmpr_cfg, &_servo_comparator);
+    if(err != ESP_OK){
+        return err;
+    }
+
 
     // 5-서보. 신호 규칙 설정
-    mcpwm_generator_set_action_on_timer_event(_servo_gen, MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
-    mcpwm_generator_set_action_on_compare_event(_servo_gen, MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, _servo_comparator, MCPWM_GEN_ACTION_LOW));
+    err = mcpwm_generator_set_action_on_timer_event(_servo_gen, MCPWM_GEN_TIMER_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, MCPWM_TIMER_EVENT_EMPTY, MCPWM_GEN_ACTION_HIGH));
+    if(err != ESP_OK){
+        return err;
+    }
+
+    err = mcpwm_generator_set_action_on_compare_event(_servo_gen, MCPWM_GEN_COMPARE_EVENT_ACTION(MCPWM_TIMER_DIRECTION_UP, _servo_comparator, MCPWM_GEN_ACTION_LOW));
+    if(err != ESP_OK){
+        return err;
+    }
+
 
     // 6-서보. 초기 각도 설정 (1ms = 잠금 상태)
-    mcpwm_comparator_set_compare_value(_servo_comparator, 1000); 
+    err = mcpwm_comparator_set_compare_value(_servo_comparator, 1000); 
+    if(err != ESP_OK){
+        return err;
+    }
 
-    mcpwm_timer_enable(_timer);
-    mcpwm_timer_start_stop(_timer, MCPWM_TIMER_START_NO_STOP);
 
-    ESP_LOGI(TAG,"Initialized successfully.");
+    err = mcpwm_timer_enable(_timer);
+    if(err != ESP_OK){
+        return err;
+    }
+
+    err = mcpwm_timer_start_stop(_timer, MCPWM_TIMER_START_NO_STOP);
+    if(err != ESP_OK){
+        return err;
+    }
+
+
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
+    return err;
 }
 
 esp_err_t Motor::stop_all_motors()

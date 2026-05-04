@@ -1,7 +1,7 @@
 #pragma once
 #include <math.h>
 #include <algorithm>
-
+#include <esp_err.h>
 namespace Service{
 
 class Mahony{
@@ -28,7 +28,7 @@ class Mahony{
         void calibrate_mahony_initial_attitude(float ax, float ay, float az, float mx, float my, float mz);
         void reset_mahony_integral(void);
 
-        void initialize();
+        esp_err_t initialize();
 
     private:
         //초기 안정화를 빠르게하기 위한 변수

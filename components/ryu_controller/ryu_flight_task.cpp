@@ -48,76 +48,137 @@ Flight::Flight(){
 
 Flight::~Flight(){}
 
-void Flight::initialize()
+esp_err_t Flight::initialize()
 {
-    if(_initialized) return;
-    esp_err_t ret;
+    if(_initialized) return ESP_OK;
+    esp_err_t err;
     auto& espnow        = Service::EspNow::get_instance();
-        espnow.initialize();
+        err = espnow.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& battery       = Driver::Battery::get_instance();
-        battery.initialize();
+        err = battery.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& i2c           = Driver::I2C::get_instance();
-        i2c.initialize();
+        err = i2c.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& icm20948_main = Sensor::ICM20948::Main();
-        icm20948_main.initialize();
-        ret = icm20948_main.enable_mag_bypass();
-        if (ret != ESP_OK)
-            ESP_LOGW(TAG, "ICM20948 main module Bypass mode setting failed!");
-        else
-            ESP_LOGI(TAG, "ICM20948 main module Bypass mode setup complete!");
+        err = icm20948_main.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
 
+        err = icm20948_main.enable_mag_bypass();        
+        if (err != ESP_OK){
+            ESP_LOGW(TAG, "ICM20948 main module Bypass mode setting failed!");
+            return err;
+        }
+        else{
+            ESP_LOGI(TAG, "ICM20948 main module Bypass mode setup complete!");
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& icm20948_sub  = Sensor::ICM20948::Sub();
-        icm20948_sub.initialize();
+        err = icm20948_sub.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& ist8310       = Sensor::IST8310::get_instance();
-        ist8310.initialize();
+        err = ist8310.initialize();
+            if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& ak09916       = Sensor::AK09916::get_instance();
-        ak09916.initialize();
+        err = ak09916.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& bmp388_main   = Sensor::BMP388::Main();
-        bmp388_main.initialize();
+        err = bmp388_main.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& bmp388_sub    = Sensor::BMP388::Sub();
-        bmp388_sub.initialize();
+        err = bmp388_sub.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& mahony        = Service::Mahony::get_instance();
-        mahony.initialize();
+        err = mahony.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& motor         = Driver::Motor::get_instance();
-        motor.initialize();
+        err = motor.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& gps           = Sensor::Gps::get_instance();
-        gps.initialize();
+        err = gps.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& flysky        = Service::Flysky::get_instance();
-        flysky.initialize();
+        err = flysky.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& buzzer        = Driver::Buzzer::get_instance();
-        buzzer.initialize();
+        err = buzzer.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& mavlink       = Service::Mavlink::get_instance();
-        mavlink.initialize();
+        err = mavlink.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& telemetry     = Service::Telemetry::get_instance();
-        telemetry.initialize();
+        err = telemetry.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& pid           = Controller::PID::get_instance();
-        pid.initialize();
+        err = pid.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& failsafe      = Service::FailSafe::get_instance();
-        failsafe.initialize();
+        err = failsafe.initialize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& timer         = Service::Timer::get_instance();
-        timer.intiallize();
+        err = timer.intiallize();
+        if (err != ESP_OK){
+            return err;
+        }
         vTaskDelay(pdMS_TO_TICKS(50));  
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return err;
 }
 
 void Flight::flight_task(void *pvParameters)
@@ -191,7 +252,7 @@ void Flight::flight_task(void *pvParameters)
                 }
             }     
             if (flight->imu_error_cnt ==ERROR_MAX_NUM){
-                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 flight->imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
             }
@@ -245,7 +306,7 @@ void Flight::flight_task(void *pvParameters)
             // 3.치명적 에러 발생 (10회 연속 실패)
             if (flight->mag_error_cnt == ERROR_MAX_NUM) {
                 ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
-                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 flight->mag_error_cnt = ERROR_MAX_NUM+1; // 차단
             }             
@@ -398,7 +459,7 @@ void Flight::flight_task(void *pvParameters)
                 }
                 if (flight->baro_error_cnt == ERROR_MAX_NUM) {
                     ESP_LOGW("BARO", "xTaskNotify()-> sending to signal(ERR_BUS_HANG)");
-                    xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                    xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                     g_sys.error_hold_mode = true;
                     flight->baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
                 }

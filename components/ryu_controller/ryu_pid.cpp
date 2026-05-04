@@ -39,12 +39,13 @@ PID::PID(){
 
 PID::~PID(){}
 
-void PID::initialize()
+esp_err_t PID::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;
     //
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
 }
 
 void PID::reset_pid(drone_pid_t *p)

@@ -28,12 +28,13 @@ class  Telemetry{
             return *instance;
         }  
         
-        void initialize();
+        esp_err_t initialize();
         static void telemetry_task(void *pv);
         void start_task();
 
 
     private:
+        TaskHandle_t _task_handle = nullptr;
         bool _initialized = false;
         static const char* TAG;
 };

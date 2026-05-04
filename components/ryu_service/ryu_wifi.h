@@ -49,11 +49,12 @@ class  EspNow{
         QueueHandle_t mavlink_tx_queue = nullptr;
         QueueHandle_t mavlink_rx_queue = nullptr; 
 
-        void initialize();
+        esp_err_t initialize();
         static void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
         static void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status);
-        void connect_callback();
-        esp_err_t send_esp_now(const uint8_t *data, size_t len);        
+        esp_err_t connect_callback();
+        esp_err_t disconnect_callback();
+        esp_err_t send_esp_now(const uint8_t *data, size_t len);
         void dispatch_mavlink_msg(mavlink_message_t *msg);
         std::array<uint8_t, 6> get_my_mac_address(void);
         uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle);
@@ -62,6 +63,7 @@ class  EspNow{
         
 
     private:
+        TaskHandle_t _task_handle = nullptr;
         // 브리지의 맥 ADDRESS가 바뀌면 이곳을 반드시 수정할것.
         uint8_t bridge_mac[6] = {0x1C,0xDB,0xD4,0xAE,0x82,0x04};
         esp_now_peer_info_t peer_info = {}; 

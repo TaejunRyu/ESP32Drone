@@ -1,6 +1,6 @@
 #pragma once
 #define MAVLINK_USE_MESSAGE_INFO
-
+#include <esp_err.h>
 #include <c_library_v2/common/mavlink.h>
 #include <c_library_v2/mavlink_get_info.h>
 
@@ -39,8 +39,9 @@ class Mavlink{
          
         void on_timer_tick();
      
-        void initialize();
+        esp_err_t initialize();
     private:
+
         bool _initialized = false;
         static const char* TAG;
 

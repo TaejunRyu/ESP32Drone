@@ -5,36 +5,6 @@
 #include <freertos/task.h>
 
 namespace Controller{
-    class PID;
-}
-
-namespace Driver{
-    class Battery;
-    class Buzzer;
-    class I2C;
-    class Motor;
-}
-
-namespace Sensor{
-    class AK09916;
-    class BMP388;
-    class ICM20948;
-    class IST8310;
-    class Gps;
-}
-
-namespace Service{
-    class FailSafe;
-    class Flysky;
-    class Mahony;
-    class Mavlink;
-    class ParamMgr;
-    class Telemetry;
-    class Timer;
-    class Espnow;
-}
-
-namespace Controller{
 
 class  Flight{
     private:
@@ -68,7 +38,7 @@ class  Flight{
 
         uint64_t  total_us  =0;
         
-        void initialize();
+        esp_err_t initialize();
         static void flight_task(void *pvParameters);
         void start_task();
         

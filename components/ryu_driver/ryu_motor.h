@@ -40,7 +40,7 @@ class Motor{
         // 모터 핀 설정 FR, FL, RL, RR
         static inline constexpr int MOTOR_PINS[4] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33}; 
 
-        void initialize();
+        esp_err_t initialize();
         esp_err_t stop_all_motors();
         void set_drop_angle(int angle);
         void update_compare_value(std::array<float,4> values);

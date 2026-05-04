@@ -45,7 +45,7 @@ class Flysky{
         static inline constexpr float     DEADZONE_YAW = 3.0f;
 
 
-        void initialize();
+        esp_err_t initialize();
         static void flysky_task(void *pvParameters);
         static bool ppm_capture_callback( mcpwm_cap_channel_handle_t cap_chan, 
                                              const mcpwm_capture_event_data_t *edata, 
@@ -59,7 +59,7 @@ class Flysky{
         void start_task();
 
     private:
-        TaskHandle_t    _task_handle = nullptr;
+        TaskHandle_t   _task_handle = nullptr;
         int             _current_channel = 0;
         uint32_t        _ppm_values[MAX_CHANNELS]={0,};        
         portMUX_TYPE    _my_spinlock = portMUX_INITIALIZER_UNLOCKED;

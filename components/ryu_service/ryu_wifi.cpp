@@ -14,9 +14,10 @@ EspNow::EspNow(){
     ESP_LOGI(TAG,"Initializing EspNow Service...");
 }
 EspNow::~EspNow(){}
-void EspNow::initialize()
+
+esp_err_t EspNow::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;
     mavlink_tx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(esp_now_data_t));
     mavlink_rx_queue   = xQueueCreate(MAVLINK_RX_QUEUE_SIZE,       sizeof(esp_now_data_t));
 
@@ -58,7 +59,7 @@ void EspNow::initialize()
     esp_err_t add_peer_err = esp_now_add_peer(&peer_info);
     if (add_peer_err != ESP_OK) {
         ESP_LOGE(TAG, "Bridge peer 등록 실패: %s", esp_err_to_name(add_peer_err));
-        return;
+        return add_peer_err;
     }         
     
     // STA(드론 방향)는 드론의 언어인 LR 모드로! (_LR은 독불장군이다. 다른 프로토콜과 같이 사용 못함.)==> (125Kbps ~ 500kbps)
@@ -80,6 +81,7 @@ void EspNow::initialize()
                  bridge_mac[3], bridge_mac[4], bridge_mac[5]);    
     ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
+    return ESP_OK;
 }
 
 
@@ -149,17 +151,34 @@ void EspNow::on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_statu
     //ESP_LOGI(TAG, "Send status=%s", status == ESP_NOW_SEND_SUCCESS ? "OK" : "FAIL");
 }
 
-void EspNow::connect_callback()
+esp_err_t EspNow::connect_callback()
 {
     //callback 함수가 데이터를 받아서 mavlink의 데이터 처리를 하기 때문에 콜백함수를 반드시 등록해야함.
     esp_err_t err = esp_now_register_recv_cb(on_esp_now_recv);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "recv callback 등록 실패: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "recv callback register failed: %s", esp_err_to_name(err));
+        return err;
     }
     err = esp_now_register_send_cb(on_esp_now_send);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG, "send callback 등록 실패: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "send callback register failed: %s", esp_err_to_name(err));
+        return err;
     }
+    return err;
+}
+
+esp_err_t EspNow::disconnect_callback(){
+    esp_err_t err = esp_now_unregister_recv_cb();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "recv callback unregister failed: %s", esp_err_to_name(err));
+        return err;
+    }    
+    err = esp_now_unregister_send_cb();
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "send callback unregister failed: %s", esp_err_to_name(err));
+        return err;
+    }
+    return err;
 }
 
 esp_err_t EspNow::send_esp_now(const uint8_t *data, size_t len)
@@ -193,7 +212,7 @@ esp_err_t EspNow::send_esp_now(const uint8_t *data, size_t len)
 
 void EspNow::dispatch_mavlink_msg(mavlink_message_t *msg)
 {
-    if ( mavlink_tx_queue == NULL){
+    if ( mavlink_tx_queue == nullptr){
         return;
     }
     esp_now_data_t pkt;
@@ -245,8 +264,6 @@ uint16_t EspNow::map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
     return ibus_val;
 }
 
-
-
 void EspNow::mavlink_tx_task(void *pvParameters)
 {
     auto espnow = static_cast<Service::EspNow*>(pvParameters);
@@ -282,7 +299,7 @@ void EspNow::mavlink_tx_task(void *pvParameters)
 
 void EspNow::start_task()
 {
-    auto res = xTaskCreatePinnedToCore(mavlink_tx_task, "mavlink_tx_task", 4096, this, 15,nullptr, 0);
+    auto res = xTaskCreatePinnedToCore(mavlink_tx_task, "mavlink_tx_task", 4096, this, 15,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 0.ESP TX Task is Failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 0.ESP TX Task is passed... ");
 }

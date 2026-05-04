@@ -1,5 +1,7 @@
 #pragma once
 
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 #include <esp_adc/adc_oneshot.h>
 #include <esp_adc/adc_cali.h>
 #include <esp_adc/adc_cali_scheme.h>
@@ -31,13 +33,13 @@ class Battery{
         // 현재 VOLTAGE_DIVIDER_RATIO = 11.0f (10k / 1k)를 사용 중이신데, 실제 저항의 오차(1% 등)에 따라 실제 측정값이 다를 수 있습니다.
         static inline constexpr float          VOLTAGE_DIVIDER_RATIO   = 11.0f;
         // 함수 선언
-        void initialize();
+        esp_err_t initialize();
         float get_battery_voltage();
         static void battery_check_task(void *pvParameters);
         void start_task();
 
     private:
-
+        TaskHandle_t _task_handle = nullptr;
         // 변수 실제 정의
         adc_oneshot_unit_handle_t adc_unit_handle = nullptr;
         adc_cali_handle_t adc_cali_handle = nullptr;

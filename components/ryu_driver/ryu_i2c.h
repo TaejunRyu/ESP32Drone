@@ -27,7 +27,7 @@ class I2C{
 
 
         i2c_master_bus_handle_t get_bus_handle(){return _bus_handle;};
-        i2c_master_bus_handle_t initialize();
+        esp_err_t initialize();
         void deinitialize();
         void scan_bus();
 

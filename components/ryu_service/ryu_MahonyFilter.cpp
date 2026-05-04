@@ -178,13 +178,14 @@ void Mahony::reset_mahony_integral(void)
 
 }
 
-void Mahony::initialize()
+esp_err_t Mahony::initialize()
 {   
-    if (_initialized) return;
+    if (_initialized) return ESP_OK;
     q0 = 1.0f, q1 = 0.0f, q2 = 0.0f, q3 = 0.0f; // 쿼터니언
     integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f; // 적분 오차
     boot_start_time = esp_timer_get_time();// esp_log_timestamp();
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
 }
 }

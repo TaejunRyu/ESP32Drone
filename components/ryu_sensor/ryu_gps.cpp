@@ -17,9 +17,9 @@ Gps::Gps(){
 Gps::~Gps(){
 }
 
-void Gps::initialize()
+esp_err_t  Gps::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;;
     // 1단계: 기본 속도(115200)로 UART 설정
      //ESP_LOGI("GPS", "GPS 초기화 시작..."); // 시작 로그 추가
     uart_config_t gps_cfg = {};
@@ -33,8 +33,15 @@ void Gps::initialize()
     if (uart_is_driver_installed(UART_NUM_1)) {
         uart_driver_delete(UART_NUM_1);
     }
-    uart_driver_install(UART_NUM_1, 2048, 0, 0, NULL, 0);
-    uart_param_config(UART_NUM_1, &gps_cfg);
+    esp_err_t err = uart_driver_install(UART_NUM_1, 2048, 0, 0, NULL, 0);
+    if (err != ESP_OK){
+        return err;
+    }
+    err = uart_param_config(UART_NUM_1, &gps_cfg);
+    if (err != ESP_OK){
+        return err;
+    }
+
     uart_set_pin(UART_NUM_1, GPS_TX, GPS_RX, -1, -1);
     ESP_LOGI("GPS", "Initialized sucessfully.");
 
@@ -42,6 +49,7 @@ void Gps::initialize()
         xGpsMutex = xSemaphoreCreateMutex();
     }
     _initialized = true;
+    return ESP_OK;
 }
 
 Health Gps::check_gps_health(const gps_data_t &m_gps)
@@ -244,7 +252,7 @@ void Gps::gps_ubx_mode_task(void *pvParameters)
 
 void Gps::start_task()
 {
-    auto res = xTaskCreatePinnedToCore(gps_ubx_mode_task, "gps", 4096, this, 5, NULL, 0);
+    auto res = xTaskCreatePinnedToCore(gps_ubx_mode_task, "gps", 4096, this, 5,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 2.Gps Task is Failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 2.Gps Task is passed... ");
 }

@@ -104,7 +104,7 @@ class  Gps{
         gps_data_t share_gps ={};  //< GPS 사용자 데이터>
         Health Gps_status = Health::HEALTHY;
 
-        void initialize();
+        esp_err_t initialize();
         Health check_gps_health(const gps_data_t& m_gps);
         void calculate_ubx_checksum(uint8_t* data, int len, uint8_t* ck_a, uint8_t* ck_b);
         uint8_t checkDataReliability(ubx_nav_pvt_t *pvt);
@@ -112,7 +112,7 @@ class  Gps{
         void start_task();
 
     private:
-
+        TaskHandle_t _task_handle = nullptr;
         bool _initialized = false;
         static const char* TAG;
 };

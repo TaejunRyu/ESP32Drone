@@ -19,9 +19,9 @@ Battery::Battery(){
 Battery::~Battery()
 {
 }
-void Battery::initialize()
+esp_err_t Battery::initialize()
 {
-    if(_initialized) return;
+    if(_initialized) return ESP_OK;
     // 1. ADC 유닛 초기화
     adc_oneshot_unit_init_cfg_t init_config = {};
     init_config.unit_id = ADC_UNIT_1;
@@ -48,6 +48,7 @@ void Battery::initialize()
     }
     ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
+    return ESP_OK;
 }
 
 float Battery::get_battery_voltage()
@@ -86,7 +87,7 @@ void Battery::battery_check_task(void *pvParameters)
         if (voltage > 0.5f && voltage < 10.5f) { 
             // 에러 핸들러 태스크에 '저전압 비트' 세팅
             auto& failsafe = Service::FailSafe::get_instance();
-            xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_BATTERY_LOW, eSetBits);
+            xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_BATTERY_LOW, eSetBits);
         }
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1초마다 확인
     }

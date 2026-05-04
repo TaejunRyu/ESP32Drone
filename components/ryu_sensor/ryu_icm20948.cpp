@@ -19,7 +19,7 @@ void ICM20948::icm20948_select_bank(uint8_t bank)
     _current_bank = bank;
 }
 
-i2c_master_dev_handle_t ICM20948::initialize()
+esp_err_t ICM20948::initialize()
 {
     if(_dev_handle) {
         ESP_LOGI(TAG,"%s Already initialized.",name.c_str());
@@ -29,8 +29,7 @@ i2c_master_dev_handle_t ICM20948::initialize()
         this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
     }
     else{
-        //
-        return nullptr;
+        return ESP_FAIL;
     }
 
 
@@ -41,23 +40,29 @@ i2c_master_dev_handle_t ICM20948::initialize()
 
     
     // 버스에 장치 추가 및 핸들 획득
-    esp_err_t ret = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
-    if (ret != ESP_OK) {
+    esp_err_t err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
+    if (err != ESP_OK) {
         ESP_LOGE(TAG,"%s %s is not add.",name.c_str());
         this->isAlive = false; // 명시적으로 상태 기록
-        return nullptr;
+        return err;
     }
 
     icm20948_select_bank(0);
     
     // 1. Soft Reset
     uint8_t reset_cmd[] = {B0_PWR_MGMT_1, 0x80};
-    i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(100));
+    if(err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(100)); // 리셋 후 대기 필수
 
     // 2. Sleep 해제 및 Auto Clock 선택 (내부 20MHz OSC 사용)
     uint8_t wake_cmd[] = {B0_PWR_MGMT_1, 0x01};
-    i2c_master_transmit(_dev_handle, wake_cmd, 2, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit(_dev_handle, wake_cmd, 2, pdMS_TO_TICKS(100));
+    if(err != ESP_OK){
+        return err;
+    }
     vTaskDelay(pdMS_TO_TICKS(100));
     
     // --- [1. Bank 2로 이동] ---
@@ -73,7 +78,11 @@ i2c_master_dev_handle_t ICM20948::initialize()
        => 0b00011101 (0x1D)
     */
     uint8_t gyro_cfg[] = {B2_GYRO_CONFIG_1, 0x1D};
-    i2c_master_transmit(_dev_handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit(_dev_handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
+    if(err != ESP_OK){
+        return err;
+    }
+
 
     // --- [3. 가속도계 설정: ±8g & DLPF 설정] ---
     /* 
@@ -84,7 +93,10 @@ i2c_master_dev_handle_t ICM20948::initialize()
        => 0b00011101 (0x1D)
     */
     uint8_t accel_cfg[] = {B2_ACCEL_CONFIG, 0x1D};
-    i2c_master_transmit(_dev_handle, accel_cfg, 2, pdMS_TO_TICKS(100));
+    err = i2c_master_transmit(_dev_handle, accel_cfg, 2, pdMS_TO_TICKS(100));
+    if(err != ESP_OK){
+        return err;
+    }
 
     // --- [4. 다시 Bank 0로 복귀 (데이터 읽기 준비)] ---
     icm20948_select_bank(0);
@@ -93,7 +105,7 @@ i2c_master_dev_handle_t ICM20948::initialize()
     _initialized = true;
     this->isAlive = true;
     ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
-    return _dev_handle;
+    return ESP_OK;
 }
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()

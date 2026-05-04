@@ -73,11 +73,11 @@ class  FailSafe{
         static inline constexpr uint32_t  ERR_GPS_SATS_LOW     =  (1 << 7);  // GPS 위성수 부족     (WARNNG)    ==> HOLD_MODE 전환
 
         // 태스크 핸들 (Core 0의 에러 태스크를 지칭)
-        TaskHandle_t xErrorHandle = nullptr;
+        TaskHandle_t _task_handle = nullptr;
         // 시스템 통합 상태 (비트마스크)
         volatile uint32_t g_system_health = 0xFFFFFFFF; // 초기값은 모두 OK
 
-        void initialize();
+        esp_err_t initialize();
         esp_err_t reinit_all_sensors();
         static void failsafe_manager_task(void *pvParameters);
         void start_task();

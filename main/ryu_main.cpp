@@ -2,8 +2,10 @@
 
 #include <esp_task_wdt.h>
 #include <esp_log.h>
+#include <esp_err.h>
 #include "ryu_buzzer.h"
 #include "ryu_motor.h"
+
 
 extern "C" {
 	void app_main(void);
@@ -43,8 +45,12 @@ void app_main(void) {
     }
     
     auto& flight = Controller::Flight::get_instance();
-    flight.initialize();
-    flight.start_task();
+    esp_err_t err = flight.initialize();
+    if (err != ESP_OK){
+        ESP_LOGE(TAG, "Fligth start failed: %s", esp_err_to_name(err));
+    }else{
+        flight.start_task();
+    }
     
     while (true) {
         static bool led_state = false;
