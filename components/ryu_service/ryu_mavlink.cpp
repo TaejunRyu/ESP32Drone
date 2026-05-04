@@ -372,11 +372,12 @@ void Mavlink::MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_l
 
 void Mavlink::MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
+    auto& gps = Sensor::Gps::get_instance();
     if (cmd.param1 == 1){
         // Param 1이 1이면 현재 센서(GPS) 위치를 홈으로 설정
-        qgc_home_pos.lat = g_gps.lat;
-        qgc_home_pos.lon = g_gps.lon;
-        qgc_home_pos.alt = g_gps.alt;
+        qgc_home_pos.lat = gps.share_gps.lat;
+        qgc_home_pos.lon = gps.share_gps.lon;
+        qgc_home_pos.alt = gps.share_gps.alt;
     }
     else
     {
@@ -542,7 +543,7 @@ void Mavlink::on_timer_tick()
                                                 g_attitude.yawspeed     * DEG_TO_RAD );
     send_mavlink_msg(&msg);
 
-    static gps_data_t m_gps={};
+    static Sensor::Gps::gps_data_t m_gps={};
     static uint32_t last_itow = 0;     // 마지막으로 전송한 iTOW 저장
 
     // {
@@ -580,19 +581,21 @@ void Mavlink::on_timer_tick()
     //     //break;                        
     // }
 
-    
+    // 문제가 발생하면 xSemaphoreTake 이 부분일것 같음.
     switch(step){
         case 1: case 8: case 9:{
             // g_gps 공동 변수에서 읽어와 사용한다.
             // 정확한 데이터 보장이 필요하기 때문에 시간별 다름을 없애는 목적......
             // gps시간이 다르면 복사하고 아니면 이전 데이터 사용
-            if (xSemaphoreTake(GPS::xGpsMutex, 0 )== pdTRUE) {
-                if (g_gps.iTOW != last_itow){
-                    m_gps       = g_gps;
-                    last_itow   = g_gps.iTOW;         
+
+            auto& gps = Sensor::Gps::get_instance();
+            if (xSemaphoreTake(gps.xGpsMutex, 0 )== pdTRUE) { 
+                if (gps.share_gps.iTOW != last_itow){
+                    m_gps       = gps.share_gps;
+                    last_itow   = gps.share_gps.iTOW;         
                     m_gps.last_update_tick = xTaskGetTickCount();      
                 }
-                xSemaphoreGive(GPS::xGpsMutex);
+                xSemaphoreGive(gps.xGpsMutex);
             }
         }
     }

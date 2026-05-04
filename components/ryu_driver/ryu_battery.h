@@ -25,11 +25,11 @@ class Battery{
             return *instance;
         }  
         
-        static constexpr gpio_num_t     BATTERY_ADC_PIN         = GPIO_NUM_34;
-        static constexpr adc_channel_t  BATTERY_ADC_CH          = ADC_CHANNEL_6;
+        static inline constexpr gpio_num_t     BATTERY_ADC_PIN         = GPIO_NUM_34;
+        static inline constexpr adc_channel_t  BATTERY_ADC_CH          = ADC_CHANNEL_6;
         // 저항 분배 수식 (10k / 1k 기준)
         // 현재 VOLTAGE_DIVIDER_RATIO = 11.0f (10k / 1k)를 사용 중이신데, 실제 저항의 오차(1% 등)에 따라 실제 측정값이 다를 수 있습니다.
-        static constexpr float          VOLTAGE_DIVIDER_RATIO   = 11.0f;
+        static inline constexpr float          VOLTAGE_DIVIDER_RATIO   = 11.0f;
         // 함수 선언
         void initialize();
         float get_battery_voltage();
@@ -39,10 +39,10 @@ class Battery{
     private:
 
         // 변수 실제 정의
-        adc_oneshot_unit_handle_t adc_unit_handle;
-        adc_cali_handle_t adc_cali_handle;
-        bool do_calibration;
-        bool _initialized;
+        adc_oneshot_unit_handle_t adc_unit_handle = nullptr;
+        adc_cali_handle_t adc_cali_handle = nullptr;
+        bool do_calibration = false;
+        bool _initialized = false;
         static const char* TAG;
 };
 

@@ -4,8 +4,6 @@
 #include <string_view>
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
-#include <lwip/sockets.h>   // ESP-IDF 전용 소켓 라이브러리
-#include <esp_adc/adc_oneshot.h>
 
 
 #define M_PI 3.14159265358979323846
@@ -135,35 +133,7 @@ struct rc_data_t {
 };
 extern rc_data_t g_rc;  ///< 조종기 입력 데이터
 
-
-// --- GPS 데이터 ---
-struct gps_data_t {
-    uint32_t    iTOW;           // gps 시간
-    int         date;           // 기본 날자
-    float       utc_time;       // 기본 시간 
-    double      lat;            // 위도 (deg)
-    double      lon;            // 경도 (deg)
-    float       alt;            // 상대 고도 (홈 기준)
-    float       home_alt;       // 처음 시스템 시작시(gps가동시)의 고도  
-    uint8_t     sats;           // 위성 개수
-    uint16_t    pDOP;           // 위치 정밀도 저하율 (0.01 단위)
-    uint8_t     fixType;        // GPS 위치 고정 여부
-    int16_t     velN;           // (North Velocity),  GPS정보  VGT 정보에서 뽑아야한다. 
-    int16_t     velE;           // (East Velocity), 
-    int16_t     velD;           // (Down Velocity)
-    uint16_t    gSpeed;      // 지표 속도 (mm/s)
-    uint16_t    headMot;        // 이동 방향 (Degree * 10^-5 -> Centi-Degree)
-    float       magDec ; // 자기 편차 적용 (필요 시)
-    uint32_t    hAcc; 
-    uint32_t    vAcc; 
-    uint32_t    sAcc;
-    int32_t     height;         // 타원체 고도 (mm)    
-    int32_t     hMSL;           // 해수면 고도 (mm)
-    TickType_t  last_update_tick;
-};
-extern gps_data_t g_gps;  ///< GPS 위치 데이터
-
-
+ 
 // --- 고도 데이터 ---
 struct altitude_data_t {
     float current;   // 현재 고도 (기압계 기준, m)

@@ -38,9 +38,9 @@ class Timer{
     private:
         std::function<void()> _timer_callback;
         
-        TimerHandle_t _timer_handle;
-        bool _initialized;
-        bool _running;
+        TimerHandle_t _timer_handle = nullptr;
+        bool _initialized = false;
+        bool _running = false;
         static const char* TAG;
 
 };

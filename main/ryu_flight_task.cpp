@@ -13,7 +13,7 @@
 #include "ryu_flysky.h"
 #include "ryu_MahonyFilter.h"
 #include "ryu_pid.h"
-#include "ryu_error_proc.h"
+#include "ryu_failsafe.h"
 
 // icm20948, ak09916, bmp388 위의 센서 교체.
 #include "ryu_icm20948.h"
@@ -103,7 +103,8 @@ void flight_task(void *pv) {
                 }
             }     
             if (imu_error_cnt ==ERROR_MAX_NUM){
-                xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                auto& failsafe = Service::FailSafe::get_instance();
+                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
             }
@@ -157,7 +158,8 @@ void flight_task(void *pv) {
             // 3.치명적 에러 발생 (10회 연속 실패)
             if (mag_error_cnt == ERROR_MAX_NUM) {
                 ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
-                xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                auto& failsafe = Service::FailSafe::get_instance();
+                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 mag_error_cnt = ERROR_MAX_NUM+1; // 차단
             }             
@@ -311,7 +313,8 @@ void flight_task(void *pv) {
                 }
                 if (baro_error_cnt == ERROR_MAX_NUM) {
                     ESP_LOGW("BARO", "xTaskNotify()-> sending to signal(ERR_BUS_HANG)");
-                    xTaskNotify(ERR::xErrorHandle, ERR::ERR_I2C_BUS_HANG, eSetBits);
+                    auto& failsafe = Service::FailSafe::get_instance();
+                    xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                     g_sys.error_hold_mode = true;
                     baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
                 }

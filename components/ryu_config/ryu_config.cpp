@@ -14,17 +14,12 @@ sys_t g_sys = {
              .loop_count        = 0,
 };   
 
-
 attitude_data_t g_attitude = {};
 
 // qgc에서 지도상의 위치에서 home지정해준 위치.
 qgc_home_pos_t qgc_home_pos = {};
 
-
 qgc_roll_pid_t qgc_roll_pid = {};
-
-// GPS 데이터 초기화
-gps_data_t g_gps = {};
 
 // RC 송수신기 데이터 초기화
 rc_data_t g_rc = {};

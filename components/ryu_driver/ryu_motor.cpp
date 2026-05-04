@@ -1,6 +1,6 @@
 #include "ryu_motor.h"
 
-
+#include <esp_log.h>
 
 
 namespace Driver
@@ -8,28 +8,17 @@ namespace Driver
 
 const char* Motor::TAG ="Motor";
 
-Motor::Motor()
-    :_timer(nullptr),_servo_comparator(nullptr),_initialized(false)
-{
-
+Motor::Motor(){
+    ESP_LOGI(TAG,"Initializing Motor Driver...");
 }
 
 void Motor::initialize()
 {
     if (_initialized) return;
 
-    _comparators[0]= {}; // 모터 듀티 제어용
-    _comparators[1]= {}; // 모터 듀티 제어용
-    _comparators[2]= {}; // 모터 듀티 제어용
-    _comparators[3]= {}; // 모터 듀티 제어용
-    _servo_comparator = NULL; // 서보 각도 조절용
-
-//    mcpwm_timer_handle_t timer = NULL;
-
     // 1. MCPWM 타이머 설정 (예: 50Hz - 서보모터용)
     // 해상도: 1MHz로 설정하여 1틱(tick)당 1마이크로초(1us)가 걸리게 만듭니다.
     // 주기: 20,000틱으로 설정했으므로, 전체 주기는 20ms(50Hz)가 됩니다. 이는 일반적인 서보모터 제어 표준 규격입니다.
-
     mcpwm_timer_config_t t_cfg = {};
     t_cfg.group_id = 0;                             // 1번째
     t_cfg.clk_src = MCPWM_TIMER_CLK_SRC_DEFAULT;    // 2번째

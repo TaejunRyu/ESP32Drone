@@ -6,7 +6,7 @@
 #include <esp_timer.h>
 
 #include "ryu_config.h"
-#include "ryu_error_proc.h"
+#include "ryu_failsafe.h"
 
 namespace Service
 { 
@@ -77,7 +77,8 @@ void Flysky::flysky_task(void *pvParameters)
         
         if(g_sys.is_armed){  // 신호 이상~~~~ 비상~~~~~~
             if (local_ppm[0] < 800 || local_ppm[0] > 2200){
-                xTaskNotify(ERR::xErrorHandle, ERR::ERR_RC_LOST, eSetBits);                
+                auto& failsafe = Service::FailSafe::get_instance();
+                xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
             }
         }
 

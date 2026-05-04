@@ -3,8 +3,12 @@ file(GLOB SOURCES "*.cpp")
 idf_component_register(
      SRCS ${SOURCES}
     INCLUDE_DIRS    "."
-                    "../../main"                  
     REQUIRES    
-        esp_driver_gpio esp_driver_i2c  esp_driver_ledc esp_adc esp_driver_mcpwm
-        ryu_config
+        esp_driver_gpio 
+        esp_driver_i2c  
+        esp_driver_ledc 
+        esp_adc 
+        esp_driver_mcpwm
+        ryu_config 
+        ryu_service
 )

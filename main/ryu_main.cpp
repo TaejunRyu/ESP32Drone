@@ -5,17 +5,17 @@
 #include "ryu_icm20948.h"
 #include "ryu_ist8310.h"
 #include "ryu_ak09916.h"
+#include "ryu_bmp388.h"
+#include "ryu_gps.h"
+#include "ryu_wifi.h"
 #include "ryu_MahonyFilter.h"
 #include "ryu_flysky.h"
 #include "ryu_telemetry.h"
-#include "ryu_gps.h"
 #include "ryu_battery.h"
-#include "ryu_error_proc.h"
 #include "ryu_timer.h"
-#include "ryu_flight_task.h"
-#include "ryu_bmp388.h"
 #include "ryu_mavlink.h"
-#include "ryu_wifi.h"
+#include "ryu_flight_task.h"
+#include "ryu_failsafe.h"
 
 
 static const char *MAINTAG = "MAIN";
@@ -125,6 +125,7 @@ void app_main(void) {
 
         }
         auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
+        vTaskDelay(pdMS_TO_TICKS(50));
         auto [ret_bmp1,sgp] = bmp388_sub.calibrate_ground_pressure();
         g_baro.ground_pressure = (mgp+sgp) * 0.5;
     }
@@ -159,7 +160,7 @@ void app_main(void) {
         Driver::Motor::get_instance().initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 		// GPS 초기화
-		GPS::initialize();
+        Sensor::Gps::get_instance().initialize();
 		vTaskDelay(pdMS_TO_TICKS(50));
 		// FLYSKY  초기화
         Service::Flysky::get_instance().initialize();
@@ -202,37 +203,40 @@ void app_main(void) {
         }
     }
 
+    //mavlink분석및 qgc와 communication.
+    auto& mavlink =  Service::Mavlink::get_instance();
+    mavlink.initialize();
     
 
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
-
-    //mavlink분석및 qgc와 communication.
-    auto& mavlink =  Service::Mavlink::get_instance();
-    mavlink.initialize();
 
     // 0. espnow tx task
     auto& espnow = Service::EspNow::get_instance(); 
     espnow.start_task();
 
     auto& flysky = Service::Flysky::get_instance();
+    flysky.initialize();
     flysky.start_task();
 
-    res = xTaskCreatePinnedToCore(GPS::gps_ubx_mode_task, "gps", 4096, NULL, 5, NULL, 0);
-    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 2.Gps Task is Failed! code: %d", res);
-    else ESP_LOGI(MAINTAG, "✓ 2.Gps Task is passed... ");
+    auto& gps = Sensor::Gps::get_instance();
+    gps.initialize();
+    gps.start_task();
     
-    res = xTaskCreatePinnedToCore(TELEM::telemetry_task, "telemetry", 8192, NULL, 15, NULL, 0);
-    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 3.Telemetry Task is failed! code: %d", res);
-    else ESP_LOGI(MAINTAG, "✓ 3.Telemetry task is passed...");
+    auto& telemetry = Service::Telemetry::get_instance();
+    telemetry.initialize();
+    telemetry.start_task();
+
     
     auto& bat = Driver::Battery::get_instance();
+    bat.initialize();
     bat.start_task();
     
-    res= xTaskCreatePinnedToCore(ERR::error_manager_task, "ErrMgr", 4096, NULL, 10, &ERR::xErrorHandle, 0);
-    if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 5.Error Check Task is failed! code: %d", res);
-    else ESP_LOGI(MAINTAG, "✓ 5.Error Check Task is passed...");
-
+    
+    auto& failsafe = Service::FailSafe::get_instance();
+    failsafe.initialize();
+    failsafe.start_task();
+    
 
     // ========== [5단계] 비행 제어 태스크 생성 (모든 검증 완료 후) ==========
     res = xTaskCreatePinnedToCore(FLIGHT::flight_task, "flight", 8192, NULL, 24, NULL, 1);

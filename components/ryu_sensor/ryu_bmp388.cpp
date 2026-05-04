@@ -12,7 +12,7 @@ BMP388 BMP388::subInstance("SUB_BMP388",BMP388::ADDR_GND);
 const char *BMP388::TAG = "BMP388";
 
 BMP388::BMP388(){
-    ESP_LOGI(TAG,"Initializing BMP388 Driver...");
+    ESP_LOGI(TAG,"Initializing BMP388 Sensor...");
 }
 
 

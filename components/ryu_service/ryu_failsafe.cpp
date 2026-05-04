@@ -1,7 +1,6 @@
-#include "ryu_error_proc.h"
+#include "ryu_failsafe.h"
 
 #include <esp_timer.h>
-#include "ryu_flight_task.h"
 #include "ryu_i2c.h"
 #include "ryu_icm20948.h"
 #include "ryu_ak09916.h"
@@ -9,90 +8,32 @@
 #include "ryu_ist8310.h"
 #include "ryu_motor.h"
 #include "ryu_buzzer.h"
+#include "ryu_flight_task.h"
 #include "ryu_config.h"
 
-namespace ERR{
+namespace Service{
 
-// 태스크 핸들 (Core 0의 에러 태스크를 지칭)
-TaskHandle_t xErrorHandle = NULL;
-// 시스템 통합 상태 (비트마스크)
-volatile uint32_t g_system_health = 0xFFFFFFFF; // 초기값은 모두 OK
 
-void error_manager_task(void *pvParameters) {
-    uint32_t notifiedValue;
-    esp_err_t ret=ESP_FAIL;
+const char* FailSafe::TAG = "FailSafe";
 
-    while (true) {
-        // 알림이 올 때까지 무한 대기 (CPU 점유율 0%)
-        if (xTaskNotifyWait(0x00, ULONG_MAX, &notifiedValue, portMAX_DELAY) == pdPASS) {
-
-            //  IMU/MAG/BARO  모두 에러 발생 또는 I2C 에러시 모든 것 리셋.
-            if (notifiedValue & ERR_I2C_BUS_HANG) {
-                g_system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                                
-                Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)        
-                
-                auto i2c_handle = Driver::I2C::get_instance().initialize();
-
-                if (i2c_handle !=NULL){ 
-                    ret = reinit_all_sensors(i2c_handle);             // 센서 레지스터 재설정
-                    auto [ret_code,macc,mgyro] =Sensor::ICM20948::Main().read_raw_data();
-                    if (ret_code == ESP_OK && (macc[0] + macc[1] + macc[2]) > 1.0f){
-                        ret = ESP_OK;
-                        FLIGHT::imu_error_cnt =0;
-                        FLIGHT::mag_error_cnt =0;
-                        FLIGHT::baro_error_cnt =0;
-                        FLIGHT::imu_active_index = 0;
-                        FLIGHT::mag_active_index = 0;
-                        FLIGHT::baro_active_index = 0;
-                        g_sys.error_hold_mode = false;                
-                        // 모든 센서가 정상으로 돌아왔다고 가정하고 상태 비트 모두 켜기 (필요에 따라 개별적으로 설정할 수도 있음)
-                        g_system_health |= SYS_HEALTH_IMU_OK|SYS_HEALTH_MAG_OK|SYS_HEALTH_BARO_OK;                    
-                    }
-                }else{
-                    ret = ESP_FAIL;
-                }
-
-                if (ret != ESP_OK){
-                    Driver::Motor::get_instance().stop_all_motors();
-                    while(true){
-                        Driver::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
-                    }
-                }
-                printf("⚠️ WARNING: IMU/MAG/BARO Not Working Detected!\n");
-            }
-
-            // 2. 조종기 신호 상실 처리
-            if (notifiedValue & ERR_RC_LOST) {
-                Driver::Buzzer::get_instance().sound_emergency();
-                g_sys.error_hold_mode = false;                
-                // Telemetry로 경고 전송 및 로그 저장 로직
-                //save_error_to_nvs("RC_LOST");
-                printf("⚠️ WARNING: Lost Control Signal Detected!\n");
-            }
-
-            // 3. 배터리 저전압 처리
-            if (notifiedValue & ERR_BATTERY_LOW) {
-                Driver::Buzzer::get_instance().sound_low_battery();
-                printf("⚠️ WARNING: Low Battery Detected!\n");
-            }
-            
-            // 4. GPS TIMEOUT
-            if (notifiedValue & ERR_GPS_TIMEOUT) {
-                //Driver::sound_emergency();
-                g_sys.error_hold_mode = false;                
-                printf(" {(%lld): ⚠️ WARNING: Gps Timeout Detected!\n",esp_timer_get_time());
-            }
-
-            // 처리 완료 후 로그 출력
-            //std::printf("Error Resolved: 0x%08x\n", (unsigned int)notifiedValue);
-        }
-    }
+FailSafe::FailSafe(){
+    ESP_LOGI(TAG,"Initializing FailSafe Service...");
 }
 
-// 각 센서의 초기화 함수들을 모아놓은 메인 함수 (test 완료....)
-esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
+FailSafe::~FailSafe(){}
 
-     esp_err_t ret = ESP_OK;
+void FailSafe::initialize()
+{
+    if(_initialized) return;
+    //
+    _initialized = true;
+}
+
+esp_err_t FailSafe::reinit_all_sensors()
+{
+    esp_err_t ret = ESP_OK;
+
+    //i2c_master_bus_handle_t i2c_handle = Driver::I2C::get_instance().get_bus_handle();
 
     //1. 상태 비트 끄기 (제어 루프 차단)
     g_system_health &= ~(SYS_HEALTH_IMU_OK | SYS_HEALTH_BARO_OK | SYS_HEALTH_MAG_OK);
@@ -138,4 +79,82 @@ esp_err_t reinit_all_sensors(i2c_master_bus_handle_t i2c_handle) {
 }
 
 
+void FailSafe::failsafe_manager_task(void * pvParameters)
+{
+    auto failsafe = static_cast<FailSafe*>(pvParameters);
+    uint32_t notifiedValue;
+    esp_err_t ret=ESP_FAIL;
+
+    while (true) {
+        // 알림이 올 때까지 무한 대기 (CPU 점유율 0%)
+        if (xTaskNotifyWait(0x00, ULONG_MAX, &notifiedValue, portMAX_DELAY) == pdPASS) {
+
+            //  IMU/MAG/BARO  모두 에러 발생 또는 I2C 에러시 모든 것 리셋.
+            if (notifiedValue & ERR_I2C_BUS_HANG) {
+                failsafe->g_system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                                
+                Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)        
+                
+                Driver::I2C::get_instance().initialize();
+                if (Driver::I2C::get_instance().get_bus_handle() !=NULL){ 
+                    ret = failsafe->reinit_all_sensors();             // 센서 레지스터 재설정
+                    auto [ret_code,macc,mgyro] =Sensor::ICM20948::Main().read_raw_data();
+                    if (ret_code == ESP_OK && (macc[0] + macc[1] + macc[2]) > 1.0f){
+                        ret = ESP_OK;
+                        FLIGHT::imu_error_cnt =0;
+                        FLIGHT::mag_error_cnt =0;
+                        FLIGHT::baro_error_cnt =0;
+                        FLIGHT::imu_active_index = 0;
+                        FLIGHT::mag_active_index = 0;
+                        FLIGHT::baro_active_index = 0;
+                        g_sys.error_hold_mode = false;                
+                        // 모든 센서가 정상으로 돌아왔다고 가정하고 상태 비트 모두 켜기 (필요에 따라 개별적으로 설정할 수도 있음)
+                        failsafe->g_system_health |= SYS_HEALTH_IMU_OK|SYS_HEALTH_MAG_OK|SYS_HEALTH_BARO_OK;                    
+                    }
+                }else{
+                    ret = ESP_FAIL;
+                }
+
+                if (ret != ESP_OK){
+                    Driver::Motor::get_instance().stop_all_motors();
+                    while(true){
+                        Driver::Buzzer::get_instance().sound_emergency(); // 나 죽었다~~~~~~~~
+                    }
+                }
+                printf("⚠️ WARNING: IMU/MAG/BARO Not Working Detected!\n");
+            }
+
+            // 2. 조종기 신호 상실 처리
+            if (notifiedValue & ERR_RC_LOST) {
+                Driver::Buzzer::get_instance().sound_emergency();
+                g_sys.error_hold_mode = false;                
+                // Telemetry로 경고 전송 및 로그 저장 로직
+                //save_error_to_nvs("RC_LOST");
+                printf("⚠️ WARNING: Lost Control Signal Detected!\n");
+            }
+
+            // 3. 배터리 저전압 처리
+            if (notifiedValue & ERR_BATTERY_LOW) {
+                Driver::Buzzer::get_instance().sound_low_battery();
+                printf("⚠️ WARNING: Low Battery Detected!\n");
+            }
+            
+            // 4. GPS TIMEOUT
+            if (notifiedValue & ERR_GPS_TIMEOUT) {
+                //Driver::sound_emergency();
+                g_sys.error_hold_mode = false;                
+                printf(" {(%lld): ⚠️ WARNING: Gps Timeout Detected!\n",esp_timer_get_time());
+            }
+
+            // 처리 완료 후 로그 출력
+            //std::printf("Error Resolved: 0x%08x\n", (unsigned int)notifiedValue);
+        }
+    }
+}
+
+void FailSafe::start_task()
+{
+    auto res= xTaskCreatePinnedToCore(failsafe_manager_task, "failsafe_manager_task", 4096, this, 10, &xErrorHandle, 0);
+    if (res != pdPASS) ESP_LOGE(TAG, "❌ 5.Error Check Task is failed! code: %d", res);
+    else ESP_LOGI(TAG, "✓ 5.Error Check Task is passed...");
+}
 }

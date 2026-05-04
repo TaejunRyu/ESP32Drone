@@ -1,7 +1,7 @@
 #include "ryu_battery.h"
 
 #include "ryu_config.h"
-#include "ryu_error_proc.h"
+#include "ryu_failsafe.h"
 
 /**
  * @brief 팁: 멀티미터로 실제 배터리 전압을 재보고, 
@@ -12,8 +12,8 @@ namespace Driver
 {
 const char* Battery::TAG ="Baterry" ;
 
-Battery::Battery():_initialized(false)
-{
+Battery::Battery(){
+    ESP_LOGI(TAG,"Initializing Baterry Driver...");
 }
 
 Battery::~Battery()
@@ -21,6 +21,7 @@ Battery::~Battery()
 }
 void Battery::initialize()
 {
+    if(_initialized) return;
     // 1. ADC 유닛 초기화
     adc_oneshot_unit_init_cfg_t init_config = {};
     init_config.unit_id = ADC_UNIT_1;
@@ -45,6 +46,7 @@ void Battery::initialize()
     if (ret == ESP_OK) {
         do_calibration = true;
     }
+    _initialized = true;
 }
 
 float Battery::get_battery_voltage()
@@ -82,7 +84,8 @@ void Battery::battery_check_task(void *pvParameters)
         // 예: 1셀당 3.5V 미만일 때 (3S 배터리 기준 10.5V)
         if (voltage > 0.5f && voltage < 10.5f) { 
             // 에러 핸들러 태스크에 '저전압 비트' 세팅
-            xTaskNotify(ERR::xErrorHandle, ERR::ERR_BATTERY_LOW, eSetBits);
+            auto& failsafe = Service::FailSafe::get_instance();
+            xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_BATTERY_LOW, eSetBits);
         }
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1초마다 확인
     }

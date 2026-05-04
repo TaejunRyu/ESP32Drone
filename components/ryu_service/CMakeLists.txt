@@ -4,8 +4,6 @@ idf_component_register(
      SRCS ${SOURCES}
     INCLUDE_DIRS 
         "."
-        "../../main"
-
     REQUIRES
         esp_timer
         esp_event
@@ -19,6 +17,6 @@ idf_component_register(
         mavlink
         ryu_config
         ryu_controller
-        ryu_driver
-        
+        ryu_driver 
+        ryu_sensor      
 )

@@ -7,16 +7,14 @@
 namespace Driver
 {
 
-const char* Buzzer::TAG = "BUZZER";
+const char* Buzzer::TAG = "Buzzer";
 
 
-Buzzer::Buzzer():_initialized(false)
-{
-    ESP_LOGI(TAG, "Buzzer created ");
+Buzzer::Buzzer(){
+    ESP_LOGI(TAG,"Initializing Buzzer Driver...");
 }
 
-Buzzer::~Buzzer()
-{
+Buzzer::~Buzzer(){
     deinitialize();
 }
 
@@ -40,7 +38,7 @@ void Buzzer::initialize()
     ledc_channel.gpio_num       = Driver::Buzzer::BUZZER_GPIO;
     ledc_channel.speed_mode     = LEDC_LOW_SPEED_MODE;
     ledc_channel.channel        = LEDC_CHANNEL_0;
-    ledc_channel.intr_type      = LEDC_INTR_DISABLE;
+    //ledc_channel.intr_type      = LEDC_INTR_DISABLE;
     ledc_channel.timer_sel      = LEDC_TIMER_0;
     ledc_channel.duty           = 0; // 처음엔 소리 안 나게
     ledc_channel.hpoint         = 0;

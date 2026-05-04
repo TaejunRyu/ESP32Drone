@@ -36,9 +36,9 @@ class Motor{
             return *instance;
         }  
         // FC가 공중 운반물이 있을경우 떨어뜨리는 SERVO MOTOR 
-        static constexpr  gpio_num_t    SERVO_MOTOR_PIN  = GPIO_NUM_25;
+        static inline constexpr  gpio_num_t    SERVO_MOTOR_PIN  = GPIO_NUM_25;
         // 모터 핀 설정 FR, FL, RL, RR
-        static constexpr int MOTOR_PINS[4] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33}; 
+        static inline constexpr int MOTOR_PINS[4] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33}; 
 
         void initialize();
         esp_err_t stop_all_motors();
@@ -46,12 +46,12 @@ class Motor{
         void update_compare_value(std::array<float,4> values);
 
     private:
-        mcpwm_cmpr_handle_t _comparators[4];     // 모터 듀티 제어용
-        mcpwm_timer_handle_t _timer;             // mcpwm handle
-        mcpwm_gen_handle_t  _servo_gen;        
-        mcpwm_cmpr_handle_t _servo_comparator;   // 서보 각도 조절용
+        mcpwm_cmpr_handle_t _comparators[4] {};     // 모터 듀티 제어용
+        mcpwm_timer_handle_t _timer = nullptr;             // mcpwm handle
+        mcpwm_gen_handle_t  _servo_gen = nullptr;        
+        mcpwm_cmpr_handle_t _servo_comparator = nullptr;   // 서보 각도 조절용
 
-        bool _initialized;
+        bool _initialized = false;
         static const char* TAG;
 
 };

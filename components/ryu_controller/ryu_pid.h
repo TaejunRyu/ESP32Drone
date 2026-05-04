@@ -11,7 +11,6 @@
 
 namespace Controller{
 
-
 /**
  * @brief 
  *      이 시스템에는 단 1개의  pid만 존재한다.
@@ -46,20 +45,21 @@ class PID{
         float run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is_yaw);
         float run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt);
         void  sync_pid_from_params();
+        void  initialize();
 
-        drone_pid_t pid_alt_pos;     //목표고도유지 
-        drone_pid_t pid_alt_rate;    //상승/하강 속도제어
+        drone_pid_t pid_alt_pos {};     //목표고도유지 
+        drone_pid_t pid_alt_rate {};    //상승/하강 속도제어
 
-        drone_pid_t pid_roll_angle;  //각도유지
-        drone_pid_t pid_pitch_angle;
-        drone_pid_t pid_yaw_angle;
+        drone_pid_t pid_roll_angle {};  //각도유지
+        drone_pid_t pid_pitch_angle {};
+        drone_pid_t pid_yaw_angle {};
 
-        drone_pid_t pid_roll_rate;    //진동회전 제어
-        drone_pid_t pid_pitch_rate;
-        drone_pid_t pid_yaw_rate;    // 회전 속도제어
+        drone_pid_t pid_roll_rate {};    //진동회전 제어
+        drone_pid_t pid_pitch_rate {};
+        drone_pid_t pid_yaw_rate {};    // 회전 속도제어
     private:
 
-        bool _initialized;
+        bool _initialized = false;
         static const char* TAG;
 };
 

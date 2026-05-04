@@ -14,7 +14,7 @@ namespace Sensor
 const char* AK09916::TAG = "AK09916";
 
 AK09916::AK09916(){
-    ESP_LOGI(TAG,"Initializing AK09916 Driver...");
+    ESP_LOGI(TAG,"Initializing AK09916 Sensor...");
 }
 
 AK09916::~AK09916()

@@ -10,8 +10,8 @@ namespace Controller
 const char* PID::TAG = "PID";
 
 
-PID::PID()
-{
+PID::PID(){
+    ESP_LOGI(TAG,"Initializing PID Controller...");
     // PID 구조체 초기화 (기본값 0)
     // 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
     // Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
@@ -35,11 +35,15 @@ PID::PID()
     pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
     pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
     pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-
 }
 
-PID::~PID()
+PID::~PID(){}
+
+void PID::initialize()
 {
+    if(_initialized) return;
+    //
+    _initialized = true;
 }
 
 void PID::reset_pid(drone_pid_t *p)
@@ -140,5 +144,6 @@ void PID::sync_pid_from_params()
     pid_alt_rate.ki     = values.MPC_Z_VEL_I;
     pid_alt_rate.kd     = values.MPC_Z_VEL_D;
 }
+
 
 } 
