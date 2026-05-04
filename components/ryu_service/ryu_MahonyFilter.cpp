@@ -9,9 +9,8 @@ namespace Service{
 
 const char* Mahony::TAG="Mahony";
 
-Mahony::Mahony()
-    :_initialized(false)
-{
+Mahony::Mahony(){
+    ESP_LOGI(TAG,"Initializing Timer Service...");
 }
 
 Mahony::~Mahony()

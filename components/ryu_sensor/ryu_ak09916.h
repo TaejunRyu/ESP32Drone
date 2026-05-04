@@ -21,8 +21,21 @@ class AK09916{
             static AK09916* instance = new AK09916(); // 힙에 할당하여 소멸 순서 꼬임 방지
             return *instance;
         }
-        static constexpr uint8_t ADDR       =    0x0C;
-        static constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
+        static inline constexpr uint8_t ADDR       =    0x0C;
+        static inline constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
+
+        static inline constexpr uint8_t HXL        =    0x11;// 데이터 시작 (X-axis Low)
+        static inline constexpr uint8_t CNTL2      =    0x31;// 모드 설정 (100Hz 등)
+        static inline constexpr uint8_t CNTL3      =    0x32;// 소프트 리셋
+        static inline constexpr uint8_t WHO_AM_I   =    0x01;// ID 확인용 (값: 0x09)
+
+        static inline constexpr float SCALE_X      =   0.91f;
+        static inline constexpr float SCALE_Y      =   1.07f;
+        static inline constexpr float SCALE_Z      =   1.04f;
+        static inline constexpr float MAG_OFFSET_X =   91.50f;
+        static inline constexpr float MAG_OFFSET_Y =   176.00f;
+        static inline constexpr float MAG_OFFSET_Z =   -170.50f;
+
         void deinitialize();
         i2c_master_dev_handle_t initialize();
         std::tuple<esp_err_t, std::array<float, 3>> read_data();
@@ -33,21 +46,10 @@ class AK09916{
 
     private:
 
-        const uint8_t HXL        =    0x11;// 데이터 시작 (X-axis Low)
-        const uint8_t CNTL2      =    0x31;// 모드 설정 (100Hz 등)
-        const uint8_t CNTL3      =    0x32;// 소프트 리셋
-        const uint8_t WHO_AM_I   =    0x01;// ID 확인용 (값: 0x09)
-
-        const float SCALE_X      =   0.91f;
-        const float SCALE_Y      =   1.07f;
-        const float SCALE_Z      =   1.04f;
-        const float MAG_OFFSET_X =   91.50f;
-        const float MAG_OFFSET_Y =   176.00f;
-        const float MAG_OFFSET_Z =   -170.50f;
        
-        i2c_master_bus_handle_t _bus_handle;
-        i2c_master_dev_handle_t _dev_handle;
-        bool _initialized;
+        i2c_master_bus_handle_t _bus_handle = nullptr;
+        i2c_master_dev_handle_t _dev_handle = nullptr;
+        bool _initialized = false;
         static const char* TAG;
 };
 

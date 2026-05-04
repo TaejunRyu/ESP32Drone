@@ -41,7 +41,7 @@ class Mavlink{
      
         void initialize();
     private:
-        bool _initialized;
+        bool _initialized = false;
         static const char* TAG;
 
 };

@@ -23,10 +23,8 @@ namespace Service{
 
 const char* Mavlink::TAG = "Mavlink";
 
-Mavlink::Mavlink()
-    :_initialized(false)
-{
-    ESP_LOGI(TAG,"Initializing TimerService...");
+Mavlink::Mavlink(){
+    ESP_LOGI(TAG,"Initializing Mavlink Service...");
 }
 Mavlink::~Mavlink()
 {
@@ -713,11 +711,12 @@ void Mavlink::on_timer_tick()
             break;
     }
     // 0 -> 1 -> 2 순환
-    step = (step + 1) % 10;
+    step = (step + 1) % 10;  // 100ms단위로 실행함. 1초를 10개로 나뉘어서 처리.
 }
 
 void Mavlink::initialize()
 {
+    // timer의 callback과 연결하여 on_timer_tick를 타이머에의해서 실행함.
     auto& timer = Service::Timer::get_instance();
     timer.set_timer_callback([this](){on_timer_tick();});
     _initialized = true;

@@ -1,10 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <freertos/FreeRTOS.h>  // FreeRTOS 기본 설정 및 정의
 #include <freertos/timers.h>    // 소프트웨어 타이머 API 전용 헤더
-#include <functional>
-#include <c_library_v2/common/mavlink.h>
-
 
 namespace Service{ 
 
@@ -24,7 +22,7 @@ class Timer{
             return *instance;
         }  
         esp_err_t intiallize();
-
+        
         // 콜백 설정
         void set_timer_callback(std::function<void()> callback);
 

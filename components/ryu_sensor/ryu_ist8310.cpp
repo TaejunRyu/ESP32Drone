@@ -10,9 +10,8 @@ namespace Sensor
 
 const char* IST8310::TAG = "IST8310";
 
-IST8310::IST8310():_bus_handle(nullptr),_dev_handle(nullptr),_initialized(false)
-{
-    ESP_LOGI(TAG, "IST8310 created. ");
+IST8310::IST8310(){
+    ESP_LOGI(TAG,"Initializing IST8310 Driver...");
 }
 
 IST8310::~IST8310()

@@ -6,14 +6,15 @@
 namespace Sensor{
     
 
-BMP388 BMP388::mainInstance("MAIN_BMP388",ADDR_VCC);
-BMP388 BMP388::subInstance("SUB_BMP388",ADDR_GND);
+BMP388 BMP388::mainInstance("MAIN_BMP388",BMP388::ADDR_VCC);
+BMP388 BMP388::subInstance("SUB_BMP388",BMP388::ADDR_GND);
 
 const char *BMP388::TAG = "BMP388";
 
-BMP388::BMP388():_bus_handle(nullptr),_dev_handle(nullptr),_dev_address(0),_initialized(false)
-{
+BMP388::BMP388(){
+    ESP_LOGI(TAG,"Initializing BMP388 Driver...");
 }
+
 
 esp_err_t BMP388::initialize()
 {    
@@ -100,12 +101,12 @@ esp_err_t BMP388::initialize()
     vTaskDelay(pdMS_TO_TICKS(50));
     // 보정계수 읽어오기
     ret_code = read_calib();   
-    if(ret_code !=ESP_OK) 
+    if(ret_code !=ESP_OK){ 
         return ret_code;    
-    
-    else // 복잡한 수식 계산 미리 처리
+    }
+    else{ // 복잡한 수식 계산 미리 처리
         init_coefficients();
-
+    }
     _initialized = true;
 
     ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    

@@ -8,10 +8,9 @@
 #include "ryu_config.h"
 #include "ryu_error_proc.h"
 
-
 namespace Service
 { 
-
+ 
 /*
 --------------시동(Armed) 걸 때의 Yaw 활용-----------------
 질문하셨던 Armed(시동) 조건에서도 이 Yaw 스틱을 사용합니다.
@@ -21,14 +20,10 @@ namespace Service
 
 const char* Flysky::TAG = "Flysky";
 
-Flysky::Flysky()
-    :_initialized(false)
-{
+Flysky::Flysky(){
+    ESP_LOGI(TAG,"Initializing Flysky Service...");
 }
-
-Flysky::~Flysky()
-{
-}
+Flysky::~Flysky(){}
 
 void Flysky::initialize()
 {
@@ -46,8 +41,7 @@ void Flysky::initialize()
     chan_config.prescale = 1;
     chan_config.flags.pos_edge = false;
     chan_config.flags.neg_edge = true;
-
-    
+ 
     mcpwm_new_capture_channel(_cap_timer, &chan_config, &cap_chan);
 
     mcpwm_capture_event_callbacks_t cbs = {};
@@ -64,10 +58,9 @@ void Flysky::initialize()
 
 void Flysky::flysky_task(void *pvParameters)
 {
-    auto flysky = static_cast< Service::Flysky*>(pvParameters);
+    auto flysky = static_cast< Flysky*>(pvParameters);
 
     uint32_t local_ppm[MAX_CHANNELS];
-
     auto xLastWakeTime = xTaskGetTickCount();
     const auto xFrequency = pdMS_TO_TICKS(50); // 1 loop에 50ms  x 20번 = 1000ms = 1 second
     while (true) {
@@ -110,12 +103,12 @@ void Flysky::flysky_task(void *pvParameters)
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        
         // // 5. 시동(Arming) 로직
         // if (!g_sys.is_armed) {
-        //     if (is_arming_gesture()) {
+        //     if (flysky->is_arming_gesture()) {
         //         g_sys.is_armed = true;
         //         BUZZ::sound_connected();
         //     }
         // } else {
-        //     if (is_disarming_gesture()) {
+        //     if (flysky->is_disarming_gesture()) {
         //         g_sys.is_armed = false;
         //         BUZZ::sound_disconnected();
         //     }
@@ -138,7 +131,7 @@ void Flysky::flysky_task(void *pvParameters)
 
 bool IRAM_ATTR Flysky::ppm_capture_callback(mcpwm_cap_channel_handle_t cap_chan, const mcpwm_capture_event_data_t *edata, void *user_data)
 {
-    auto flysky = static_cast< Service::Flysky*>(user_data);
+    auto flysky = static_cast< Flysky*>(user_data);
 
     static uint32_t last_edge = 0;
     uint32_t current_edge = edata->cap_value;
@@ -193,11 +186,9 @@ bool Flysky::is_disarming_gesture() {
 
 void Flysky::start_task()
 {
-    auto ret = xTaskCreatePinnedToCore(flysky_task,"flysky",4096,this,12,_task_handle,0);
+    auto ret = xTaskCreatePinnedToCore(flysky_task,"flysky",4096,this,12,&_task_handle,0);
     if (ret != pdPASS) ESP_LOGE(TAG, "❌ 1.Flysky Task is failed!  code: %d", ret);
     else ESP_LOGI(TAG, "✓ 1.Flysky Task is passed...");
-
-    
 }
 
 } // namespace Service

@@ -1,20 +1,14 @@
 #include "ryu_timer.h"
-#include <esp_timer.h>
 
-#include "ryu_config.h"
-#include "ryu_flight_task.h"
-#include "ryu_battery.h"
-#include "ryu_gps.h"
+#include <esp_log.h>
 
 namespace Service {
 
 
 const char* Timer::TAG = "Timer";
 
-Timer::Timer()
-    :_timer_handle(nullptr),_initialized(false),_running(false)
-{
-    ESP_LOGI(TAG, "TimerService created");
+Timer::Timer(){
+    ESP_LOGI(TAG,"Initializing Timer Service...");
 }
 
 Timer::~Timer()

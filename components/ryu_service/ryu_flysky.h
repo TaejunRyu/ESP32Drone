@@ -59,17 +59,15 @@ class Flysky{
         void start_task();
 
     private:
-        TaskHandle_t    *_task_handle;
+        TaskHandle_t    _task_handle = nullptr;
         int             _current_channel = 0;
-        uint32_t        _ppm_values[MAX_CHANNELS];        
+        uint32_t        _ppm_values[MAX_CHANNELS]={0,};        
         portMUX_TYPE    _my_spinlock = portMUX_INITIALIZER_UNLOCKED;
 
         mcpwm_cap_timer_handle_t _cap_timer = nullptr;
-        bool _initialized;
-        //bool _running;
+        bool _initialized = false;
         static const char* TAG;
-
 }; 
 
-
+ 
 }// 

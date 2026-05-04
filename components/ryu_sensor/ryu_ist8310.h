@@ -33,42 +33,42 @@ class IST8310{
         i2c_master_dev_handle_t get_dev_handle(){ return _dev_handle;};
 
     private:
-        
         std::array<float, 3> last_valid_mag ={};
-        const float FILTER_ALPHA = 0.4f; 
 
+        static inline constexpr float FILTER_ALPHA = 0.4f; 
         // IST8310 레지스터 정의
-        const uint8_t ADDR       =    0x0E; // 기본 주소 (ADR핀 상태에 따라 다를 수 있음)
-        const uint8_t WHO_AM_I   =    0x00; // ID 확인용 (값: 0x10)
-        const uint8_t STAT1      =    0x02; // 데이터 준비 상태 (Bit 0: DRDY)
-        const uint8_t DATA_X_L   =    0x03; // 데이터 시작 (X-axis Low)
-        const uint8_t CONTROL1   =    0x0A; // 모드 설정 (Single/Continuous)
-        const uint8_t CONTROL2   =    0x0B; // 소프트 리셋 및 옵션
-        const uint8_t AVGCNTL    =    0x41; // 평균 필터 설정 (노이즈 감소)
-        const uint8_t PDCNTL     =    0x42; // Pulse Duration 제어
-        const uint8_t CROSSAXIS1 =    0x48; // 
-        const uint8_t CROSSAXIS2 =    0x49; // 
+        static inline constexpr uint8_t ADDR       =    0x0E; // 기본 주소 (ADR핀 상태에 따라 다를 수 있음)
+        static inline constexpr uint8_t WHO_AM_I   =    0x00; // ID 확인용 (값: 0x10)
+        static inline constexpr uint8_t STAT1      =    0x02; // 데이터 준비 상태 (Bit 0: DRDY)
+        static inline constexpr uint8_t DATA_X_L   =    0x03; // 데이터 시작 (X-axis Low)
+        static inline constexpr uint8_t CONTROL1   =    0x0A; // 모드 설정 (Single/Continuous)
+        static inline constexpr uint8_t CONTROL2   =    0x0B; // 소프트 리셋 및 옵션
+        static inline constexpr uint8_t AVGCNTL    =    0x41; // 평균 필터 설정 (노이즈 감소)
+        static inline constexpr uint8_t PDCNTL     =    0x42; // Pulse Duration 제어
+        static inline constexpr uint8_t CROSSAXIS1 =    0x48; // 
+        static inline constexpr uint8_t CROSSAXIS2 =    0x49; // 
         // 센서 감도: 1320 LSB/Gauss (0.3 µT/LSB)
-        const float SENSITIVITY   =  0.3f;   
-        const float MAG_MAX_X     =  58.20f;
-        const float MAG_MAX_Y     =  50.40f;
-        const float MAG_MAX_Z     =  29.10f;
 
-        const float MAG_MIN_X     =  -34.50f;
-        const float MAG_MIN_Y     =  -41.70f;
-        const float MAG_MIN_Z     =  -59.70f;
+        static inline constexpr float SENSITIVITY   =  0.3f;   
+        static inline constexpr float MAG_MAX_X     =  58.20f;
+        static inline constexpr float MAG_MAX_Y     =  50.40f;
+        static inline constexpr float MAG_MAX_Z     =  29.10f;
 
-        const float MAG_OFFSET_X  =  11.85f;
-        const float MAG_OFFSET_Y  =  4.35f;
-        const float MAG_OFFSET_Z  =  -15.30f;
+        static inline constexpr float MAG_MIN_X     =  -34.50f;
+        static inline constexpr float MAG_MIN_Y     =  -41.70f;
+        static inline constexpr float MAG_MIN_Z     =  -59.70f;
 
-        const float SCALE_X       =  0.98f;
-        const float SCALE_Y       =  0.99f;
-        const float SCALE_Z       =  1.03f;
+        static inline constexpr float MAG_OFFSET_X  =  11.85f;
+        static inline constexpr float MAG_OFFSET_Y  =  4.35f;
+        static inline constexpr float MAG_OFFSET_Z  =  -15.30f;
 
-        i2c_master_bus_handle_t _bus_handle;
-        i2c_master_dev_handle_t _dev_handle;
-        bool _initialized;
+        static inline constexpr float SCALE_X       =  0.98f;
+        static inline constexpr float SCALE_Y       =  0.99f;
+        static inline constexpr float SCALE_Z       =  1.03f;
+
+        i2c_master_bus_handle_t _bus_handle = nullptr;
+        i2c_master_dev_handle_t _dev_handle = nullptr;
+        bool _initialized = false;
         static const char* TAG;
 
 };

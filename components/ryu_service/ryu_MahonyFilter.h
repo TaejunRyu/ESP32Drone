@@ -31,9 +31,11 @@ class Mahony{
         void initialize();
 
     private:
+        //초기 안정화를 빠르게하기 위한 변수
         bool is_booting = true;
         uint64_t boot_start_time; // booting time
-        bool _initialized;
+    
+        bool _initialized = false;
         static const char* TAG;
 };
 

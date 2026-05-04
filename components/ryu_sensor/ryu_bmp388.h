@@ -24,6 +24,13 @@ class BMP388{
 
         static constexpr uint8_t ADDR_VCC   =   0x77;
         static constexpr uint8_t ADDR_GND   =   0x76;
+
+        static inline constexpr uint8_t REG_ID        =   0x00;
+        static inline constexpr uint8_t REG_DATA      =   0x04; // Pressure(3), Temp(3) 연속
+        static inline constexpr uint8_t REG_PWR_CTRL  =   0x1B;
+        static inline constexpr uint8_t REG_CALIB     =   0x31;
+        static inline constexpr uint8_t STATUS        =   0x03;
+
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         esp_err_t initialize();
         std::tuple<esp_err_t ,float> get_relative_altitude();
@@ -33,12 +40,6 @@ class BMP388{
     private:
         // 외부에서 생성하지 못하도록 처리.
         BMP388();
-
-        uint8_t REG_ID        =   0x00;
-        uint8_t REG_DATA      =   0x04; // Pressure(3), Temp(3) 연속
-        uint8_t REG_PWR_CTRL  =   0x1B;
-        uint8_t REG_CALIB     =   0x31;
-        uint8_t STATUS        =   0x03;
 
         //보정계수        
         struct {
@@ -55,11 +56,21 @@ class BMP388{
         } _coef;
 
         // 보정계수와 미리계산 될것(한번만 하면 되는것들)
-        float _p1, _p2, _p3, _p4, _p5, _p6, _p7, _p8, _p9, _p10, _p11;
+        float   _p1 = 0.0f, 
+                _p2 = 0.0f, 
+                _p3 = 0.0f, 
+                _p4 = 0.0f, 
+                _p5 = 0.0f, 
+                _p6 = 0.0f, 
+                _p7 = 0.0f, 
+                _p8 = 0.0f, 
+                _p9 = 0.0f, 
+                _p10= 0.0f, 
+                _p11= 0.0f;
 
         // bmp388에서 읽은 raw data.
-        uint32_t uncomp_temp;
-        uint32_t uncomp_press;
+        uint32_t uncomp_temp =0;
+        uint32_t uncomp_press=0;
 
         float ground_pressure   = 1013.25f; // 초기값, 보정 후 업데이트됨
         float current_alt       = 0.0f; // 현재 고도
@@ -68,21 +79,22 @@ class BMP388{
         float climb_rate        = 0.0f; // 상승 속도  
         
         // 정상으로 읽은 이전값   현재 데이터가 잘못되면 이전값을 내어준다.      
-        uint32_t adc_p_last, adc_t_last;
+        uint32_t    adc_p_last =0, 
+                    adc_t_last=0;
+                    
         esp_err_t  read_calib();
         bool  is_data_ready();
         void init_coefficients();
         std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388(); 
         std::tuple<esp_err_t, float> get_pressure();
 
-        i2c_master_bus_handle_t _bus_handle;
-        i2c_master_dev_handle_t _dev_handle;
-        uint16_t _dev_address;
-        bool _initialized;
+        i2c_master_bus_handle_t _bus_handle = nullptr;
+        i2c_master_dev_handle_t _dev_handle = nullptr;
+        uint16_t _dev_address {};
+        bool _initialized = false;
 
-
-        std::string name;
-        bool isAlive;
+        std::string name {};
+        bool isAlive = false;
         // private 생성자: 외부에서 호출 불가
         BMP388(std::string n,uint16_t addr) : _dev_address(addr), name(n), isAlive(true) {}
 

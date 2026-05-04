@@ -9,8 +9,8 @@ namespace Sensor{
 
 const char *ICM20948::TAG = "ICM20948";
 
-ICM20948 ICM20948::mainInstance("MAIN_ICM20948",ADDR_VCC);
-ICM20948 ICM20948::subInstance("SUB_ICM20948",ADDR_GND);
+ICM20948 ICM20948::mainInstance("MAIN_ICM20948",ICM20948::ADDR_VCC);
+ICM20948 ICM20948::subInstance("SUB_ICM20948",ICM20948::ADDR_GND);
 
 void ICM20948::icm20948_select_bank(uint8_t bank)
 {
@@ -207,6 +207,10 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     // 오른쪽으로 회전시 (-)부호로 값은 커진다. (즉 값이 작아진다는 것이다)
     gyro[2] *=  -1.0f;
     return {ret,acc,gyro};
+}
+
+ICM20948::ICM20948(){
+    ESP_LOGI(TAG,"Initializing ICM20948 Driver...");
 }
 
 esp_err_t ICM20948::enable_mag_bypass()

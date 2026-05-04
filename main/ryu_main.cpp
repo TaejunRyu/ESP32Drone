@@ -45,24 +45,24 @@ void app_main(void) {
 	
     watch_dog_initialize();
   
+    {
+        // espnow 초기화
+        auto& espnow = Service::EspNow::get_instance();
+        espnow.initialize();
+        auto mac_addr = espnow.get_my_mac_address();
+        ESP_LOGI(MAINTAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
+                    mac_addr[0], mac_addr[1], mac_addr[2],
+                    mac_addr[3], mac_addr[4], mac_addr[5]);
+    }
 
-    auto& espnow = Service::EspNow::get_instance();
-    espnow.initialize();
-
-    auto mac_addr = espnow.get_my_mac_address();
-    ESP_LOGI(MAINTAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
-                mac_addr[0], mac_addr[1], mac_addr[2],
-                mac_addr[3], mac_addr[4], mac_addr[5]);
-    //WIFI::init_wifi();
-    //WIFI::init_esp_now();         // ESP-NOW 초기화 (송수신)
-        
     {// 배터리 체크 ADC 초기화
         Driver::Battery::get_instance().initialize();
 	}
     
     {// ========== [1단계] I2C 버스 생성 ==========
-		Driver::I2C::get_instance().initialize(); 
-		if(Driver::I2C::get_instance().get_bus_handle() == nullptr)
+		auto& i2c = Driver::I2C::get_instance();
+        i2c.initialize(); 
+		if(i2c.get_bus_handle() == nullptr)
 			ESP_LOGI(MAINTAG, "I2C 초기화 실패!");
 		else
 		    ESP_LOGI(MAINTAG, "✓ I2C 초기화 완료");
@@ -70,61 +70,67 @@ void app_main(void) {
 	}
 
 	{ // 메인 imu sensor와  서브 imu  sensor을 초기화한다.
-		Sensor::ICM20948::Main().initialize();
-		if(Sensor::ICM20948::Main().get_dev_handle() ==nullptr)
+        auto& icm20948_main = Sensor::ICM20948::Main();
+        auto& icm20948_sub  = Sensor::ICM20948::Sub();
+        icm20948_main.initialize();
+		if(icm20948_main.get_dev_handle() ==nullptr)
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 초기화 설정 실패!");
 		else 
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
 
-		Sensor::ICM20948::Sub().initialize();
-		if(Sensor::ICM20948::Sub().get_dev_handle() ==nullptr)
-			ESP_LOGI(MAINTAG, "IMU SUB MODULE 초기화 설정 실패!");
-		else 
-			ESP_LOGI(MAINTAG, "IMU SUB MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
-
-        // 각각의 오프셋을 구한다.
-		Sensor::ICM20948::Main().calibrate();
-        Sensor::ICM20948::Sub().calibrate();		
-
-    }
-    
-	{ // ak09916을 사용하기위하여 main sensor의 icm20948에서 bypass mode를 설정한다.
-		ret_code = Sensor::ICM20948::Main().enable_mag_bypass();
+        // ak09916을 사용하기위하여 main sensor의 icm20948에서 bypass mode를 설정한다.
+        ret_code = icm20948_main.enable_mag_bypass();
 		if (ret_code != ESP_OK)
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
 		else
 			ESP_LOGI(MAINTAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
 		vTaskDelay(pdMS_TO_TICKS(10));
-	}
+	
+		icm20948_sub.initialize();
+		if(icm20948_sub.get_dev_handle() ==nullptr)
+			ESP_LOGI(MAINTAG, "IMU SUB MODULE 초기화 설정 실패!");
+		else 
+			ESP_LOGI(MAINTAG, "IMU SUB MODULE 범위 설정 완료: Accel ±8g, Gyro ±1000dps, DLPF ~24Hz");
+
+        // 각각의 오프셋을 구한다.
+		icm20948_main.calibrate();
+        icm20948_sub.calibrate();		
+
+    }
     
-    
+        
     {// Gps에 있는 지자계 센서를 사용하기 위하여 초기화 한다.( 두 번째 지자계 센서로 ak09916을 등록 할지 생각해보자.)
-        Sensor::IST8310::get_instance().initialize(); 
-        if (Sensor::IST8310::get_instance().get_dev_handle() == nullptr) 
+        auto& ist8310 = Sensor::IST8310::get_instance();
+        auto& ak09916 = Sensor::AK09916::get_instance();
+
+        ist8310.initialize(); 
+        if (ist8310.get_dev_handle() == nullptr) 
             ESP_LOGW("WARNING","IST8310 등록실패!");
-		Sensor::AK09916::get_instance().initialize();
-        if (Sensor::AK09916::get_instance().get_dev_handle() == nullptr) 
+		ak09916.initialize();
+        if (ak09916.get_dev_handle() == nullptr) 
             ESP_LOGW("WARNING","AK09916 등록실패!");
 		vTaskDelay(pdMS_TO_TICKS(50));
 	}
     
+
     {// 기압계센서를 초기화하고 현재 위치의 기압을 체크한다.(나중에 상대 고도의 기준이 되는 값.)
-        ret_code = Sensor::BMP388::Main().initialize();
+        auto& bmp388_main = Sensor::BMP388::Main();
+        auto& bmp388_sub  = Sensor::BMP388::Sub(); 
+        ret_code = bmp388_main.initialize();
         if (ret_code !=ESP_OK){
 
         }
-        ret_code = Sensor::BMP388::Sub().initialize(); 
+        ret_code = bmp388_sub.initialize(); 
         if (ret_code !=ESP_OK){
-            
+
         }
-        auto [ret_bmp0,mgp] = Sensor::BMP388::Main().calibrate_ground_pressure();
-        auto [ret_bmp1,sgp] = Sensor::BMP388::Sub().calibrate_ground_pressure();
+        auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
+        auto [ret_bmp1,sgp] = bmp388_sub.calibrate_ground_pressure();
         g_baro.ground_pressure = (mgp+sgp) * 0.5;
     }
     
     
-    {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	
-		// IMU 데이터를 읽는다. 		
+    {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
 		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = Sensor::ICM20948::Main().read_with_offset();
 		g_imu.acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
         g_imu.gyro[0]   *=  -1.0f;
@@ -147,6 +153,7 @@ void app_main(void) {
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}
     
+
 	{
 		// 모터 PWM 초기화
         Driver::Motor::get_instance().initialize();
@@ -184,11 +191,7 @@ void app_main(void) {
 
         ESP_LOGE(MAINTAG, "❌ 필수 센서 미연결! 시스템 중단");
 
-        
-        Driver::Motor::get_instance().stop_all_motors();
-        
-
-        
+        Driver::Motor::get_instance().stop_all_motors();    
 
         // 무한 대기 (리부팅 필요)
         while (true) {
@@ -204,10 +207,12 @@ void app_main(void) {
     // ========== [4단계] 보조 태스크 생성 ==========
     BaseType_t res;
 
+    //mavlink분석및 qgc와 communication.
     auto& mavlink =  Service::Mavlink::get_instance();
     mavlink.initialize();
 
     // 0. espnow tx task
+    auto& espnow = Service::EspNow::get_instance(); 
     espnow.start_task();
 
     auto& flysky = Service::Flysky::get_instance();
@@ -221,7 +226,8 @@ void app_main(void) {
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 3.Telemetry Task is failed! code: %d", res);
     else ESP_LOGI(MAINTAG, "✓ 3.Telemetry task is passed...");
     
-    Driver::Battery::get_instance().start_task();
+    auto& bat = Driver::Battery::get_instance();
+    bat.start_task();
     
     res= xTaskCreatePinnedToCore(ERR::error_manager_task, "ErrMgr", 4096, NULL, 10, &ERR::xErrorHandle, 0);
     if (res != pdPASS) ESP_LOGE(MAINTAG, "❌ 5.Error Check Task is failed! code: %d", res);

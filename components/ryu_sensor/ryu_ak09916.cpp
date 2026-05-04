@@ -13,8 +13,8 @@ namespace Sensor
 
 const char* AK09916::TAG = "AK09916";
 
-AK09916::AK09916():_initialized(false)
-{
+AK09916::AK09916(){
+    ESP_LOGI(TAG,"Initializing AK09916 Driver...");
 }
 
 AK09916::~AK09916()
@@ -23,7 +23,7 @@ AK09916::~AK09916()
 
 void AK09916::deinitialize()
 {
-    if (!this->_initialized){
+    if (!_initialized){
         return;
     }
     if (this->_dev_handle){

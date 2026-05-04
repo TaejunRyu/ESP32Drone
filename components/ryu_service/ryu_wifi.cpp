@@ -10,32 +10,15 @@ namespace Service
 {   
 
 const char* EspNow::TAG = "EspNow";
-EspNow::EspNow()
-    :mavlink_tx_queue(nullptr),mavlink_rx_queue(nullptr),_initialized(false)
-{
-
+EspNow::EspNow(){
+    ESP_LOGI(TAG,"Initializing EspNow Service...");
 }
-EspNow::~EspNow()
-{
-}
+EspNow::~EspNow(){}
 void EspNow::initialize()
 {
     if(_initialized) return;
-    
-    current_rssi = 0;
-    noise_floor  = 0;
-    
-    peer_info = {}; 
-    
-    bridge_mac[0] = 0x1C;
-    bridge_mac[1] = 0xDB; 
-    bridge_mac[2] = 0xD4; 
-    bridge_mac[3] = 0xAE; 
-    bridge_mac[4] = 0x82;
-    bridge_mac[5] = 0x04;
-
     mavlink_tx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(esp_now_data_t));
-    mavlink_rx_queue   = xQueueCreate(MAVLINK_TX_QUEUE_SIZE,       sizeof(esp_now_data_t));
+    mavlink_rx_queue   = xQueueCreate(MAVLINK_RX_QUEUE_SIZE,       sizeof(esp_now_data_t));
 
     //-----------WIFI 초기화----------
     // NVS 초기화
