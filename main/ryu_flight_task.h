@@ -1,6 +1,9 @@
 #pragma once
 
 #include <esp_pm.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+
 namespace Controller{
     class PID;
 }
@@ -31,11 +34,6 @@ namespace Service{
     class Espnow;
 }
 
-/**
- * @brief 
- * 어떤 단위의 작업이 얼마나 걸리는지 체크하는 class 실제 모듈에서는 빠져도 됨
- * 
- */
 namespace Controller{
 
 class  Flight{
@@ -75,6 +73,7 @@ class  Flight{
         void start_task();
         
     private:
+        TaskHandle_t _task_handle = nullptr;
         float calculated_dt =0;
         bool _initialized = false;
         static const char* TAG;

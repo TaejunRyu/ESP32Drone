@@ -46,6 +46,7 @@ void Battery::initialize()
     if (ret == ESP_OK) {
         do_calibration = true;
     }
+    ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
 }
 

@@ -44,6 +44,7 @@ void PID::initialize()
     if(_initialized) return;
     //
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 void PID::reset_pid(drone_pid_t *p)

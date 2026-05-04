@@ -14,7 +14,7 @@ namespace Sensor
 const char* AK09916::TAG = "AK09916";
 
 AK09916::AK09916(){
-    ESP_LOGI(TAG,"Initializing AK09916 Sensor...");
+    ESP_LOGI(TAG,"Initializing Sensor...");
 }
 
 AK09916::~AK09916()
@@ -57,7 +57,7 @@ i2c_master_dev_handle_t AK09916::initialize()
     i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
     
     if (who_val != 0x09) {
-        ESP_LOGE(TAG, "연결 실패! ID: 0x%02X (기대값: 0x09)", who_val);
+        ESP_LOGE(TAG, "Connection failed! ID: 0x%02X (Expected value: 0x09)", who_val);
         return nullptr;
     }
     //4. AK09916 소프트 리셋 및 모드 설정
@@ -70,7 +70,7 @@ i2c_master_dev_handle_t AK09916::initialize()
     i2c_master_transmit(_dev_handle, mode_cmd, 2, pdMS_TO_TICKS(100));
     
     _initialized = true;
-    ESP_LOGI(TAG, "초기화 성공 (ID: 0x09)");
+    ESP_LOGI(TAG, "Initialized successfully. (ID: 0x09)");
     return _dev_handle;
 }
 

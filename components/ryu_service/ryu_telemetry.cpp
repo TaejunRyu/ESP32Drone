@@ -8,49 +8,6 @@
 namespace Service
 {
 
-// static const char *TAG = "TELEMETRY";
-   
-// static mavlink_status_t status;
-
-// void telemetry_task(void *pv) {
-
-//     auto& mavlink =  Service::Mavlink::get_instance();
-
-//     mavlink_message_t msg;
-//     Service::EspNow::esp_now_data_t pkt;
-    
-//     while (true) 
-//     {
-//         if (xQueueReceive(Service::EspNow::get_instance().mavlink_rx_queue, &pkt, portMAX_DELAY)) {                
-//             for (int i = 0; i < pkt.len; ++i) {
-//                 if (mavlink_parse_char(MAVLINK_COMM_2, pkt.buffer[i], &msg, &status)) {
-//                     //printf("msgid : %4d msgseq: %4d sysid: %4d compid : %4d\n",msg.msgid,msg.seq,msg.sysid,msg.compid);
-//                     mavlink.handle_mavlink_message(&msg);
-//                 }
-//             }
-
-//             // QGC 명령에 따른 상태 업데이트 로직
-//             static bool previous_armed_state = false;
-//             if (previous_armed_state != g_sys.is_armed) {
-//                 if (g_sys.is_armed) {
-//                     ESP_LOGD(TAG,"시동으로 프래그 변환(시동)");
-//                     g_heartbeat.base_mode |= MAV_MODE_FLAG_SAFETY_ARMED;
-//                     g_sys.system_status = MAV_STATE_ACTIVE;
-//                     // calibrate_ground_pressure(); // 주석 처리 유지: 통신 두절 방지
-//                 } else {
-//                     ESP_LOGD(TAG,"시동으로 프래그 변환(시동 꺼짐)");
-//                     g_heartbeat.base_mode &= ~MAV_MODE_FLAG_SAFETY_ARMED;
-//                     g_sys.system_status = MAV_STATE_STANDBY;
-//                 }
-//                 previous_armed_state = g_sys.is_armed; // 중복 코드 제거
-//             }
-//         } // if(xQueueReceive(....))
-
-//     } //while(true)
-
-// } // telemetry_task
-
-
 const char* Telemetry::TAG = "Telemetry";
 
 Telemetry::Telemetry(){
@@ -65,6 +22,7 @@ void Telemetry::initialize()
     if(_initialized) return;
     //
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 void Telemetry::telemetry_task(void *pv)

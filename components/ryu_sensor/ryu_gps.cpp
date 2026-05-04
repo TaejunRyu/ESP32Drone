@@ -36,7 +36,7 @@ void Gps::initialize()
     uart_driver_install(UART_NUM_1, 2048, 0, 0, NULL, 0);
     uart_param_config(UART_NUM_1, &gps_cfg);
     uart_set_pin(UART_NUM_1, GPS_TX, GPS_RX, -1, -1);
-    ESP_LOGI("GPS", "드라이버 초기화 완료");
+    ESP_LOGI("GPS", "Initialized sucessfully.");
 
     if (xGpsMutex == nullptr) {
         xGpsMutex = xSemaphoreCreateMutex();

@@ -185,5 +185,6 @@ void Mahony::initialize()
     integralFBx = 0.0f, integralFBy = 0.0f, integralFBz = 0.0f; // 적분 오차
     boot_start_time = esp_timer_get_time();// esp_log_timestamp();
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 }

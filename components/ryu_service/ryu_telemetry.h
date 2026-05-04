@@ -12,9 +12,6 @@ Heartbeat (1Hz): 20번에 한 번 (10번 슬롯)
 namespace Service
 {
 
-// extern void initialize();
-// extern void telemetry_task(void *pv);
-
 class  Telemetry{
     private:
         Telemetry();

@@ -1,15 +1,18 @@
 #include "ryu_flight_task.h"
 
-#include <driver/i2c_master.h>
-#include <driver/mcpwm_prelude.h> // 신형 MCPWM
-#include <driver/gpio.h>
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_task_wdt.h>
+
+#include <driver/i2c_master.h>
+#include <driver/mcpwm_prelude.h> // 신형 MCPWM
+#include <driver/gpio.h>
+
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 
 #include "ryu_config.h"
+
 #include "ryu_flysky.h"
 #include "ryu_MahonyFilter.h"
 #include "ryu_pid.h"
@@ -40,7 +43,7 @@ namespace Controller
 const char* Flight::TAG = "Flight";
 
 Flight::Flight(){
-    ESP_LOGI(TAG,"Initializing Flight Controller...");
+    ESP_LOGI(TAG,"Initializing Flight Controller.");
 }
 
 Flight::~Flight(){}
@@ -48,7 +51,7 @@ Flight::~Flight(){}
 void Flight::initialize()
 {
     if(_initialized) return;
-    
+    esp_err_t ret;
     auto& espnow        = Service::EspNow::get_instance();
         espnow.initialize();
         vTaskDelay(pdMS_TO_TICKS(50));
@@ -60,6 +63,12 @@ void Flight::initialize()
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& icm20948_main = Sensor::ICM20948::Main();
         icm20948_main.initialize();
+        ret = icm20948_main.enable_mag_bypass();
+        if (ret != ESP_OK)
+            ESP_LOGW(TAG, "ICM20948 main module Bypass mode setting failed!");
+        else
+            ESP_LOGI(TAG, "ICM20948 main module Bypass mode setup complete!");
+
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& icm20948_sub  = Sensor::ICM20948::Sub();
         icm20948_sub.initialize();
@@ -106,7 +115,9 @@ void Flight::initialize()
     auto& timer         = Service::Timer::get_instance();
         timer.intiallize();
         vTaskDelay(pdMS_TO_TICKS(50));  
+
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 void Flight::flight_task(void *pvParameters)
@@ -128,7 +139,9 @@ void Flight::flight_task(void *pvParameters)
 
     //Watch Dog 등록.  
     esp_task_wdt_add(NULL);     
+ 
     
+
     while(true) {
         int64_t now = esp_timer_get_time();
         flight->calculated_dt = (now- last_time);
@@ -140,9 +153,6 @@ void Flight::flight_task(void *pvParameters)
         
         // 연속적인 데이터 읽기 실패를 체크한다.
         esp_err_t ret_code = ESP_FAIL;
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&    
-// imu_active_index = 1;
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
  
         static float   calculation_acc_x  = 0.0f,  calculation_acc_y  = 0.0f,  calculation_acc_z  = 0.0f;
         static float   calculation_gyro_x = 0.0f,  calculation_gyro_y = 0.0f,  calculation_gyro_z = 0.0f;
@@ -278,17 +288,17 @@ void Flight::flight_task(void *pvParameters)
         // telemetry의  mavlink_msg_attitude_pack에서 (-) 부호 처리하여 보낸다.
         // 수정사항 qgc에 보낼정보는 따로 담아서 보관하도록 해야할것 같다. roll정보를 pid에서 사용하기때문에 변하면 안되다.
         float sinP =0.0f,actual_compass_heading=0.0f;
-        {
-            const float q0q0 = mahony.q0 * mahony.q0;
-            const float q1q1 = mahony.q1 * mahony.q1;
-            const float q2q2 = mahony.q2 * mahony.q2;
-            const float q3q3 = mahony.q3 * mahony.q3;             
 
-            g_attitude.roll = atan2f(2.0f * (mahony.q0 * mahony.q1 + mahony.q2 * mahony.q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
-            sinP      = std::clamp(2.0f * (mahony.q0 * mahony.q2 - mahony.q1 * mahony.q3), -1.0f, 1.0f);
-            g_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
-            actual_compass_heading   = atan2f(2.0f * (mahony.q1 * mahony.q2 + mahony.q0 * mahony.q3), q0q0 + q1q1 - q2q2 - q3q3);
-        }
+        const float q0q0 = mahony.q0 * mahony.q0;
+        const float q1q1 = mahony.q1 * mahony.q1;
+        const float q2q2 = mahony.q2 * mahony.q2;
+        const float q3q3 = mahony.q3 * mahony.q3;             
+
+        g_attitude.roll = atan2f(2.0f * (mahony.q0 * mahony.q1 + mahony.q2 * mahony.q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
+        sinP      = std::clamp(2.0f * (mahony.q0 * mahony.q2 - mahony.q1 * mahony.q3), -1.0f, 1.0f);
+        g_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
+        actual_compass_heading   = atan2f(2.0f * (mahony.q1 * mahony.q2 + mahony.q0 * mahony.q3), q0q0 + q1q1 - q2q2 - q3q3);
+
         // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
         float declinationAngle = 7.7f * DEG_TO_RAD;
@@ -483,7 +493,7 @@ void Flight::start_task()
 {
     auto& espnow        = Service::EspNow::get_instance();
     auto& battery       = Driver::Battery::get_instance();
-    auto& i2c           = Driver::I2C::get_instance();
+    //auto& i2c           = Driver::I2C::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
     auto& icm20948_sub  = Sensor::ICM20948::Sub();
     auto& ist8310       = Sensor::IST8310::get_instance();
@@ -495,35 +505,38 @@ void Flight::start_task()
     auto& gps           = Sensor::Gps::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
     auto& buzzer        = Driver::Buzzer::get_instance();
-    auto& mavlink       = Service::Mavlink::get_instance();
+    //auto& mavlink       = Service::Mavlink::get_instance();
     auto& telemetry     = Service::Telemetry::get_instance();
-    auto& pid           = Controller::PID::get_instance();
+    //auto& pid           = Controller::PID::get_instance();
     auto& failsafe      = Service::FailSafe::get_instance();
     auto& timer         = Service::Timer::get_instance();
     
-    auto mac_addr = espnow.get_my_mac_address();
-    ESP_LOGI(TAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
-                mac_addr[0], mac_addr[1], mac_addr[2],
-                mac_addr[3], mac_addr[4], mac_addr[5]);
+    esp_err_t ret;
 
-    auto ret_code = icm20948_main.enable_mag_bypass();
-    if (ret_code != ESP_OK)
-        ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
-    else
-        ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
-    vTaskDelay(pdMS_TO_TICKS(10));
+    auto mac_addr = espnow.get_my_mac_address();
+    ESP_LOGI(TAG, "My MAC address: %02x:%02x:%02x:%02x:%02x:%02x",mac_addr[0], mac_addr[1], mac_addr[2],mac_addr[3], mac_addr[4], mac_addr[5]);
+
+    //auto ret_code = icm20948_main.enable_mag_bypass();
+    // if (ret_code != ESP_OK)
+    //     ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
+    // else
+    //     ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
+    // vTaskDelay(pdMS_TO_TICKS(10));
     
     // 각각의 오프셋을 구한다.
-    icm20948_main.calibrate();
+    icm20948_main.calibrate();  
+    vTaskDelay(pdMS_TO_TICKS(100));
     icm20948_sub.calibrate();		
+
 
     auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
     vTaskDelay(pdMS_TO_TICKS(50));
     auto [ret_bmp1,sgp] = bmp388_sub.calibrate_ground_pressure();
     g_baro.ground_pressure = (mgp+sgp) * 0.5;
 
+
     {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
-		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = icm20948_main.read_with_offset();
+		std::tie(ret,g_imu.acc,g_imu.gyro)     = icm20948_main.read_with_offset();
 		g_imu.acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
         g_imu.gyro[0]   *=  -1.0f;
 
@@ -540,18 +553,19 @@ void Flight::start_task()
 		g_imu.acc   ={};
 		g_imu.gyro  ={};
 		g_imu.mag   ={};
-		ESP_LOGI(TAG, "✓ Mahony AHRS 초기화 완료");
+		ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}
 
+
     // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
     if (
-        icm20948_main.get_dev_handle() == nullptr ||
-        icm20948_sub.get_dev_handle() == nullptr ||
-        ist8310.get_dev_handle() == nullptr ||
-        ak09916.get_dev_handle() == nullptr ||
-        bmp388_main.get_dev_handle()   == nullptr ||
-        bmp388_sub.get_dev_handle()    == nullptr) 
+        icm20948_main.get_dev_handle()  == nullptr ||
+        icm20948_sub.get_dev_handle()   == nullptr ||
+        ist8310.get_dev_handle()        == nullptr ||
+        ak09916.get_dev_handle()        == nullptr ||
+        bmp388_main.get_dev_handle()    == nullptr ||
+        bmp388_sub.get_dev_handle()     == nullptr) 
         {
         if (icm20948_main.get_dev_handle() == nullptr) 
             ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "ICM20948");
@@ -589,21 +603,20 @@ void Flight::start_task()
     failsafe.start_task();
     
     {
-        auto res = xTaskCreatePinnedToCore(flight_task, "flight", 8192,this, 24, NULL, 1);
+        auto res = xTaskCreatePinnedToCore(flight_task, "flight", 8192,this, 24, &_task_handle, 1);
         if (res != pdPASS) {
             ESP_LOGE(TAG, "❌ 6.Flight Task is Failed! code: %d", res);
             // 모터 안전 정지
-            Driver::Motor::get_instance().stop_all_motors();
+            motor.stop_all_motors();
         } else {
             ESP_LOGI(TAG, "✓ 6.Flight Task is passed...");
         }
     }
-    
     ESP_LOGI(TAG, "✅ All Processes is passed... Flight ready!");
+
     // 콜백이 등록되어야지 데이터가 들어온다.
     espnow.connect_callback();
     timer.Start();
-
 }
 
 

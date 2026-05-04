@@ -724,7 +724,7 @@ void Mavlink::initialize()
     auto& timer = Service::Timer::get_instance();
     timer.set_timer_callback([this](){on_timer_tick();});
     _initialized = true;
-    ESP_LOGI(TAG,"MavlinkService initiaizeed.");
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 } // namespace MAV

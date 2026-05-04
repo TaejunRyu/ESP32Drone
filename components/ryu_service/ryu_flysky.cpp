@@ -53,7 +53,7 @@ void Flysky::initialize()
     mcpwm_capture_timer_start(_cap_timer);
 
     _initialized = true;
-    ESP_LOGI("FLYSKY", "✓ 드라이버 초기화 완료");
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 void Flysky::flysky_task(void *pvParameters)

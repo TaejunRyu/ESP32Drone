@@ -23,7 +23,6 @@ void Buzzer::initialize()
 {
     if (_initialized) {
         return;
-        ESP_LOGD(TAG,"Buzzer intialized.");
     }
     ledc_timer_config_t ledc_timer = {};
     ledc_timer.speed_mode       = LEDC_LOW_SPEED_MODE;
@@ -44,6 +43,7 @@ void Buzzer::initialize()
     ledc_channel.hpoint         = 0;
 
     ledc_channel_config(&ledc_channel);
+    ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
 }
 

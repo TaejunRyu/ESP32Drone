@@ -40,7 +40,7 @@ esp_err_t Timer::intiallize()
     }
 
     _initialized = true;
-    ESP_LOGI(TAG, "TimerService initialized");
+    ESP_LOGI(TAG,"Initialized successfully.");
     return ESP_OK;
 }
 

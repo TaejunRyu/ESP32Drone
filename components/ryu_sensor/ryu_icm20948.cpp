@@ -16,7 +16,6 @@ void ICM20948::icm20948_select_bank(uint8_t bank)
 {
     uint8_t cmd[] = {REG_BANK_SEL, (uint8_t)(bank << 4)};
     i2c_master_transmit(_dev_handle, cmd, 2, pdMS_TO_TICKS(10));
-    //ESP_LOGI(TAG,"%s Changed Bank.",name.c_str());
     _current_bank = bank;
 }
 
@@ -93,7 +92,7 @@ i2c_master_dev_handle_t ICM20948::initialize()
     
     _initialized = true;
     this->isAlive = true;
-    ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    
+    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
     return _dev_handle;
 }
 
@@ -129,16 +128,16 @@ void ICM20948::calibrate()
     }
     float sum_acc[3] ={},sum_gyro[3]={};
      int valid_samples = 0; // 실제로 성공한 샘플 수만 카운트
-    const int samples = 1000; // 1000번 샘플링 (약 1~2초 소요)
+    const int samples = 500; // 1000번 샘플링 (약 1~2초 소요)
     uint8_t buf[12];
     uint8_t reg = B0_ACCEL_XOUT_H;
     
     icm20948_select_bank(0);
 
-    ESP_LOGI(TAG, "센서 영점 조절 시작... 기체를 수평으로 유지하세요.");
+    ESP_LOGI(TAG, "Start sensor zeroing... Keep the aircraft level.");
     for (int i = 0; i < samples; i++) {
         uint64_t start_time = esp_timer_get_time(); // 시작 시간 기록
-        if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(2)) == ESP_OK) [[likely]]{    
+        if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(100)) == ESP_OK) [[likely]]{    
             sum_acc[0] += (int16_t)((buf[0] << 8) | buf[1])   / 4096.0f;
             sum_acc[1] += (int16_t)((buf[2] << 8) | buf[3])   / 4096.0f;
             sum_acc[2] += (int16_t)((buf[4] << 8) | buf[5])   / 4096.0f;
@@ -153,7 +152,7 @@ void ICM20948::calibrate()
         uint32_t elapsed = (uint32_t)(end_time - start_time);
         if (elapsed < 2500) {
             esp_rom_delay_us(2500 - elapsed); // 남은 시간만큼 마이크로초 단위 대기
-        }    
+        }   
         //printf("\r         ICM20948: 센서 영점 조절 작업중. 진행율(%d/%d), valid samples(%d) ", i+1,samples,valid_samples);
         //ESP_LOGI("ICM20948", "센서 영점 조절 작업중.%d/%d",i,samples);
         //vTaskDelay(pdMS_TO_TICKS(2)); // 200Hz 이상  빠르게 샘플링
@@ -225,7 +224,7 @@ esp_err_t ICM20948::enable_mag_bypass()
     esp_err_t ret = i2c_master_transmit(_dev_handle, bypass_cmd, 2, pdMS_TO_TICKS(10));
     
     if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "지자계(AK09916) Bypass 모드 활성화 완료");
+        ESP_LOGI(TAG, "Geomagnetic Field (AK09916) Bypass Mode Activation Complete");
     }
     return ret;
 }

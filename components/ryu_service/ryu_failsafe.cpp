@@ -27,6 +27,7 @@ void FailSafe::initialize()
     if(_initialized) return;
     //
     _initialized = true;
+    ESP_LOGI(TAG,"Initialized successfully.");
 }
 
 esp_err_t FailSafe::reinit_all_sensors()
@@ -107,7 +108,9 @@ void FailSafe::failsafe_manager_task(void * pvParameters)
                         flight.imu_active_index = 0;
                         flight.mag_active_index = 0;
                         flight.baro_active_index = 0;
+
                         g_sys.error_hold_mode = false;                
+                        
                         // 모든 센서가 정상으로 돌아왔다고 가정하고 상태 비트 모두 켜기 (필요에 따라 개별적으로 설정할 수도 있음)
                         failsafe->g_system_health |= SYS_HEALTH_IMU_OK|SYS_HEALTH_MAG_OK|SYS_HEALTH_BARO_OK;                    
                     }

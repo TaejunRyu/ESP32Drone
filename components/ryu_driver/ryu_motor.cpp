@@ -89,6 +89,7 @@ void Motor::initialize()
     mcpwm_timer_enable(_timer);
     mcpwm_timer_start_stop(_timer, MCPWM_TIMER_START_NO_STOP);
 
+    ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
 }
 

@@ -43,7 +43,7 @@ void EspNow::initialize()
     // 채널 설정 (브릿지과 동일한 채널)
     ESP_ERROR_CHECK(esp_wifi_set_channel(ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
 
-    ESP_LOGI(TAG, "WiFi STA 모드 초기화 완료, 채널: %d", ESPNOW_CHANNEL);
+    ESP_LOGI(TAG, "WiFi STA mode initialization complete, Channel: %d", ESPNOW_CHANNEL);
 
 
     // -----------ESP-NOW 초기화-----------
@@ -75,10 +75,10 @@ void EspNow::initialize()
         // 해당 설정시 _LR모드와 공존할수 없다.
         esp_now_set_peer_rate_config(bridge_mac, &rate_config); 
     }
-    ESP_LOGI(TAG, "Bridge peer 등록 성공: %02x:%02x:%02x:%02x:%02x:%02x",
+    ESP_LOGI(TAG, "Bridge peer registration successful: %02x:%02x:%02x:%02x:%02x:%02x",
                  bridge_mac[0], bridge_mac[1], bridge_mac[2],
                  bridge_mac[3], bridge_mac[4], bridge_mac[5]);    
-    ESP_LOGI(TAG, "ESP-NOW 초기화 완료");
+    ESP_LOGI(TAG,"Initialized successfully.");
     _initialized = true;
 }
 

@@ -109,7 +109,7 @@ esp_err_t BMP388::initialize()
     }
     _initialized = true;
 
-    ESP_LOGI(TAG,"%s Initialize sucessfully.",this->name.c_str());    
+    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
     return ret_code;
 }
 
@@ -161,7 +161,7 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
     int attempts = 0; // 무한 루프 방지용
     int error_count = 0;
 
-    ESP_LOGI(TAG, "✓ 지면 기압 보정 시작 (100회 샘플링)...");
+    ESP_LOGI(TAG, "✓ Start ground pressure correction (100 samplings)...");
 
     // 1. 센서 안정화를 위해 첫 데이터는 읽고 버림
     auto [ret_code,pressure] = get_pressure();
@@ -175,7 +175,7 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
             count++;
         } else {
             error_count ++;
-            ESP_LOGW(TAG, "잘못된 압력 값 감지: %.2f hPa", pressure);
+            ESP_LOGW(TAG, "Detecting incorrect pressure values: %.2f hPa", pressure);
         }
         attempts++;
         vTaskDelay(pdMS_TO_TICKS(20)); // 50Hz 샘플링
@@ -184,17 +184,17 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
             ESP_LOGD(TAG, "보정 진행률: %d%%", count);
         }
         if(error_count > 10) {
-            ESP_LOGE(TAG, "❌ 지면 기압 보정 실패 (센서 확인 필요)");
+            ESP_LOGE(TAG, "❌ Ground pressure correction failed (sensor check needed)");
             return {ret_code,0.0f};
         }
     }
 
     if (count >= 50) { // 최소 50개 이상의 유효 샘플 확보 시
         this->ground_pressure = sum / (float)count;
-        ESP_LOGI(TAG, "✓ 지면 기압 설정 완료: %.2f hPa (샘플: %d개)", this->ground_pressure, count);
+        ESP_LOGI(TAG, "✓ Ground pressure setting complete: %.2f hPa (Samples: %d)", this->ground_pressure, count);
         return {ret_code,this->ground_pressure};
     }
-    ESP_LOGE(TAG, "❌ 지면 기압 보정 실패 (센서 확인 필요)");
+    ESP_LOGE(TAG, "❌ Ground pressure correction failed (sensor check needed)");
     return {ret_code,0.0f};
 }
 
