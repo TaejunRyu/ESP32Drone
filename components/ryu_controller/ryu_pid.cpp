@@ -119,7 +119,7 @@ float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, f
 
 void PID::sync_pid_from_params()
 {
-    auto& p_mgr = PARAM::ParamMgr::get_instance();
+    auto& p_mgr = Service::ParamMgr::get_instance();
     auto& values = p_mgr.get_values();
 
     // Roll / Pitch / Yaw 각 항의 비례, 적분, 미분 계수

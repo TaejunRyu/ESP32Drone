@@ -1,3 +1,32 @@
+/* 
+ * [ICM-20948 AHRS Configuration Log]
+ * 1. Coord: X-Forward, Y-Right, Z-Up
+ * 2. Mag Mapping: mx = raw_mx, my = raw_my, mz = raw_mz 
+ * 3. Calibration: Applied Hard-Iron Offsets (0-centered)
+ * 4. Filter: Mahony AHRS (Kp=2.0, Ki=0.005)
+ * 5. Output: Yaw is True North (Declination +7.7deg applied)
+ * 
+    <<<방위별 표준 데이터 변화 (X축 전방 기준)>>>
+    방위 (Heading)	기기 정면 방향	    (mx)	        (my)	        비고
+    북 (North, 0°)	    북쪽	        최대값 (+)	    0 근처	        mx가 가장 큼
+    동 (East, 90°)	    동쪽	        0 근처	        최대값 (+)	    my가 가장 큼
+    남 (South, 180°)    남쪽	        최소값 (-)	    0 근처	        mx가 가장 작음
+    서 (West, 270°)	    서쪽	        0 근처	        최소값 (-)	    my가 가장 작음
+ */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 1. 프레임 : DJI F450
 2. MPU   : ESP32 (안테나 있는걸로 교체)
 3. SENSOR :  

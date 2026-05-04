@@ -7,8 +7,6 @@ namespace NVS
 // [저장] 특정 인덱스의 파라미터 정보 저장 (Pointer 제외)
 esp_err_t save_param_struct_to_nvs(int index) {
     
-    
-
     nvs_handle_t my_handle;
     esp_err_t err = nvs_open(NVS_NAMESPACE, NVS_READWRITE, &my_handle);
     if (err != ESP_OK) return err;
@@ -25,14 +23,14 @@ esp_err_t save_param_struct_to_nvs(int index) {
     } temp_data;
 
 
-    size_t name_len = std::min(PARAM::params[index].name.size(), (size_t)15); // 마지막 null 포함 공간 확보
+    size_t name_len = std::min(Service::params[index].name.size(), (size_t)15); // 마지막 null 포함 공간 확보
     memset(temp_data.name, 0, 16); // 먼저 0으로 채워넣기 (Padding)
-    memcpy(temp_data.name, PARAM::params[index].name.data(), name_len);
+    memcpy(temp_data.name, Service::params[index].name.data(), name_len);
     
 
-    auto& p_mgr = PARAM::ParamMgr::get_instance();
+    auto& p_mgr = Service::ParamMgr::get_instance();
     temp_data.value =  p_mgr.get_value_by_index(index);
-    temp_data.type  =  PARAM::params[index].type;
+    temp_data.type  =  Service::params[index].type;
 
 
     // Binary Blob으로 저장
@@ -46,7 +44,7 @@ esp_err_t save_param_struct_to_nvs(int index) {
 // [로드] 부팅 시 NVS에서 값을 읽어와 pointer와 매칭
 void load_params_struct_from_nvs() {
    
-    auto& p_mgr = PARAM::ParamMgr::get_instance();
+    auto& p_mgr = Service::ParamMgr::get_instance();
 
     nvs_handle_t my_handle;
     if (nvs_open(NVS_NAMESPACE, NVS_READONLY, &my_handle) != ESP_OK) return;

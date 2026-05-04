@@ -100,12 +100,13 @@ void FailSafe::failsafe_manager_task(void * pvParameters)
                     auto [ret_code,macc,mgyro] =Sensor::ICM20948::Main().read_raw_data();
                     if (ret_code == ESP_OK && (macc[0] + macc[1] + macc[2]) > 1.0f){
                         ret = ESP_OK;
-                        FLIGHT::imu_error_cnt =0;
-                        FLIGHT::mag_error_cnt =0;
-                        FLIGHT::baro_error_cnt =0;
-                        FLIGHT::imu_active_index = 0;
-                        FLIGHT::mag_active_index = 0;
-                        FLIGHT::baro_active_index = 0;
+                        auto& flight = Controller::Flight::get_instance();    
+                        flight.imu_error_cnt =0;
+                        flight.mag_error_cnt =0;
+                        flight.baro_error_cnt =0;
+                        flight.imu_active_index = 0;
+                        flight.mag_active_index = 0;
+                        flight.baro_active_index = 0;
                         g_sys.error_hold_mode = false;                
                         // 모든 센서가 정상으로 돌아왔다고 가정하고 상태 비트 모두 켜기 (필요에 따라 개별적으로 설정할 수도 있음)
                         failsafe->g_system_health |= SYS_HEALTH_IMU_OK|SYS_HEALTH_MAG_OK|SYS_HEALTH_BARO_OK;                    

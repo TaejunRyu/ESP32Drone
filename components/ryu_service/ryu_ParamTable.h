@@ -9,7 +9,7 @@
 #include <string_view>
 #include <esp_log.h>
 
-namespace PARAM {
+namespace Service {
 
 // 3. 파라미터 테이블 정의 (매크로로 간결하게)
 #define PARAM_LIST \
@@ -246,49 +246,6 @@ namespace PARAM {
     PARAM(SYS_AUTOSTART,4001,6)\
     PARAM(SYS_HAS_MAG,1,6)
 
-// // 2. 파라미터 정보를 담을 구조체 정의
-// struct DroneParam {
-//     std::string_view name; 
-//     float value;
-//     uint8_t type;
-// };
-
-// struct ParamInfo {
-//     std::string_view name;
-//     uint8_t type;
-// };
-
-// #define PARAM(name, default_val, type) ParamInfo{ #name, type },
-// // const를 붙여 Flash(ROData) 영역에 할당
-// inline const struct ParamInfo params[] = { PARAM_LIST };
-// #undef PARAM
-
-// // values 구조체의 모양을 결정하는 매크로
-// #define PARAM(name, default_val, type) float name;
-// struct ParamValuesStruct {
-//     PARAM_LIST
-// };
-// #undef PARAM
-
-// #define PARAM(name, default_val, type) static_cast<float>(default_val),
-// inline ParamValuesStruct values = { PARAM_LIST }; // 배열 {} 가 아닌 구조체 {} 초기화
-// #undef PARAM
-
-// constexpr size_t count = sizeof(params) / sizeof(ParamInfo);
-
-// //순차검색  검색
-// [[nodiscard]] constexpr int find_param(std::string_view name) noexcept{
-//     for( size_t i=0 ; const auto &p :params){
-//         if (p.name == name) return i; 
-//     }
-//     return -1;
-// }
-
-// //인덱스를 이용하여 업데이트하는 함수 
-// inline constexpr void update_param(size_t index , float value) noexcept{
-//     float *param_ptr =  reinterpret_cast<float*>(&values);
-//     param_ptr[index] = value;
-// }
     struct ParamInfo {
         std::string_view name;
         uint8_t type;
@@ -367,8 +324,6 @@ namespace PARAM {
         // 초기값 리스트 생성을 위한 매크로 정의
         #define PARAM(name, def, type) static_cast<float>(def),
         static inline constexpr ParamValuesStruct INITIAL_VALUES = { PARAM_LIST };
-        #undef PARAM
-
-        
+        #undef PARAM        
     };
 } //namespace PARAM

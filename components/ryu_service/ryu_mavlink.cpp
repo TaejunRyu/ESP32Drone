@@ -90,10 +90,10 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 break;
             }
 
-            auto& p_mgr = PARAM::ParamMgr::get_instance();
+            auto& p_mgr = Service::ParamMgr::get_instance();
 
             for (size_t i = 0 ; i < p_mgr.get_param_count() ; i++){
-                auto  &par = PARAM::params[i];
+                auto  &par = Service::params[i];
 
                 float val_to_send;
                 if (par.type == 6) { // INT32
@@ -121,9 +121,9 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             {
                 // 전송부 코드 예시
                 float val_to_send;
-                auto& p_mgr = PARAM::ParamMgr::get_instance();
+                auto& p_mgr = Service::ParamMgr::get_instance();
 
-                if (PARAM::params[req.param_index].type == 6) { // INT32
+                if (Service::params[req.param_index].type == 6) { // INT32
                     
                     int32_t temp = (int32_t)p_mgr.get_value_by_index(req.param_index);
                     memcpy(&val_to_send, &temp, 4); // 정수 비트를 float에 복사
@@ -132,9 +132,9 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 }
                 mavlink_message_t msg;
                 mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
-                                            PARAM::params[req.param_index].name.data(),
+                                            Service::params[req.param_index].name.data(),
                                             val_to_send, 
-                                            PARAM::params[req.param_index].type,
+                                            Service::params[req.param_index].type,
                                             p_mgr.get_param_count(),
                                             req.param_index);               
                 send_mavlink_msg(&msg);
@@ -151,7 +151,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             }
             // [중요] 변경된 값을 다시 보내줘야 QGC 화면에서 수치가 확정됨
             float val_to_send;
-            auto& p_mgr = PARAM::ParamMgr::get_instance();
+            auto& p_mgr = Service::ParamMgr::get_instance();
 
             if(size_t index = p_mgr.find_name_index(set.param_id);index != -1){
                 if (set.param_type == 6){    
@@ -631,7 +631,8 @@ void Mavlink::on_timer_tick()
 
             // 1. CPU Load 계산 (0 ~ 1000 사이의 값으로 변환)
             // 로그상 1700us / 2500us 라면 약 680이 됨
-            uint16_t load = (uint16_t)((FLIGHT::total_us * 1000) / FLIGHT::INTERVAL_US);
+            auto& flight = Controller::Flight::get_instance();
+            uint16_t load = (uint16_t)((flight.total_us * 1000) / Controller::Flight::INTERVAL_US);
             
             auto& bat = Driver::Battery::get_instance();
             // 2. 배터리 가짜 데이터 (12.6V, 10.5A, 85% 잔량)

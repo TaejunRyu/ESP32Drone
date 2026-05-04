@@ -13,9 +13,15 @@
 #include "ryu_flysky.h"
 #include "ryu_MahonyFilter.h"
 #include "ryu_pid.h"
+#include "ryu_wifi.h"
 #include "ryu_failsafe.h"
+#include "ryu_mavlink.h"
+#include "ryu_telemetry.h"
+#include "ryu_timer.h"
 
 // icm20948, ak09916, bmp388 위의 센서 교체.
+#include "ryu_buzzer.h"
+#include "ryu_gps.h"
 #include "ryu_icm20948.h"
 #include "ryu_ak09916.h"
 #include "ryu_bmp388.h"   
@@ -24,36 +30,108 @@
 #include "ryu_ist8310.h"
 // motor
 #include "ryu_motor.h"
+#include "ryu_battery.h"
+#include "ryu_i2c.h"
 
 
-namespace FLIGHT
+namespace Controller
 {
 
-class PerfMonitor part_timer;
+const char* Flight::TAG = "Flight";
 
-uint8_t imu_error_cnt = 0;
-uint8_t mag_error_cnt = 0;
-uint8_t baro_error_cnt =0;
-uint8_t imu_active_index = 0;
-uint8_t mag_active_index = 0;
-uint8_t baro_active_index = 0;
+Flight::Flight(){
+    ESP_LOGI(TAG,"Initializing Flight Controller...");
+}
 
-uint64_t  total_us  =0;
-float calculated_dt = 0.0f;
+Flight::~Flight(){}
+
+void Flight::initialize()
+{
+    if(_initialized) return;
     
-void flight_task(void *pv) {
+    auto& espnow        = Service::EspNow::get_instance();
+        espnow.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& battery       = Driver::Battery::get_instance();
+        battery.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& i2c           = Driver::I2C::get_instance();
+        i2c.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& icm20948_main = Sensor::ICM20948::Main();
+        icm20948_main.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& icm20948_sub  = Sensor::ICM20948::Sub();
+        icm20948_sub.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& ist8310       = Sensor::IST8310::get_instance();
+        ist8310.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& ak09916       = Sensor::AK09916::get_instance();
+        ak09916.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& bmp388_main   = Sensor::BMP388::Main();
+        bmp388_main.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& bmp388_sub    = Sensor::BMP388::Sub();
+        bmp388_sub.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& mahony        = Service::Mahony::get_instance();
+        mahony.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& motor         = Driver::Motor::get_instance();
+        motor.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& gps           = Sensor::Gps::get_instance();
+        gps.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& flysky        = Service::Flysky::get_instance();
+        flysky.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& buzzer        = Driver::Buzzer::get_instance();
+        buzzer.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& mavlink       = Service::Mavlink::get_instance();
+        mavlink.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& telemetry     = Service::Telemetry::get_instance();
+        telemetry.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& pid           = Controller::PID::get_instance();
+        pid.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& failsafe      = Service::FailSafe::get_instance();
+        failsafe.initialize();
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& timer         = Service::Timer::get_instance();
+        timer.intiallize();
+        vTaskDelay(pdMS_TO_TICKS(50));  
+    _initialized = true;
+}
+
+void Flight::flight_task(void *pvParameters)
+{
+    auto flight = static_cast<Flight*>(pvParameters);
+    auto& icm20948_main = Sensor::ICM20948::Main();
+    auto& icm20948_sub  = Sensor::ICM20948::Sub();
+    auto& ist8310       = Sensor::IST8310::get_instance();
+    auto& ak09916       = Sensor::AK09916::get_instance();
+    auto& failsafe      = Service::FailSafe::get_instance();
+    auto& bmp388_main   = Sensor::BMP388::Main();
+    auto& bmp388_sub    = Sensor::BMP388::Sub();
+    auto& pid           = Controller::PID::get_instance();
+    auto& motor         = Driver::Motor::get_instance();
+    auto& mahony        = Service::Mahony::get_instance();
     
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
 
     //Watch Dog 등록.  
     esp_task_wdt_add(NULL);     
-
-    auto& mahony = Service::Mahony::get_instance();
     
     while(true) {
         int64_t now = esp_timer_get_time();
-        calculated_dt = (now- last_time);
+        flight->calculated_dt = (now- last_time);
         last_time = now; 
         if (++loop_cnt >= 400) loop_cnt = 0; // 1초 주기로 초기화
  
@@ -68,10 +146,10 @@ void flight_task(void *pv) {
  
         static float   calculation_acc_x  = 0.0f,  calculation_acc_y  = 0.0f,  calculation_acc_z  = 0.0f;
         static float   calculation_gyro_x = 0.0f,  calculation_gyro_y = 0.0f,  calculation_gyro_z = 0.0f;
-        if (imu_error_cnt < ERROR_MAX_NUM+1){
-            switch(imu_active_index){
+        if (flight->imu_error_cnt < ERROR_MAX_NUM+1){
+            switch(flight->imu_active_index){
                 case 0:{
-                    auto [ret,macc,mgyro] = Sensor::ICM20948::Main().read_with_offset();
+                    auto [ret,macc,mgyro] = icm20948_main.read_with_offset();
                     g_imu.acc   = macc;
                     g_imu.gyro  = mgyro;
                     ret_code    = ret;
@@ -79,7 +157,7 @@ void flight_task(void *pv) {
                     break;
                 
                 case 1:{
-                    auto [ret,macc,mgyro] = Sensor::ICM20948::Sub().read_with_offset();
+                    auto [ret,macc,mgyro] = icm20948_sub.read_with_offset();
                     g_imu.acc   = macc;
                     g_imu.gyro  = mgyro;
                     ret_code    = ret;
@@ -87,7 +165,7 @@ void flight_task(void *pv) {
                     break;
             }
             if(ret_code == ESP_OK)[[likely]]{
-                imu_error_cnt = 0;
+                flight->imu_error_cnt = 0;
                 calculation_acc_x  = g_imu.acc[0] ;
                 calculation_acc_y  = g_imu.acc[1] ;
                 calculation_acc_z  = g_imu.acc[2] ;
@@ -95,18 +173,17 @@ void flight_task(void *pv) {
                 calculation_gyro_y = g_imu.gyro[1] ;
                 calculation_gyro_z = g_imu.gyro[2] ;
             }else{
-                imu_error_cnt++;
-                if( imu_error_cnt > ERROR_CNT_NUM ){
-                    imu_active_index = (imu_active_index == 0) ? 1 : 0;
-                    ESP_LOGW("IMU", "Primary IMU failed %d times, trying Backup (IMU %d)",imu_error_cnt, imu_active_index);
-                    imu_error_cnt = 0;
+                flight->imu_error_cnt++;
+                if( flight->imu_error_cnt > ERROR_CNT_NUM ){
+                    flight->imu_active_index = (flight->imu_active_index == 0) ? 1 : 0;
+                    ESP_LOGW("IMU", "Primary IMU failed %d times, trying Backup (IMU %d)",flight->imu_error_cnt, flight->imu_active_index);
+                    flight->imu_error_cnt = 0;
                 }
             }     
-            if (imu_error_cnt ==ERROR_MAX_NUM){
-                auto& failsafe = Service::FailSafe::get_instance();
+            if (flight->imu_error_cnt ==ERROR_MAX_NUM){
                 xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
-                imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
+                flight->imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
             }
         }  
 
@@ -119,22 +196,22 @@ void flight_task(void *pv) {
         static float calulation_mag_x=0.0f, calulation_mag_y=0.0f, calulation_mag_z=0.0f;
 
         //20 hz단위로 처리. (전체루프는 400hz이다)
-        if ((loop_cnt % 20 == 0) && (mag_error_cnt < ERROR_MAX_NUM + 1)) [[likely]] { // 0. 치명적 에러 시 읽기 시도 방지 (11 이상이면 스킵)
+        if ((loop_cnt % 20 == 0) && (flight->mag_error_cnt < ERROR_MAX_NUM + 1)) [[likely]] { // 0. 치명적 에러 시 읽기 시도 방지 (11 이상이면 스킵)
  
             // AK09916를 테스트하기 위하여 강제로 인덱스를 1로 고정 (완료되면 삭제할것)                
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 //            mag_active_index = 1;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
             // 1.인덱스별로  main과 sub별 실행을 분리한다.     
-            switch(mag_active_index){
+            switch(flight->mag_active_index){
                 case 0:{
-                    auto [ret, mag_main] = Sensor::IST8310::get_instance().read_with_offset();
+                    auto [ret, mag_main] = ist8310.read_with_offset();
                     g_imu.mag = mag_main;
                     ret_code = ret;
                     }
                     break;
                 case 1:{
-                    auto [ret, mag_sub] = Sensor::AK09916::get_instance().read_with_offset();
+                    auto [ret, mag_sub] = ak09916.read_with_offset();
                     g_imu.mag = mag_sub;
                     ret_code = ret;
                     }
@@ -142,26 +219,25 @@ void flight_task(void *pv) {
             }
 
             if(ret_code == ESP_OK)[[likely]]{
-                mag_error_cnt = 0;
+                flight->mag_error_cnt = 0;
                 // main과 격차를 줄이기위하여 보정한다.
-                calulation_mag_x = g_imu.mag[0] + ((mag_active_index == 1) ?  diff_x : 0.0f);
-                calulation_mag_y = g_imu.mag[1] + ((mag_active_index == 1) ?  diff_y : 0.0f);
-                calulation_mag_z = g_imu.mag[2] + ((mag_active_index == 1) ?  diff_z : 0.0f);
+                calulation_mag_x = g_imu.mag[0] + ((flight->mag_active_index == 1) ?  diff_x : 0.0f);
+                calulation_mag_y = g_imu.mag[1] + ((flight->mag_active_index == 1) ?  diff_y : 0.0f);
+                calulation_mag_z = g_imu.mag[2] + ((flight->mag_active_index == 1) ?  diff_z : 0.0f);
             }else{
-                mag_error_cnt++;
-                if (mag_error_cnt > ERROR_CNT_NUM) {
-                    mag_active_index = (mag_active_index == 0) ? 1 : 0;
-                    ESP_LOGW("MAG", "Primary MAG failed %d times, trying Backup (MAG %d)",mag_error_cnt, mag_active_index);
-                    mag_error_cnt = 0;
+                flight->mag_error_cnt++;
+                if (flight->mag_error_cnt > ERROR_CNT_NUM) {
+                    flight->mag_active_index = (flight->mag_active_index == 0) ? 1 : 0;
+                    ESP_LOGW("MAG", "Primary MAG failed %d times, trying Backup (MAG %d)",flight->mag_error_cnt, flight->mag_active_index);
+                    flight->mag_error_cnt = 0;
                 }
             }                           
             // 3.치명적 에러 발생 (10회 연속 실패)
-            if (mag_error_cnt == ERROR_MAX_NUM) {
+            if (flight->mag_error_cnt == ERROR_MAX_NUM) {
                 ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
-                auto& failsafe = Service::FailSafe::get_instance();
                 xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
-                mag_error_cnt = ERROR_MAX_NUM+1; // 차단
+                flight->mag_error_cnt = ERROR_MAX_NUM+1; // 차단
             }             
         }
 
@@ -241,9 +317,8 @@ void flight_task(void *pv) {
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if(!g_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
-            Driver::Motor::get_instance().stop_all_motors();
+            motor.stop_all_motors();
             // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
-            auto& pid = Controller::PID::get_instance();
             pid.reset_pid(&pid.pid_roll_angle);
             pid.reset_pid(&pid.pid_pitch_angle);
             pid.reset_pid(&pid.pid_yaw_angle);
@@ -282,41 +357,40 @@ void flight_task(void *pv) {
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&      
 
             // 고도 PID 및 자세 PID (기존 로직 유지)
-            if ((loop_cnt % 8 ==0) && (baro_error_cnt < ERROR_MAX_NUM + 1)){  //50hz단위로 처리. (전체루프는 400hz이다)
+            if ((loop_cnt % 8 ==0) && (flight->baro_error_cnt < ERROR_MAX_NUM + 1)){  //50hz단위로 처리. (전체루프는 400hz이다)
                 float temp_alt = 0.0f,temp_rate = 0.0f;
                 //esp_err_t ret_code;
-                switch(baro_active_index){
+                switch(flight->baro_active_index){
                     case 0:{
-                            std::tie(ret_code,temp_alt)   = Sensor::BMP388::Main().get_relative_altitude();
-                            temp_rate  = Sensor::BMP388::Main().update_climb_rate();
+                            std::tie(ret_code,temp_alt)   = bmp388_main.get_relative_altitude();
+                            temp_rate  = bmp388_main.update_climb_rate();
                             //ret_code   = bmp388_main.get_last_error();
                         }    
                         break;
                     case 1:{
-                            std::tie(ret_code,temp_alt)   = Sensor::BMP388::Sub().get_relative_altitude();
-                            temp_rate  = Sensor::BMP388::Sub().update_climb_rate();
+                            std::tie(ret_code,temp_alt)   = bmp388_sub.get_relative_altitude();
+                            temp_rate  = bmp388_sub.update_climb_rate();
                             //ret_code   = bmp388_sub.get_last_error();
                         }
                         break;
                 }
                 if (ret_code ==ESP_OK)[[likely]]{
-                    baro_error_cnt =0;
+                    flight->baro_error_cnt =0;
                     filtered_alt        = temp_alt;
                     filtered_climb_rate = temp_rate;
                 }else{
-                    baro_error_cnt++;
-                    if(baro_error_cnt > ERROR_CNT_NUM) {
-                        baro_active_index = (baro_active_index == 0) ? 1 : 0;
-                        ESP_LOGW("BARO", "Primary BARO failed %d times, trying Backup (BARO %d)",baro_error_cnt, baro_active_index);                                         
-                        baro_error_cnt =0;
+                    flight->baro_error_cnt++;
+                    if(flight->baro_error_cnt > ERROR_CNT_NUM) {
+                        flight->baro_active_index = (flight->baro_active_index == 0) ? 1 : 0;
+                        ESP_LOGW("BARO", "Primary BARO failed %d times, trying Backup (BARO %d)",flight->baro_error_cnt, flight->baro_active_index);                                         
+                        flight->baro_error_cnt =0;
                     }
                 }
-                if (baro_error_cnt == ERROR_MAX_NUM) {
+                if (flight->baro_error_cnt == ERROR_MAX_NUM) {
                     ESP_LOGW("BARO", "xTaskNotify()-> sending to signal(ERR_BUS_HANG)");
-                    auto& failsafe = Service::FailSafe::get_instance();
                     xTaskNotify(failsafe.xErrorHandle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                     g_sys.error_hold_mode = true;
-                    baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
+                    flight->baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
                 }
               
                 if (filtered_alt > 500.0f) filtered_alt = 0.0f; // 비정상적인 고도 차단
@@ -329,7 +403,6 @@ void flight_task(void *pv) {
 
                 g_baro.filtered_altitude = filtered_alt;
                 
-                auto& pid = Controller::PID::get_instance();
                 if(g_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
                     float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
@@ -347,7 +420,6 @@ void flight_task(void *pv) {
 
             }
             
-            auto& pid = Controller::PID::get_instance();                
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
             float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  g_attitude.roll,  dt, false);
@@ -388,14 +460,14 @@ void flight_task(void *pv) {
             // qgc_roll_pid.output     = out_roll;
             //===============================================================================
             float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
-            float motor[4];
-            motor[0] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
-            motor[1] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor[2] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
-            Driver::Motor::get_instance().update_compare_value({motor[0],motor[1],motor[2],motor[3]});
+            float motor_v[4];
+            motor_v[0] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
+            motor_v[1] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor_v[2] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
+            motor_v[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
+            motor.update_compare_value({motor_v[0],motor_v[1],motor_v[2],motor_v[3]});
         }           
-        total_us = esp_timer_get_time() - last_time;
+        flight->total_us = esp_timer_get_time() - last_time;
         int64_t current_time;
         while ((current_time = esp_timer_get_time()) - last_time < INTERVAL_US) {
             if (INTERVAL_US - (current_time - last_time) > 1200) {
@@ -404,4 +476,135 @@ void flight_task(void *pv) {
         }
     }
 }
-}//namespace FLIGHT
+
+
+// ========== [5단계] 비행 제어 태스크 생성 (모든 검증 완료 후) ==========
+void Flight::start_task()
+{
+    auto& espnow        = Service::EspNow::get_instance();
+    auto& battery       = Driver::Battery::get_instance();
+    auto& i2c           = Driver::I2C::get_instance();
+    auto& icm20948_main = Sensor::ICM20948::Main();
+    auto& icm20948_sub  = Sensor::ICM20948::Sub();
+    auto& ist8310       = Sensor::IST8310::get_instance();
+    auto& ak09916       = Sensor::AK09916::get_instance();
+    auto& bmp388_main   = Sensor::BMP388::Main();
+    auto& bmp388_sub    = Sensor::BMP388::Sub();
+    auto& mahony        = Service::Mahony::get_instance();
+    auto& motor         = Driver::Motor::get_instance();
+    auto& gps           = Sensor::Gps::get_instance();
+    auto& flysky        = Service::Flysky::get_instance();
+    auto& buzzer        = Driver::Buzzer::get_instance();
+    auto& mavlink       = Service::Mavlink::get_instance();
+    auto& telemetry     = Service::Telemetry::get_instance();
+    auto& pid           = Controller::PID::get_instance();
+    auto& failsafe      = Service::FailSafe::get_instance();
+    auto& timer         = Service::Timer::get_instance();
+    
+    auto mac_addr = espnow.get_my_mac_address();
+    ESP_LOGI(TAG, "현재 MAC 주소: %02x:%02x:%02x:%02x:%02x:%02x",
+                mac_addr[0], mac_addr[1], mac_addr[2],
+                mac_addr[3], mac_addr[4], mac_addr[5]);
+
+    auto ret_code = icm20948_main.enable_mag_bypass();
+    if (ret_code != ESP_OK)
+        ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
+    else
+        ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
+    vTaskDelay(pdMS_TO_TICKS(10));
+    
+    // 각각의 오프셋을 구한다.
+    icm20948_main.calibrate();
+    icm20948_sub.calibrate();		
+
+    auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
+    vTaskDelay(pdMS_TO_TICKS(50));
+    auto [ret_bmp1,sgp] = bmp388_sub.calibrate_ground_pressure();
+    g_baro.ground_pressure = (mgp+sgp) * 0.5;
+
+    {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
+		std::tie(ret_code,g_imu.acc,g_imu.gyro)     = icm20948_main.read_with_offset();
+		g_imu.acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
+        g_imu.gyro[0]   *=  -1.0f;
+
+        // 지자계 데이터를 읽는다. 		
+        auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
+		auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
+
+        g_imu.mag[0] = (ist_mag[0]+ak_mag[0])*0.5;
+        g_imu.mag[1] = (ist_mag[1]+ak_mag[1])*0.5;
+        g_imu.mag[2] = (ist_mag[2]+ak_mag[2])*0.5;
+
+		// 융합된 데이터를 적용처리.
+        mahony.calibrate_mahony_initial_attitude(g_imu.acc[0],g_imu.acc[1], g_imu.acc[2],g_imu.mag[0],g_imu.mag[1],g_imu.mag[2]);
+		g_imu.acc   ={};
+		g_imu.gyro  ={};
+		g_imu.mag   ={};
+		ESP_LOGI(TAG, "✓ Mahony AHRS 초기화 완료");
+		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
+	}
+
+    // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
+    if (
+        icm20948_main.get_dev_handle() == nullptr ||
+        icm20948_sub.get_dev_handle() == nullptr ||
+        ist8310.get_dev_handle() == nullptr ||
+        ak09916.get_dev_handle() == nullptr ||
+        bmp388_main.get_dev_handle()   == nullptr ||
+        bmp388_sub.get_dev_handle()    == nullptr) 
+        {
+        if (icm20948_main.get_dev_handle() == nullptr) 
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "ICM20948");
+        if (icm20948_sub.get_dev_handle() == nullptr) 
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "ICM20948");
+        if( ist8310.get_dev_handle() == nullptr) 
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "IST8310");
+        if( ak09916.get_dev_handle()  == nullptr) 
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "AK09916");
+        if (bmp388_main.get_dev_handle()   == nullptr) 
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "BMP388");
+        if (bmp388_sub.get_dev_handle()    == nullptr) 
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "BMP388");
+
+        ESP_LOGE(TAG, "❌ 필수 센서 미연결! 시스템 중단");
+
+        motor.stop_all_motors();    
+
+        // 무한 대기 (리부팅 필요)
+        while (true) {
+            static bool blink_led = false;
+            gpio_set_level(GPIO_NUM_2,(blink_led = !blink_led));
+            vTaskDelay(pdMS_TO_TICKS(100));
+            buzzer.sound_error();
+        }
+    }
+
+    // ========== [4단계] 보조 태스크 생성 ==========
+    // 0. espnow tx task
+    espnow.start_task();
+    flysky.start_task();
+    gps.start_task();
+    telemetry.start_task();
+    battery.start_task();
+    failsafe.start_task();
+    
+    {
+        auto res = xTaskCreatePinnedToCore(flight_task, "flight", 8192,this, 24, NULL, 1);
+        if (res != pdPASS) {
+            ESP_LOGE(TAG, "❌ 6.Flight Task is Failed! code: %d", res);
+            // 모터 안전 정지
+            Driver::Motor::get_instance().stop_all_motors();
+        } else {
+            ESP_LOGI(TAG, "✓ 6.Flight Task is passed...");
+        }
+    }
+    
+    ESP_LOGI(TAG, "✅ All Processes is passed... Flight ready!");
+    // 콜백이 등록되어야지 데이터가 들어온다.
+    espnow.connect_callback();
+    timer.Start();
+
+}
+
+
+} // namespace FLIGHT
