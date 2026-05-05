@@ -2,6 +2,7 @@
 
 #include <esp_task_wdt.h>
 #include <esp_log.h>
+#include <esp_event.h>
 #include <esp_err.h>
 #include "ryu_buzzer.h"
 #include "ryu_motor.h"
@@ -35,8 +36,10 @@ void app_main(void) {
     //esp_log_level_set("Mavlink", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     
     
+
     watch_dog_initialize();
 
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
     
     { // 2번 포트 led 설정
         gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화

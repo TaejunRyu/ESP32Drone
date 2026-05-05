@@ -110,6 +110,12 @@ esp_err_t BMP388::initialize()
     return err;
 }
 
+esp_err_t BMP388::deinitialize()
+{
+    _initialized = false;
+    return ESP_OK;
+}
+
 /**
  * @brief 
  *      보정 계수 읽기.

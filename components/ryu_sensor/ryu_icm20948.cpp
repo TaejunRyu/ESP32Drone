@@ -10,7 +10,7 @@ namespace Sensor{
 
 const char *ICM20948::TAG = "ICM20948";
 
-ESP_EVENT_DEFINE_BASE(SENSOR_EVENT_BASE);
+ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
 ICM20948 ICM20948::mainInstance("ICM20948 Main",ICM20948::ADDR_VCC);
 ICM20948 ICM20948::subInstance("ICM20948 Sub",ICM20948::ADDR_GND);
@@ -110,11 +110,17 @@ esp_err_t ICM20948::initialize()
     vTaskDelay(pdMS_TO_TICKS(10));
     
     _initialized = true;
-    this->_isAlive = true;
+    _isAlive = true;
     ESP_LOGI(TAG,"%s Initialized sucessfully.",this->_name.c_str());    
     return err;
 }
 
+esp_err_t ICM20948::deinitialize()
+{
+    _initialized = false;
+    _isAlive = false;
+    return ESP_OK;
+}
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()
 {
@@ -227,74 +233,61 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Managed_read_with_offset()
 {
-    static size_t active_index =0;
+    static size_t active_index = 0;
     static size_t err_count = 0;        
     static size_t err_continue_count = 0;
     static float avr_acc[3] = {}, avr_gyro[3] = {};
+    static bool is_fault_posted = false; // 이벤트 중복 발행 방지
 
-    esp_err_t ret = ESP_OK;
-
-    // 문제 발생하였기 때문에 에러 복구 처리를 해야함.
-    if ( err_continue_count > 10 ){
-        // 에러를 이벤트로 처리하면 ? 모듈간의 밀집도가 낮아지겠다.
-        // sensor_data_t data = { .sensor_id = 3, .err_code = ESP_ERR_TIMEOUT };
-        // esp_event_post(SENSOR_EVENT_BASE, SENSOR_EVENT_READ_ERROR, &error_data, sizeof(sensor_error_data_t), portMAX_DELAY);
-        ESP_LOGE(TAG,"Problems occurred with both sensors.");
-        return {ESP_FAIL,{avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}}; 
+    // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
+    if (err_continue_count > 6) {
+        if (!is_fault_posted) {
+            Service::fault_event_data_t data = { 
+                .id = Service::FAULT_ID_IMU, 
+                .is_recovered = false,
+                .reason = ESP_ERR_TIMEOUT 
+            };
+            // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
+            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, 
+                           &data, sizeof(data), 0);
+            is_fault_posted = true; 
+            ESP_LOGE(TAG, "Both IMU sensors failed. Event posted.");
+        }
+        return {ESP_FAIL, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}}; 
     }
 
-    switch(active_index){ 
-        case 0: {
-            auto [err,acc,gyro] =  ICM20948::mainInstance.read_with_offset();
-            if (err == ESP_OK){
-                avr_acc[0]  = acc[0];
-                avr_acc[1]  = acc[1];
-                avr_acc[2]  = acc[2];
-                avr_gyro[0] = gyro[0];   
-                avr_gyro[1] = gyro[1];   
-                avr_gyro[2] = gyro[2];   
-                err_count = 0;   
-                err_continue_count =0;
-                return {err, {avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}};
-            } else {
-                err_count++;
-                if ( err_count > 3){
-                    active_index = 1;
-                    err_count = 0;
-                    
-                    err_continue_count ++;
-                }
-            }
-            ret = err;
-            break;
-        }
-        case 1:{
-            auto [err,acc,gyro] =  ICM20948::subInstance.read_with_offset();
-            if (err == ESP_OK){
-                avr_acc[0]  = acc[0];
-                avr_acc[1]  = acc[1];
-                avr_acc[2]  = acc[2];
-                avr_gyro[0] = gyro[0];   
-                avr_gyro[1] = gyro[1];   
-                avr_gyro[2] = gyro[2];
-                err_count = 0;   
-                err_continue_count = 0;
-                return {ret, {avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}};
-            } else {
-                err_count++;
-                if ( err_count > 3){
-                    active_index = 0;
-                    err_count = 0;
+    // 센서 읽기 로직 (Main/Sub 스위칭)
+    auto& target_instance = (active_index == 0) ? ICM20948::mainInstance : ICM20948::subInstance;
+    auto [err, acc, gyro] = target_instance.read_with_offset();
 
-                    err_continue_count++;
-                }
-            }
-            ret = err;
-            break;
+    if (err == ESP_OK) {
+        // 성공 시 데이터 업데이트 및 에러 카운트 초기화
+        for(int i=0; i<3; i++) { avr_acc[i] = acc[i]; avr_gyro[i] = gyro[i]; }
+        err_count = 0;
+        err_continue_count = 0;
+
+        // [핵심] 복구되었다면 복구 이벤트 발행
+        if (is_fault_posted) {
+            Service::fault_event_data_t data = { .id = Service::FAULT_ID_IMU, .is_recovered = true };
+            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
+            is_fault_posted = false;
         }
+        return {ESP_OK, acc, gyro};
+    } 
+    else {
+        // 실패 시 스위칭 로직
+        err_count++;
+        if (err_count > 3) {
+            ESP_LOGW(TAG, "IMU %d failed, switching...", active_index);
+            active_index = (active_index == 0) ? 1 : 0; // 스위칭
+            err_count = 0;
+            err_continue_count++;
+        }
+        return {err, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}};
     }
-    return {ret,{}, {}};
 }
+
+
 ICM20948::ICM20948()
 {
     ESP_LOGI(TAG,"Initializing ICM20948 Sensor...");

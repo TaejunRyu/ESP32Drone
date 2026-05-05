@@ -33,6 +33,7 @@ class BMP388{
 
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         esp_err_t initialize();
+        esp_err_t deinitialize();
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();
         float update_climb_rate();

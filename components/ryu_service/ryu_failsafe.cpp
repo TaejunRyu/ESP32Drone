@@ -30,13 +30,13 @@ esp_err_t FailSafe::initialize() {
     if(_initialized) return ESP_OK;
 
     // 기본 이벤트 루프 생성 (이미 생성되어 있다면 생략 가능)
-    esp_err_t err = esp_event_loop_create_default();
-    if (err != ESP_OK){
-        ESP_LOGI(TAG,"ESP_EVENT_LOOP creation failed.");
-        return err;
-    }
+    // esp_err_t err = esp_event_loop_create_default();
+    // if (err != ESP_OK){
+    //     ESP_LOGI(TAG,"ESP_EVENT_LOOP creation failed.");
+    //     return err;
+    // }
     // 이벤트 핸들러 등록: 어떤 센서든 에러가 나면 이 핸들러로 모임
-    err = esp_event_handler_instance_register(SYS_FAULT_EVENT_BASE, ESP_EVENT_ANY_ID,
+    esp_err_t err = esp_event_handler_instance_register(SYS_FAULT_EVENT_BASE, ESP_EVENT_ANY_ID,
                                                &FailSafe::event_handler_relay, this, NULL);
     if (err != ESP_OK){
         ESP_LOGI(TAG,"esp_event_handler_instance_register failed.");
@@ -61,7 +61,11 @@ void FailSafe::update_health(fault_event_data_t* fault) {
     
     // ID에 매칭되는 비트 결정
     switch(fault->id) {
-        case FAULT_ID_IMU:  bit = SYS_HEALTH_IMU_OK; break;
+        case FAULT_ID_IMU:{  
+            bit = SYS_HEALTH_IMU_OK;
+            ESP_LOGI(TAG,"EVENT...."); 
+            break;
+        }
         case FAULT_ID_MAG:  bit = SYS_HEALTH_MAG_OK; break;
         case FAULT_ID_BARO: bit = SYS_HEALTH_BARO_OK; break;
         case FAULT_ID_GPS:  bit = SYS_HEALTH_GPS_OK; break;
@@ -87,14 +91,17 @@ esp_err_t FailSafe::reinit_all_sensors()
 {
     esp_err_t ret = ESP_OK;
 
-    //i2c_master_bus_handle_t i2c_handle = Driver::I2C::get_instance().get_bus_handle();
-
     //1. 상태 비트 끄기 (제어 루프 차단)
     system_health &= ~(SYS_HEALTH_IMU_OK | SYS_HEALTH_BARO_OK | SYS_HEALTH_MAG_OK);
 
+    Driver::I2C::get_instance().deinitialize();
+    Driver::I2C::get_instance().initialize();
+
     // 2. ICM20948 (IMU 1 & 2) 초기화
     //    가속도/자이로 범위, 샘플 레이트, LP 필터 등 설정
+    Sensor::ICM20948::Main().deinitialize();
     Sensor::ICM20948::Main().initialize();
+    Sensor::ICM20948::Sub().deinitialize();
     Sensor::ICM20948::Sub().initialize();
 
     if (Sensor::ICM20948::Main().get_dev_handle() != NULL){
@@ -118,8 +125,9 @@ esp_err_t FailSafe::reinit_all_sensors()
     }
 
     // deinitialize 해야할것 같음....
-
+    Sensor::BMP388::Main().deinitialize();
     Sensor::BMP388::Main().initialize();
+    Sensor::BMP388::Sub().deinitialize();
     Sensor::BMP388::Sub().initialize();
 
     if(Sensor::BMP388::Main().get_dev_handle() != NULL || Sensor::BMP388::Sub().get_dev_handle() != NULL){
@@ -139,6 +147,7 @@ void FailSafe::failsafe_manager_task(void *pvParameters) {
     while(1) {
         if (!(instance.system_health & SYS_HEALTH_IMU_OK)) {
             // IMU가 죽어있다면 여기서 I2C 리셋 시도 등 전역 복구 수행
+            ESP_LOGI(TAG,"이벤트발생!!!!!!!!!!!!!!!!!!!");
             instance.reinit_all_sensors();
         }
         vTaskDelay(pdMS_TO_TICKS(100));
@@ -231,16 +240,13 @@ void FailSafe::start_task()
 //     auto failsafe = static_cast<FailSafe*>(pvParameters);
 //     uint32_t notifiedValue;
 //     esp_err_t ret=ESP_FAIL;
-
 //     while (true) {
 //         // 알림이 올 때까지 무한 대기 (CPU 점유율 0%)
 //         if (xTaskNotifyWait(0x00, ULONG_MAX, &notifiedValue, portMAX_DELAY) == pdPASS) {
-
 //             //  IMU/MAG/BARO  모두 에러 발생 또는 I2C 에러시 모든 것 리셋.
 //             if (notifiedValue & ERR_I2C_BUS_HANG) {
-//                 failsafe->system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                                
-//                 Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)        
-                
+//                 failsafe->system_health &= ~SYS_HEALTH_IMU_OK;  // 상태 차단                     
+//                 Driver::I2C::get_instance().deinitialize(); // 하드웨어 리셋 (SCL 토글)
 //                 Driver::I2C::get_instance().initialize();
 //                 if (Driver::I2C::get_instance().get_bus_handle() !=NULL){ 
 //                     ret = failsafe->reinit_all_sensors();             // 센서 레지스터 재설정
@@ -254,16 +260,13 @@ void FailSafe::start_task()
 //                         flight.imu_active_index = 0;
 //                         flight. mag_active_index = 0;
 //                         flight.baro_active_index = 0;
-
 //                         g_sys.error_hold_mode = false;                
-                        
 //                         // 모든 센서가 정상으로 돌아왔다고 가정하고 상태 비트 모두 켜기 (필요에 따라 개별적으로 설정할 수도 있음)
 //                         failsafe->system_health |= SYS_HEALTH_IMU_OK|SYS_HEALTH_MAG_OK|SYS_HEALTH_BARO_OK;                    
 //                     }
 //                 }else{
 //                     ret = ESP_FAIL;
 //                 }
-
 //                 if (ret != ESP_OK){
 //                     Driver::Motor::get_instance().stop_all_motors();
 //                     while(true){

@@ -1,5 +1,5 @@
 /**
- * @file error_proc.h
+ * @file ryu_failsafe.h
  * @author your name (you@domain.com)
  * @brief 
  * @version 0.1
@@ -60,7 +60,6 @@ class  FailSafe{
         // 에러 유형 정의 (비트마스크 방식)
         // I2C 버스 고착      (FATAL)     ==> I2C LINE 전체 복구처리
         static inline constexpr uint32_t  ERR_I2C_BUS_HANG     =  (1 << 0);  
-
         // 문제는 IMU,MAG,BARO가 문제 발생할경우 I2C 전체를 복구하는것이 이점이 있다.
         // 일단 문제가 발생하면 IMU만 복구 하면 일단 성공이다...
         static inline constexpr uint32_t  ERR_IMU_DEV_INVALID  =  (1 << 1);  // IMU DEVICE 이상    (FATAL)     ==> 복구처리
