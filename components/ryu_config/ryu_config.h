@@ -39,31 +39,27 @@ inline constexpr gpio_num_t  HSPI_MOSI    = GPIO_NUM_13; //  JTAG핀
 inline constexpr gpio_num_t  HSPI_CS      = GPIO_NUM_2;  // 부팅관련
 inline constexpr gpio_num_t  T1    = GPIO_NUM_0;  // 부팅관련
   
-
-//==============================================
-// 드론의 현재 상태를 저장하는 구조체 
-// //==============================================
-// MAV_STATE_ (system_status) 주요 값
-// 값 (Enum)	상태                    의미 및 QGC 반응
-// 0	        MAV_STATE_UNINIT	    시스템 초기화 중 (센서 체크 전)
-// 1	        MAV_STATE_BOOT	        부팅 완료, 시스템 검사 시작
-// 2	        MAV_STATE_CALIBRATING	자이로/지자기 센서 교정 중 (QGC에 메시지 표시)
-// 3	        MAV_STATE_STANDBY	    시동 전 대기 상태. 모든 시스템 정상, Arming 가능
-// 4	        MAV_STATE_ACTIVE	    시동 완료 및 비행 중. 모터가 돌고 있는 상태
-// 5	        MAV_STATE_CRITICAL	    긴급 상황. 통신 두절이나 배터리 부족 시 발생
-// 6	        MAV_STATE_EMERGENCY	    위험 상황. 기체 추락 위험, 즉각적인 조치 필요
-// 7	        MAV_STATE_POWEROFF	    시스템 종료 중
-// 8	        MAV_STATE_FLIGHT_TERMINATION	강제 비행 종료 (낙하산 전개 등 최후 수단)
+enum sys_status_t{                    
+    SYS_STATE_UNINIT,            // 시스템 초기화 중 (센서 체크 전) 	       
+    SYS_STATE_BOOT,              // 부팅 완료, 시스템 검사 시작 	     
+    SYS_STATE_CALIBRATING,       // 자이로/지자기 센서 교정 중 (QGC에 메시지 표시) 
+    SYS_STATE_STANDBY,           // 시동 전 대기 상태. 모든 시스템 정상, Arming 가능 	 
+    SYS_STATE_ACTIVE,            // 시동 완료 및 비행 중. 모터가 돌고 있는 상태 	 
+    SYS_STATE_CRITICAL,          // 긴급 상황. 통신 두절이나 배터리 부족 시 발생 	 
+    SYS_STATE_EMERGENCY,         // 위험 상황. 기체 추락 위험, 즉각적인 조치 필요     	 
+    SYS_STATE_POWEROFF,          // 시스템 종료 중   	 
+    SYS_STATE_FLIGHT_TERMINATION //	강제 비행 종료 (낙하산 전개 등 최후 수단) 
+};
 
 // 기체 시동 상태 정의
-typedef enum {
+enum arming_state_t {
     ARM_STATE_DISARMED = 0,
     ARM_STATE_PREARM_CHECK,
     ARM_STATE_ARMED,
     ARM_STATE_FAILSAFE
-} arming_state_t;
+} ;
 
-typedef enum {
+enum flight_mode_t {
     MODE_MANUAL = 0,      // 수동
     MODE_STABILIZED,      // Stabilized
     MODE_ACRO,            // Acro
@@ -74,19 +70,19 @@ typedef enum {
     MODE_MISSION,         // 미션 (Auto)
     MODE_RTL,             // 복귀 (Return)
     MODE_PRECISION_LAND   // 정밀 착륙
-} flight_mode_t;
+} ;
 
 struct sys_t {
-    flight_mode_t  flight_mode;     // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
-    uint8_t     system_status;      // standby(3), active(4), critical 등
-    uint32_t    system_health;      // 현재 시스템의 상태 error_proc.h에서 주로 사용
-    bool        is_armed;           // 시동 상태
-    bool        manual_hold_mode;   // flysky controller에서 hold mode 지정
-    bool        error_hold_mode;    // 센서의 오류로 인한 고정 비행
-    bool        gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
-    bool        payload_dropped;    // 투하 완료 여부
-    float       battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)
-    uint32_t    loop_count;         // 비행 루프 카운터 (이게 왜 필요하지 ?)
+    flight_mode_t   flight_mode;     // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
+    uint8_t         system_status;      // standby(3), active(4), critical 등
+    uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
+    bool            is_armed;           // 시동 상태
+    bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
+    bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
+    bool            gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
+    bool            payload_dropped;    // 투하 완료 여부
+    float           battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)
+    uint32_t        loop_count;         // 비행 루프 카운터 (이게 왜 필요하지 ?)
 };
 extern sys_t g_sys;
 
@@ -105,19 +101,6 @@ struct attitude_data_t{
 extern attitude_data_t g_attitude;
 
 
-
-
-
-
-// QGC에 보내는 PID 디버그 데이터 구조체
-// QGC에서 Roll PID 튜닝을 위해 사용 (실제 제어에는 사용 안 함)
-struct qgc_roll_pid_t {
-    float target;
-    float current;
-    float output; 
-};
-
-extern qgc_roll_pid_t qgc_roll_pid;
 
 
 // --- RC 송수신기 데이터 ---
@@ -152,6 +135,15 @@ struct qgc_home_pos_t {
 extern qgc_home_pos_t qgc_home_pos;
 
 
+// QGC에 보내는 PID 디버그 데이터 구조체
+// QGC에서 Roll PID 튜닝을 위해 사용 (실제 제어에는 사용 안 함)
+struct qgc_roll_pid_t {
+    float target;
+    float current;
+    float output; 
+};
+
+extern qgc_roll_pid_t qgc_roll_pid;
 
 // --- 배터리 데이터 ---
 struct battery_data_t {
@@ -168,19 +160,6 @@ extern battery_data_t g_battery;  ///< 배터리 데이터
 // static float target_yaw_angle;
 // static float target_alt;
 // static bool last_alt_hold_state;
-
-
-// --- PID 디버그 데이터 (QGC 텔레메트리용) ---
-struct pid_debug_t {
-    float target;  // 목표값
-    float current; // 현재값
-    float output;  // PID 출력
-};
-
-extern pid_debug_t g_roll_pid;   ///< 롤 PID 디버그 데이터
-extern pid_debug_t g_pitch_pid;  ///< 피치 PID 디버그 데이터
-extern pid_debug_t g_yaw_pid;    ///< 요 PID 디버그 데이터
-extern pid_debug_t g_alt_pid;    ///< 고도 PID 디버그 데이터
 
 // MAV_MODE_FLAG_CUSTOM_MODE_ENABLED=1, /* 0b00000001 시스템별 사용자 지정 모드가 활성화됩니다. 이 플래그를 사용하여 사용자 지정 모드를 활성화할 경우 다른 모든 플래그는 무시해야 합니다. | */
 // MAV_MODE_FLAG_TEST_ENABLED=2, /* 0b00000010 시스템에 테스트 모드가 활성화되었습니다. 이 플래그는 임시 시스템 테스트를 위한 것이며 안정적인 구현에는 사용해서는 안 됩니다. | */
@@ -209,25 +188,6 @@ struct heartbeat_t{
     uint32_t    custom_mode;
 };
 extern heartbeat_t g_heartbeat;
-
-
-/*현재 flight_task에서 imu 데이터를 읽어서 여기에 보관하고 작업능 시행 current_data*/
-// 실제로 가지고 있어야하나 
-struct imu_data_t {
-    std::array<float,3> acc;  // 가속도
-    std::array<float,3> gyro; // 자이로
-    std::array<float,3> mag;  // 지자계
-};
-extern imu_data_t g_imu;  ///< IMU 원본 데이터 (가속도도, 자이로, 지자계)
-
-
-// imu main,sub의 offset 저장 보관.
-struct imu_offset_t{
-    std::array<float,3> acc;
-    std::array<float,3> gyro; 
-};
-extern imu_offset_t g_imu_offset[2];
-
 
 
 // 2. 기압 및 고도 데이터

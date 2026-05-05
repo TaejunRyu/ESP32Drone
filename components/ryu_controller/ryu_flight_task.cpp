@@ -262,13 +262,18 @@ void Flight::flight_task(void *pvParameters)
             switch(flight->mag_active_index){
                 case 0:{
                     auto [ret, mag_main] = ist8310.read_with_offset();
-                    g_imu.mag = mag_main;
+                    calulation_mag_x=mag_main[0]; 
+                    calulation_mag_y=mag_main[1]; 
+                    calulation_mag_z=mag_main[2]; 
                     ret_code = ret;
                     }
                     break;
                 case 1:{
-                    auto [ret, mag_sub] = ak09916.read_with_offset();
-                    g_imu.mag = mag_sub;
+                    auto [ret, mag_sub] = ak09916.read_with_offset();                    
+                    calulation_mag_x=mag_sub[0]; 
+                    calulation_mag_y=mag_sub[1]; 
+                    calulation_mag_z=mag_sub[2]; 
+  
                     ret_code = ret;
                     }
                     break;
@@ -277,9 +282,9 @@ void Flight::flight_task(void *pvParameters)
             if(ret_code == ESP_OK)[[likely]]{
                 flight->mag_error_cnt = 0;
                 // main과 격차를 줄이기위하여 보정한다.
-                calulation_mag_x = g_imu.mag[0] + ((flight->mag_active_index == 1) ?  diff_x : 0.0f);
-                calulation_mag_y = g_imu.mag[1] + ((flight->mag_active_index == 1) ?  diff_y : 0.0f);
-                calulation_mag_z = g_imu.mag[2] + ((flight->mag_active_index == 1) ?  diff_z : 0.0f);
+                calulation_mag_x = calulation_mag_x + ((flight->mag_active_index == 1) ?  diff_x : 0.0f);
+                calulation_mag_y = calulation_mag_y + ((flight->mag_active_index == 1) ?  diff_y : 0.0f);
+                calulation_mag_z = calulation_mag_z + ((flight->mag_active_index == 1) ?  diff_z : 0.0f);
             }else{
                 flight->mag_error_cnt++;
                 if (flight->mag_error_cnt > ERROR_CNT_NUM) {
@@ -453,9 +458,9 @@ void Flight::flight_task(void *pvParameters)
             // --- [2단계: Inner Loop - 각속도 제어] ---
             // 목표 각속도 -> 현재 자이로 값(g_imu.gyro)과 비교 -> 최종 모터 출력(PWM 변위)
             // g_imu.gyro[0]: Roll속도, [1]: Pitch속도, [2]: Yaw속도
-            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  g_imu.gyro[0], dt);
-            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, g_imu.gyro[1], dt);
-            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   g_imu.gyro[2], dt);
+            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calculation_gyro_x, dt);
+            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, calculation_gyro_y, dt);
+            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   calculation_gyro_z, dt);
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
@@ -537,23 +542,20 @@ BaseType_t Flight::start_task()
 
 
     {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
-		std::tie(ret,g_imu.acc,g_imu.gyro)     = icm20948_main.read_with_offset();
-		g_imu.acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-        g_imu.gyro[0]   *=  -1.0f;
+		auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
+		acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
+        gyro[0]   *=  -1.0f;
 
         // 지자계 데이터를 읽는다. 		
         auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
 		auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
 
-        g_imu.mag[0] = (ist_mag[0]+ak_mag[0])*0.5;
-        g_imu.mag[1] = (ist_mag[1]+ak_mag[1])*0.5;
-        g_imu.mag[2] = (ist_mag[2]+ak_mag[2])*0.5;
+        auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
+        auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
+        auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
 
 		// 융합된 데이터를 적용처리.
-        mahony.calibrate_mahony_initial_attitude(g_imu.acc[0],g_imu.acc[1], g_imu.acc[2],g_imu.mag[0],g_imu.mag[1],g_imu.mag[2]);
-		g_imu.acc   ={};
-		g_imu.gyro  ={};
-		g_imu.mag   ={};
+        mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
 		ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}

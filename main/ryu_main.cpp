@@ -6,6 +6,7 @@
 #include <esp_err.h>
 #include "ryu_buzzer.h"
 #include "ryu_motor.h"
+#include "ryu_config.h"
 
 
 extern "C" {
@@ -27,6 +28,8 @@ void app_main(void) {
     
     check_system_health_on_boot();
 
+    g_sys.system_status = SYS_STATE_BOOT;
+   
     //esp_log_level_set("*", ESP_LOG_NONE);   //(0): 로그 끔
     //esp_log_level_set("*", ESP_LOG_ERROR);  //(1): 치명적 오류만 출력
     //esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력
