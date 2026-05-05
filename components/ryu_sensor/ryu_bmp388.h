@@ -94,10 +94,10 @@ class BMP388{
         uint16_t _dev_address {};
         bool _initialized = false;
 
-        std::string name {};
+        std::string _name {};
         bool isAlive = false;
         // private 생성자: 외부에서 호출 불가
-        BMP388(std::string n,uint16_t addr) : _dev_address(addr), name(n), isAlive(true) {}
+        BMP388(std::string n,uint16_t addr) : _dev_address(addr), _name(n), isAlive(true) {}
 
         static BMP388 mainInstance;
         static BMP388 subInstance;

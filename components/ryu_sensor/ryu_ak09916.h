@@ -36,7 +36,7 @@ class AK09916{
         static inline constexpr float MAG_OFFSET_Y =   176.00f;
         static inline constexpr float MAG_OFFSET_Z =   -170.50f;
 
-        void deinitialize();
+        esp_err_t  deinitialize();
         esp_err_t initialize();
         std::tuple<esp_err_t, std::array<float, 3>> read_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset(); 

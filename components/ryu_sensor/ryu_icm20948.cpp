@@ -117,9 +117,15 @@ esp_err_t ICM20948::initialize()
 
 esp_err_t ICM20948::deinitialize()
 {
-    _initialized = false;
-    _isAlive = false;
-    return ESP_OK;
+    esp_err_t err = ESP_FAIL;
+    if(_dev_handle != nullptr){
+        err = i2c_master_bus_rm_device(_dev_handle);
+        if (err != ESP_OK) return err;
+        _dev_handle = nullptr;
+    }
+    this->_initialized = false;
+    ESP_LOGI(TAG,"%s Deinitialized sucessfully.",this->_name.c_str());    
+    return err;
 }
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()
@@ -262,7 +268,7 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
 
     if (err == ESP_OK) {
         // 성공 시 데이터 업데이트 및 에러 카운트 초기화
-        for(int i=0; i<3; i++) { avr_acc[i] = acc[i]; avr_gyro[i] = gyro[i]; }
+        for(int ii=0; ii<3; ii++) { avr_acc[ii] = acc[ii]; avr_gyro[ii] = gyro[ii]; }
         err_count = 0;
         err_continue_count = 0;
 

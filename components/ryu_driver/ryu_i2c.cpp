@@ -49,31 +49,17 @@ esp_err_t I2C::initialize()
     
 }
 
-void I2C::deinitialize()
+esp_err_t I2C::deinitialize()
 {
-    if (_bus_handle) {
-        // ESP-IDF 5.x 이상: 내부 장치를 rm_device 안 해도 
-        // 버스 삭제 시 리소스가 강제 해제되지만, 에러 로그 방지를 위해 reset 고려
-        i2c_del_master_bus(_bus_handle); 
+    esp_err_t err = ESP_OK;
+    if (_bus_handle) {        
+        err = i2c_del_master_bus(_bus_handle); 
+        if (err !=ESP_OK)
+            return err;
         _bus_handle = nullptr; 
     }
-
-    // 2. SCL/SDA 핀 제어권 획득 및 강제 토글 (Bus Clear)
-    gpio_config_t io_conf = {};
-    io_conf.pin_bit_mask = (1ULL << I2C_SCL) | (1ULL << I2C_SDA);
-    io_conf.mode = GPIO_MODE_INPUT_OUTPUT_OD; 
-    io_conf.pull_up_en = GPIO_PULLUP_ENABLE;
-    gpio_config(&io_conf);
-
-    // SCL 9번 토글 (슬레이브 장치 리셋 유도)
-    for (int i = 0; i < 9; i++) {
-        gpio_set_level(I2C_SCL, 0);
-        esp_rom_delay_us(5);
-        gpio_set_level(I2C_SCL, 1);
-        esp_rom_delay_us(5);
-    }
-
     _initialized = false;
+    return err;
     ESP_LOGI(TAG, "I2C Bus & GPIO recovered and deinitialized.");
 }
 

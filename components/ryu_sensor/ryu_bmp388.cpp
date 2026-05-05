@@ -18,12 +18,12 @@ esp_err_t BMP388::initialize()
     esp_err_t err = ESP_FAIL;
 
     if(_initialized){
-        ESP_LOGI(TAG,"%s Already initialized.",this->name.c_str());
+        ESP_LOGI(TAG,"%s Already initialized.",_name.c_str());
         return ESP_FAIL;
     }
     _bus_handle =  Driver::I2C::get_instance().get_bus_handle();
     if (_bus_handle == nullptr){
-        ESP_LOGI(TAG,"%s I2C not initialized.",this->name.c_str());
+        ESP_LOGI(TAG,"%s I2C not initialized.",_name.c_str());
         return ESP_FAIL;
     }
     i2c_device_config_t dev_cfg = {};
@@ -33,7 +33,7 @@ esp_err_t BMP388::initialize()
 
     err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
     if(err !=ESP_OK){
-        ESP_LOGI(TAG,"%s is not add.",this->name.c_str());
+        ESP_LOGI(TAG,"%s is not add.",_name.c_str());
         return err;
     } 
     
@@ -41,7 +41,7 @@ esp_err_t BMP388::initialize()
     uint8_t reset_cmd[] = {0x7E, 0xB6};
     err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK){ 
-        ESP_LOGI(TAG,"%s Soft Reset Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s Soft Reset Failure.",_name.c_str());
         return err;
     }    
     vTaskDelay(pdMS_TO_TICKS(100)); // 시간을 넉넉히 줍니다.
@@ -50,7 +50,7 @@ esp_err_t BMP388::initialize()
     uint8_t sleep_cmd[] = {0x1B, 0x00};
     err = i2c_master_transmit(_dev_handle, sleep_cmd, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG,"%s Sleep Mode Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s Sleep Mode Failure.",_name.c_str());
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(10));
@@ -59,7 +59,7 @@ esp_err_t BMP388::initialize()
     uint8_t osr_cmd[] = {0x1C, (0x03 << 0)  | (0x01 << 3)}; 
     err = i2c_master_transmit(_dev_handle, osr_cmd, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG,"%s OSR Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s OSR Failure.",_name.c_str());
         return err;
     }
     //IIR 필터 계수 (0x1F): 현재 0x02 << 1 (계수 3) 정도로 설정되어 있습니다. 
@@ -68,21 +68,21 @@ esp_err_t BMP388::initialize()
     uint8_t iir_cmd[] = {0x1F, 0x02<<1}; 
     err = i2c_master_transmit(_dev_handle, iir_cmd, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG,"%s IIR Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s IIR Failure.",_name.c_str());
         return err;
     }
     // 2. ODR 설정 (100Hz로 설정하여 50Hz 읽기 루프 지원)
     uint8_t odr_data[] = {0x1D, 0x02}; // 0x02 = 100Hz
     err = i2c_master_transmit(_dev_handle, odr_data, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG,"%s ODR Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s ODR Failure.",_name.c_str());
         return err;
     }
     // 0x13: Forced Mode, Temp EN, Press EN
     uint8_t pwr_forced[] = {0x1B, 0x13}; 
     err =i2c_master_transmit(_dev_handle, pwr_forced, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG,"%s Forced Mode Failure.",this->name.c_str());
+        ESP_LOGI(TAG,"%s Forced Mode Failure.",_name.c_str());
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(50)); // 측정 완료 대기
@@ -91,7 +91,7 @@ esp_err_t BMP388::initialize()
     uint8_t pwr_cmd[] = {0x1B, 0x33}; 
     err = i2c_master_transmit(_dev_handle, pwr_cmd, 2, pdMS_TO_TICKS(10));
     if(err !=ESP_OK) {
-        ESP_LOGI(TAG," %s Normal Mode Failure.",this->name.c_str());
+        ESP_LOGI(TAG," %s Normal Mode Failure.",_name.c_str());
         return err;
     }
     // 5. 첫 측정 대기: 중요!
@@ -106,14 +106,21 @@ esp_err_t BMP388::initialize()
     }
     _initialized = true;
 
-    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
+    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->_name.c_str());    
     return err;
 }
 
 esp_err_t BMP388::deinitialize()
 {
-    _initialized = false;
-    return ESP_OK;
+    esp_err_t err = ESP_FAIL;
+    if(_dev_handle != nullptr){
+        err = i2c_master_bus_rm_device(_dev_handle);
+        if (err != ESP_OK) return err;
+        _dev_handle = nullptr;
+    }
+    this->_initialized = false;
+    ESP_LOGI(TAG,"%s Deinitialized sucessfully.",this->_name.c_str());    
+    return err;
 }
 
 /**

@@ -103,16 +103,17 @@ esp_err_t IST8310::initialize()
 }
 
 
-void IST8310::deinitialize()
+esp_err_t IST8310::deinitialize()
 {
-    if (!this->_initialized){
-        return;
-    }
-    if (this->_dev_handle){
-        i2c_master_bus_rm_device(this->_dev_handle);
+    esp_err_t err = ESP_FAIL;
+    if(_dev_handle != nullptr){
+        err = i2c_master_bus_rm_device(_dev_handle);
+        if (err != ESP_OK) return err;
+        _dev_handle = nullptr;
     }
     this->_initialized = false;
-    ESP_LOGI(TAG, "deinitialzed.");
+    ESP_LOGI(TAG,"%s Deinitialized sucessfully.");    
+    return err;
 }
 
 

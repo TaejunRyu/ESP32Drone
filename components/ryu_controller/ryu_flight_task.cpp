@@ -217,7 +217,7 @@ void Flight::flight_task(void *pvParameters)
     auto flight = static_cast<Flight*>(pvParameters);
     auto& motor         = Driver::Motor::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
-    auto& icm20948_sub  = Sensor::ICM20948::Sub();
+    //auto& icm20948_sub  = Sensor::ICM20948::Sub();
     auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& bmp388_sub    = Sensor::BMP388::Sub();
@@ -249,55 +249,12 @@ void Flight::flight_task(void *pvParameters)
 
         
         auto [ret,macc,mgyro] = icm20948_main.Managed_read_with_offset();
-        calculation_acc_x  = g_imu.acc[0] ;
-        calculation_acc_y  = g_imu.acc[1] ;
-        calculation_acc_z  = g_imu.acc[2] ;
-        calculation_gyro_x = g_imu.gyro[0] ;
-        calculation_gyro_y = g_imu.gyro[1] ;
-        calculation_gyro_z = g_imu.gyro[2] ;
-
-        // if (flight->imu_error_cnt < ERROR_MAX_NUM+1){
-        //     switch(flight->imu_active_index){
-        //         case 0:{
-        //             auto [ret,macc,mgyro] = icm20948_main.Managed_read_with_offset();
-
-        //             //auto [ret,macc,mgyro] = icm20948_main.read_with_offset();
-        //             g_imu.acc   = macc;
-        //             g_imu.gyro  = mgyro;
-        //             ret_code    = ret;
-        //             }
-        //             break;
-                
-        //         case 1:{
-        //             auto [ret,macc,mgyro] = icm20948_sub.read_with_offset();
-        //             g_imu.acc   = macc;
-        //             g_imu.gyro  = mgyro;
-        //             ret_code    = ret;
-        //             }
-        //             break;
-        //     }
-        //     if(ret_code == ESP_OK)[[likely]]{
-        //         flight->imu_error_cnt = 0;
-        //         calculation_acc_x  = g_imu.acc[0] ;
-        //         calculation_acc_y  = g_imu.acc[1] ;
-        //         calculation_acc_z  = g_imu.acc[2] ;
-        //         calculation_gyro_x = g_imu.gyro[0] ;
-        //         calculation_gyro_y = g_imu.gyro[1] ;
-        //         calculation_gyro_z = g_imu.gyro[2] ;
-        //     }else{
-        //         flight->imu_error_cnt++;
-        //         if( flight->imu_error_cnt > ERROR_CNT_NUM ){
-        //             flight->imu_active_index = (flight->imu_active_index == 0) ? 1 : 0;
-        //             ESP_LOGW("IMU", "Primary IMU failed %d times, trying Backup (IMU %d)",flight->imu_error_cnt, flight->imu_active_index);
-        //             flight->imu_error_cnt = 0;
-        //         }
-        //     }     
-        //     if (flight->imu_error_cnt ==ERROR_MAX_NUM){
-        //         //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
-        //         g_sys.error_hold_mode = true;
-        //         flight->imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
-        //     }
-        // }  
+        calculation_acc_x  = macc[0] ;
+        calculation_acc_y  = macc[1] ;
+        calculation_acc_z  = macc[2] ;
+        calculation_gyro_x = mgyro[0] ;
+        calculation_gyro_y = mgyro[1] ;
+        calculation_gyro_z = mgyro[2] ;
 
         // 두 지자계의 기본 차이값을 저장하여 main을 기준으로 sub의 값을 변경.
         // 고정 상태에서 측정하여 차이만큼 보정
