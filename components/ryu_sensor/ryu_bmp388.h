@@ -19,8 +19,8 @@ class BMP388{
         static BMP388& Main() { return mainInstance; }
         static BMP388& Sub() { return subInstance; }
         
-        static constexpr uint8_t ADDR_VCC   =   0x77;
-        static constexpr uint8_t ADDR_GND   =   0x76;
+        static inline constexpr uint8_t ADDR_VCC   =   0x77;
+        static inline constexpr uint8_t ADDR_GND   =   0x76;
 
         static inline constexpr uint8_t REG_ID        =   0x00;
         static inline constexpr uint8_t REG_DATA      =   0x04; // Pressure(3), Temp(3) 연속

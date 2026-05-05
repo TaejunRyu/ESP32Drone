@@ -3,15 +3,8 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 #include <esp_task_wdt.h>
-
-#include <driver/i2c_master.h>
-#include <driver/mcpwm_prelude.h> // 신형 MCPWM
-#include <driver/gpio.h>
-
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
-
-#include "ryu_config.h"
 
 #include "ryu_flysky.h"
 #include "ryu_MahonyFilter.h"
@@ -21,22 +14,15 @@
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
 #include "ryu_timer.h"
-
-// icm20948, ak09916, bmp388 위의 센서 교체.
 #include "ryu_buzzer.h"
 #include "ryu_gps.h"
 #include "ryu_icm20948.h"
 #include "ryu_ak09916.h"
 #include "ryu_bmp388.h"   
-
-// gps에 있는 지자계센서.
 #include "ryu_ist8310.h"
-
-// motor
 #include "ryu_motor.h"
 #include "ryu_battery.h"
 #include "ryu_i2c.h"
-
 
 namespace Controller
 {
@@ -422,26 +408,28 @@ void Flight::flight_task(void *pvParameters)
                     filtered_climb_rate = temp_rate;
                 }
 
-                if (filtered_alt > 500.0f) filtered_alt = 0.0f; // 비정상적인 고도 차단
-                if (filtered_alt <= 0.0f) filtered_alt = 0.0f; // 음수 고도 방지
-                if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
-                
-                if (g_sys.error_hold_mode) {
-                    filtered_alt = g_baro.filtered_altitude; // 에러 모드에서는 => 마지막 데이터로 안정된 고도 유지
-                    filtered_climb_rate = 0.0f;                      // 상승률은 0으로 고정
+                { // 비정상적인 요인 제한
+                    if (filtered_alt > 500.0f) filtered_alt = 0.0f;                     // 비정상적인 고도 차단
+                    if (filtered_alt <= 0.0f) filtered_alt = 0.0f;                      // 음수 고도 방지
+                    if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
                 }
-                
-                if(g_sys.manual_hold_mode) {
+
+                if (g_sys.error_hold_mode) {
+                    filtered_alt = g_baro.filtered_altitude;        // 에러 모드에서는 => 마지막 데이터로 안정된 고도 유지
+                    filtered_climb_rate = 0.0f;                     // 상승률은 0으로 고정
+                }else if(g_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
                     float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
+
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)
                     alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, filtered_climb_rate, 0.025f);
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
-                } else {
+                } else { // 정상모드 (?)
                     filtered_alt = 0.0f;
                     filtered_climb_rate = 0.0f;
                     alt_throttle_offset = 0.0f;
+
                     pid.reset_pid(&pid.pid_alt_pos);
                     pid.reset_pid(&pid.pid_alt_rate);
                 }
@@ -459,6 +447,7 @@ void Flight::flight_task(void *pvParameters)
             target_yaw_angle += tg_yaw_rate * dt; 
             if (target_yaw_angle > 180.0f) target_yaw_angle -= 360.0f;
             if (target_yaw_angle < -180.0f) target_yaw_angle += 360.0f;
+
             float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
 
             // --- [2단계: Inner Loop - 각속도 제어] ---
