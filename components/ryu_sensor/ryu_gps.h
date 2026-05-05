@@ -18,19 +18,18 @@ enum class Health {
 
 class  Gps{
     private:
-        Gps();
+        Gps() = default; 
+        ~Gps() = default;
+        static constexpr const char* TAG = "Gps";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Gps& get_instance() {
+            static Gps instance; 
+            return instance;
+        }
         Gps(const Gps&) = delete;
         Gps& operator=(const Gps&) = delete;
-        ~Gps();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Gps& get_instance() {
-            static Gps* instance = new Gps(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
+        Gps(Gps&&) = delete;
+        Gps& operator=(Gps&&) = delete;
 
         //=====ubx 바이너리 프로토콜======= start
         typedef struct {
@@ -114,7 +113,6 @@ class  Gps{
     private:
         TaskHandle_t _task_handle = nullptr;
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

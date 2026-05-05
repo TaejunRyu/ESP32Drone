@@ -18,13 +18,6 @@ namespace Service
 시동 끄기: 왼쪽 스틱을 왼쪽 아래 구석으로 2초간 유지 (Throttle 최소 + Yaw 최대 왼쪽)
 */
 
-const char* Flysky::TAG = "Flysky";
-
-Flysky::Flysky(){
-    ESP_LOGI(TAG,"Initializing Flysky Service...");
-}
-Flysky::~Flysky(){}
-
 esp_err_t Flysky::initialize()
 {
     if (_initialized) return ESP_OK;

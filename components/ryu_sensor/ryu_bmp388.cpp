@@ -6,13 +6,8 @@
 
 namespace Sensor{
     
-
 BMP388 BMP388::mainInstance("BMP388 Main",BMP388::ADDR_VCC);
 BMP388 BMP388::subInstance ("BMP388 Sub",BMP388::ADDR_GND);
-
-const char *BMP388::TAG = "BMP388";
-
-BMP388::BMP388(){}
 
 esp_err_t BMP388::initialize()
 {    

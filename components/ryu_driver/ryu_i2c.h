@@ -6,19 +6,20 @@
 namespace Driver{
 
 class I2C{
-    private:
-        I2C();
+ private:
+        I2C() = default; 
+        ~I2C() = default;
+        static constexpr const char* TAG = "I2C";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static I2C& get_instance() {
+            static I2C instance; 
+            return instance;
+        }
         I2C(const I2C&) = delete;
         I2C& operator=(const I2C&) = delete;
-        ~I2C();
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static I2C& get_instance() {
-            static I2C* instance = new I2C(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }
+        I2C(I2C&&) = delete;
+        I2C& operator=(I2C&&) = delete;
+
 
         static inline constexpr uint32_t       I2C_SPEED   = 400'000;
         static inline constexpr gpio_port_t    I2C_PORT    = gpio_port_t(0);
@@ -38,7 +39,6 @@ class I2C{
 
         i2c_master_bus_handle_t _bus_handle = nullptr;        
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

@@ -8,20 +8,20 @@ namespace Service
 {
   
 class Mavlink{
-    private:
-        Mavlink();
+     private:
+        Mavlink() = default; 
+        ~Mavlink() = default;
+        static constexpr const char* TAG = "Mavlink";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Mavlink& get_instance() {
+            static Mavlink instance; 
+            return instance;
+        }
         Mavlink(const Mavlink&) = delete;
         Mavlink& operator=(const Mavlink&) = delete;
-        ~Mavlink();
+        Mavlink(Mavlink&&) = delete;
+        Mavlink& operator=(Mavlink&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Mavlink& get_instance() {
-            static Mavlink* instance = new Mavlink(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         void send_status_text(const char *text, uint8_t severity = MAV_SEVERITY_INFO);
         void send_mavlink_msg(mavlink_message_t *msg);
         void send_mav_command_ack(uint16_t command, uint8_t result, uint8_t progress, int32_t result_param2, uint8_t target_sysid, uint8_t target_compid);
@@ -38,13 +38,10 @@ class Mavlink{
 
          
         void on_timer_tick();
-     
         esp_err_t initialize();
+
     private:
-
         bool _initialized = false;
-        static const char* TAG;
-
 };
 
 

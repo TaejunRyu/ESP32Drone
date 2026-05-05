@@ -8,15 +8,6 @@
 namespace  Sensor
 {
 
-const char* Gps::TAG = "Gps";
-
-Gps::Gps(){
-    ESP_LOGI(TAG,"Initializing Gps Sensor...");
-}
-
-Gps::~Gps(){
-}
-
 esp_err_t  Gps::initialize()
 {
     if(_initialized) return ESP_OK;;

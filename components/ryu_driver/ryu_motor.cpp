@@ -6,12 +6,6 @@
 namespace Driver
 {
 
-const char* Motor::TAG ="Motor";
-
-Motor::Motor(){
-    ESP_LOGI(TAG,"Initializing Motor Driver...");
-}
-
 esp_err_t Motor::initialize()
 {
     if (_initialized) return ESP_OK;

@@ -11,21 +11,20 @@
 namespace Driver{
 
 class Battery{
-
     private:
-        Battery();
+        Battery() = default; 
+        ~Battery() = default;
+        static constexpr const char* TAG = "Battery";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Battery& get_instance() {
+            static Battery instance; 
+            return instance;
+        }
         Battery(const Battery&) = delete;
         Battery& operator=(const Battery&) = delete;
-        ~Battery();
+        Battery(Battery&&) = delete;
+        Battery& operator=(Battery&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Battery& get_instance() {
-            static Battery* instance = new Battery(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         
         static inline constexpr gpio_num_t     BATTERY_ADC_PIN         = GPIO_NUM_34;
         static inline constexpr adc_channel_t  BATTERY_ADC_CH          = ADC_CHANNEL_6;
@@ -45,7 +44,6 @@ class Battery{
         adc_cali_handle_t adc_cali_handle = nullptr;
         bool do_calibration = false;
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

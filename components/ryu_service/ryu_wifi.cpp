@@ -9,12 +9,6 @@
 namespace Service
 {   
 
-const char* EspNow::TAG = "EspNow";
-EspNow::EspNow(){
-    ESP_LOGI(TAG,"Initializing EspNow Service...");
-}
-EspNow::~EspNow(){}
-
 esp_err_t EspNow::initialize()
 {
     if(_initialized) return ESP_OK;

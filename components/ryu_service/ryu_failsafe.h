@@ -18,20 +18,19 @@
 namespace Service
 {
 class  FailSafe{
-    private:
-        FailSafe();
+ private:
+        FailSafe() = default; 
+        ~FailSafe() = default;
+        static constexpr const char* TAG = "FailSafe";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static FailSafe& get_instance() {
+            static FailSafe instance; 
+            return instance;
+        }
         FailSafe(const FailSafe&) = delete;
         FailSafe& operator=(const FailSafe&) = delete;
-        ~FailSafe();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static FailSafe& get_instance() {
-            static FailSafe* instance = new FailSafe(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
+        FailSafe(FailSafe&&) = delete;
+        FailSafe& operator=(FailSafe&&) = delete;
 
         // 시스템 상태 비트 정의
         static inline constexpr uint32_t SYS_HEALTH_IMU_OK     =  (1 << 0);
@@ -74,7 +73,7 @@ class  FailSafe{
         // 태스크 핸들 (Core 0의 에러 태스크를 지칭)
         TaskHandle_t _task_handle = nullptr;
         // 시스템 통합 상태 (비트마스크)
-        volatile uint32_t system_health = 0xFFFFFFFF; // 초기값은 모두 OK 
+        volatile uint32_t system_health = SYS_HEALTH_ALL_OK; // 초기값은 모두 OK 
 
         esp_err_t initialize();
         esp_err_t reinit_all_sensors();
@@ -85,7 +84,6 @@ class  FailSafe{
 
     private:
         bool _initialized = false;
-        static const char* TAG;
 
 };
 

@@ -10,10 +10,18 @@
 namespace Sensor{
 
 class BMP388{
+    private:
+        BMP388() = default; 
+        ~BMP388() = default;
+        static constexpr const char* TAG = "BMP388";
+        static BMP388 mainInstance;
+        static BMP388 subInstance;
     public:
-        // 복사 방지
+
         BMP388(const BMP388&) = delete;
         BMP388& operator=(const BMP388&) = delete;
+        BMP388(BMP388&&) = delete;
+        BMP388& operator=(BMP388&&) = delete;
 
         // 2개의 내부 인스턴스에 접근하기 위한 인터페이스
         static BMP388& Main() { return mainInstance; }
@@ -39,9 +47,6 @@ class BMP388{
         float get_climb_rate(){return _climb_rate;};
 
     private:
-        // 외부에서 생성하지 못하도록 처리.
-        BMP388();
-
         //보정계수        
         struct {
             double      t_lin;
@@ -91,10 +96,8 @@ class BMP388{
         // private 생성자: 외부에서 호출 불가
         BMP388(std::string n,uint16_t addr) : _dev_address(addr), _name(n), _isAlive(true) {}
 
-        static BMP388 mainInstance;
-        static BMP388 subInstance;
 
-        static const char *TAG;
+
     };
 
 }

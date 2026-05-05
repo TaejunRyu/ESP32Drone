@@ -7,21 +7,22 @@
 namespace Service{ 
 
 class Timer{
-    private:
-        Timer();
+ private:
+        Timer() = default; 
+        ~Timer() = default;
+        static constexpr const char* TAG = "Timer";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Timer& get_instance() {
+            static Timer instance; 
+            return instance;
+        }
         Timer(const Timer&) = delete;
         Timer& operator=(const Timer&) = delete;
-        ~Timer();
+        Timer(Timer&&) = delete;
+        Timer& operator=(Timer&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Timer& get_instance() {
-            static Timer* instance = new Timer(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         esp_err_t intiallize();
+        esp_err_t deintiallize();
         
         // 콜백 설정
         void set_timer_callback(std::function<void()> callback);
@@ -41,7 +42,6 @@ class Timer{
         TimerHandle_t _timer_handle = nullptr;
         bool _initialized = false;
         bool _running = false;
-        static const char* TAG;
 
 };
 

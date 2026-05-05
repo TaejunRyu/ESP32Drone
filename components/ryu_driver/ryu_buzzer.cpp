@@ -7,18 +7,6 @@
 namespace Driver
 {
 
-const char* Buzzer::TAG = "Buzzer";
-
-
-Buzzer::Buzzer(){
-    ESP_LOGI(TAG,"Initializing Buzzer Driver...");
-}
-
-Buzzer::~Buzzer(){
-    deinitialize();
-}
-
-
 esp_err_t Buzzer::initialize()
 {
     if (_initialized) {

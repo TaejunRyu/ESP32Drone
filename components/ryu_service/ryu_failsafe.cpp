@@ -17,15 +17,6 @@ namespace Service {
 
 ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
-const char* FailSafe::TAG = "FailSafe";
-
-FailSafe::FailSafe(){ 
-    system_health = SYS_HEALTH_ALL_OK; // 초기 상태 설정
-    ESP_LOGI(TAG,"Initializing FailSafe Service.");
-}
-
-FailSafe::~FailSafe(){}
-
 esp_err_t FailSafe::initialize() {
     if(_initialized) return ESP_OK;
 

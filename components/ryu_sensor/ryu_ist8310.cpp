@@ -8,18 +8,6 @@
 namespace Sensor
 {
 
-const char* IST8310::TAG = "IST8310";
-
-IST8310::IST8310(){
-    ESP_LOGI(TAG,"Initializing IST8310 Sensor...");
-}
-
-IST8310::~IST8310()
-{
-    deinitialize();
-}
-
-
 esp_err_t IST8310::initialize()
 {
     this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();

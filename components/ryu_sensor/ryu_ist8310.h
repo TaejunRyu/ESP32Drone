@@ -10,19 +10,18 @@ namespace Sensor
 
 class IST8310{
     private:
-        IST8310();
+        IST8310() = default; 
+        ~IST8310() = default;
+        static constexpr const char* TAG = "IST8310";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static IST8310& get_instance() {
+            static IST8310 instance; 
+            return instance;
+        }
         IST8310(const IST8310&) = delete;
         IST8310& operator=(const IST8310&) = delete;
-        ~IST8310();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static IST8310& get_instance() {
-            static IST8310* instance = new IST8310(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
+        IST8310(IST8310&&) = delete;
+        IST8310& operator=(IST8310&&) = delete;
 
         esp_err_t initialize();
         esp_err_t deinitialize();
@@ -69,7 +68,6 @@ class IST8310{
         i2c_master_bus_handle_t _bus_handle = nullptr;
         i2c_master_dev_handle_t _dev_handle = nullptr;
         bool _initialized = false;
-        static const char* TAG;
 
 };
 

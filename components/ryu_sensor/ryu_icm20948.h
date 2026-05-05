@@ -11,14 +11,27 @@ namespace Sensor
 // 1. ADO핀을 바꾸면 BMP388의 주소도 같이 다른번호로 바뀌는것 주의 
 
 class ICM20948{
+    private:
+        ICM20948() = default; 
+        ~ICM20948() = default;
+        static constexpr const char* TAG = "ICM20948";
+        static ICM20948 mainInstance;
+        static ICM20948 subInstance; 
+
     public:
-       // 복사 방지
+        static ICM20948& get_instance() {
+            static ICM20948 instance; 
+            return instance;
+        }
         ICM20948(const ICM20948&) = delete;
         ICM20948& operator=(const ICM20948&) = delete;
+        ICM20948(ICM20948&&) = delete;
+        ICM20948& operator=(ICM20948&&) = delete;
 
         // 2개의 내부 인스턴스에 접근하기 위한 인터페이스
         static ICM20948& Main() { return mainInstance; }
         static ICM20948& Sub()  { return subInstance; }
+
         
         void setStatus(bool status) { _isAlive = status; }
         bool getStatus() { return _isAlive; }
@@ -55,7 +68,6 @@ class ICM20948{
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> Managed_read_with_offset();
 
     private:
-        ICM20948();
 
         // offfset 저장
         std::array<float, 3> _offset_acc ={};
@@ -75,10 +87,6 @@ class ICM20948{
         // private 생성자: 외부에서 호출 불가
         ICM20948(std::string n, uint16_t addr) :_dev_address(addr),_name(n),_isAlive(true) {}
 
-        static ICM20948 mainInstance;
-        static ICM20948 subInstance; 
-
-        static const char *TAG;
 };
 
 }

@@ -8,19 +8,18 @@ namespace Sensor
 
 class AK09916{
     private:
-        AK09916();
+        AK09916() = default; 
+        ~AK09916() = default;
+        static constexpr const char* TAG = "AK09916";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static AK09916& get_instance() {
+            static AK09916 instance; 
+            return instance;
+        }
         AK09916(const AK09916&) = delete;
         AK09916& operator=(const AK09916&) = delete;
-        ~AK09916();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static AK09916& get_instance() {
-            static AK09916* instance = new AK09916(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }
+        AK09916(AK09916&&) = delete;
+        AK09916& operator=(AK09916&&) = delete;
         static inline constexpr uint8_t ADDR       =    0x0C;
         static inline constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
 
@@ -50,7 +49,6 @@ class AK09916{
         i2c_master_bus_handle_t _bus_handle = nullptr;
         i2c_master_dev_handle_t _dev_handle = nullptr;
         bool _initialized = false;
-        static const char* TAG;
 };
 
 }

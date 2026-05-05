@@ -7,11 +7,9 @@
 namespace Controller
 {
 
-const char* PID::TAG = "PID";
-
-
-PID::PID(){
-    ESP_LOGI(TAG,"Initializing PID Controller...");
+esp_err_t PID::initialize()
+{
+    if(_initialized) return ESP_OK;
     // PID 구조체 초기화 (기본값 0)
     // 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
     // Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
@@ -35,14 +33,7 @@ PID::PID(){
     pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
     pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
     pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-}
 
-PID::~PID(){}
-
-esp_err_t PID::initialize()
-{
-    if(_initialized) return ESP_OK;
-    //
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
     return ESP_OK;

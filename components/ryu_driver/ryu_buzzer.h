@@ -7,20 +7,20 @@ namespace Driver{
 
     
 class Buzzer{
-private:
-    Buzzer();
-public:
-    // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
-    Buzzer(const Buzzer&) = delete;
-    Buzzer& operator=(const Buzzer&) = delete;
-    ~Buzzer();
+    private:
+        Buzzer() = default; 
+        ~Buzzer() = default;
+        static constexpr const char* TAG = "Buzzer";
+    public:
+        static Buzzer& get_instance() {
+            static Buzzer instance; 
+            return instance;
+        }
+        Buzzer(const Buzzer&) = delete;
+        Buzzer& operator=(const Buzzer&) = delete;
+        Buzzer(Buzzer&&) = delete;
+        Buzzer& operator=(Buzzer&&) = delete;
 
-    // 싱글톤 인스턴스 접근 메서드 
-    // 🌟 get_instance() 메서드 구현
-    static Buzzer& get_instance() {
-        static Buzzer* instance = new Buzzer(); // 힙에 할당하여 소멸 순서 꼬임 방지
-        return *instance;
-    }    
 
     static inline constexpr gpio_num_t BUZZER_GPIO = GPIO_NUM_14;  // 부저가 연결된 GPIO 번호
  
@@ -46,7 +46,6 @@ public:
      
 private:
     bool _initialized = false;
-    static const char* TAG;
 };
 
 }

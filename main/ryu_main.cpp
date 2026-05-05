@@ -7,7 +7,7 @@
 #include "ryu_buzzer.h"
 #include "ryu_motor.h"
 #include "ryu_config.h"
-
+#include "ryu_led.h"
 
 extern "C" {
 	void app_main(void);
@@ -38,18 +38,13 @@ void app_main(void) {
     esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     //esp_log_level_set("Mavlink", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     
+    auto& led = Driver::Led::get_instance();
+    led.initialize();
     
 
     watch_dog_initialize();
 
     ESP_ERROR_CHECK(esp_event_loop_create_default());
-    
-    { // 2번 포트 led 설정
-        gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화
-        gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // 출력 모드로 설정       
-        // buzzer 초기화및 fc의 시작을 알린다.
-        gpio_set_level(GPIO_NUM_2,1);
-    }
     
     auto& flight = Controller::Flight::get_instance();
     esp_err_t err = flight.initialize();
@@ -64,8 +59,7 @@ void app_main(void) {
     }
     
     while (true) {
-        static bool led_state = false;
-        gpio_set_level(GPIO_NUM_2, (led_state = !led_state));
+        led.toggle();
         vTaskDelay(pdMS_TO_TICKS(500)); // 메인 태스크가 종료되지 않게 붙잡음
     }
 }

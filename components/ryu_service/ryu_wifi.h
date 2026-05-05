@@ -17,19 +17,18 @@ namespace Service
 
 class  EspNow{
     private:
-        EspNow();
+        EspNow() = default; 
+        ~EspNow() = default;
+        static constexpr const char* TAG = "EspNow";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static EspNow& get_instance() {
+            static EspNow instance; 
+            return instance;
+        }
         EspNow(const EspNow&) = delete;
         EspNow& operator=(const EspNow&) = delete;
-        ~EspNow();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static EspNow& get_instance() {
-            static EspNow* instance = new EspNow(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
+        EspNow(EspNow&&) = delete;
+        EspNow& operator=(EspNow&&) = delete;
        
         // 통신은 channel 6번 양쪽을 바추어야한다.
         static inline constexpr uint8_t   ESPNOW_CHANNEL          = 6;
@@ -68,7 +67,6 @@ class  EspNow{
         uint8_t bridge_mac[6] = {0x1C,0xDB,0xD4,0xAE,0x82,0x04};
         esp_now_peer_info_t peer_info = {}; 
         bool _initialized = false;
-        static const char* TAG;
 
 };
 

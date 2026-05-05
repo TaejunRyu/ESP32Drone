@@ -11,16 +11,6 @@
 namespace Sensor
 {
 
-const char* AK09916::TAG = "AK09916";
-
-AK09916::AK09916(){
-    ESP_LOGI(TAG,"Initializing Sensor...");
-}
-
-AK09916::~AK09916()
-{
-}
-
 esp_err_t AK09916::deinitialize()
 {
     esp_err_t err = ESP_FAIL;

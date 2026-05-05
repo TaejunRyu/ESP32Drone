@@ -5,20 +5,20 @@
 namespace Service{
 
 class Mahony{
-    private:
-        Mahony();
+ private:
+        Mahony() = default; 
+        ~Mahony() = default;
+        static constexpr const char* TAG = "Mahony";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Mahony& get_instance() {
+            static Mahony instance; 
+            return instance;
+        }
         Mahony(const Mahony&) = delete;
         Mahony& operator=(const Mahony&) = delete;
-        ~Mahony();
+        Mahony(Mahony&&) = delete;
+        Mahony& operator=(Mahony&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Mahony& get_instance() {
-            static Mahony* instance = new Mahony(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         const float INTEGRAL_MAX = 0.5f;
 
 
@@ -36,7 +36,6 @@ class Mahony{
         uint64_t boot_start_time; // booting time
     
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

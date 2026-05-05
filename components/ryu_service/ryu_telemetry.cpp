@@ -8,15 +8,6 @@
 namespace Service
 {
 
-const char* Telemetry::TAG = "Telemetry";
-
-Telemetry::Telemetry(){
-    ESP_LOGI(TAG,"Initializing Telemetry Service...");
-}
-
-Telemetry::~Telemetry(){
-}
-
 esp_err_t Telemetry::initialize()
 {
     if(_initialized) return ESP_OK;

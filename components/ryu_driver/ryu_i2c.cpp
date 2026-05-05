@@ -6,18 +6,6 @@
 
 namespace Driver{
 
-const char* I2C::TAG = "I2C";
-
-I2C::I2C(): _port(I2C_PORT),_port_sda(I2C_SDA),_port_scl(I2C_SCL), _bus_handle(nullptr),_initialized(false)
-{
-    ESP_LOGI(TAG,"Initializing I2C Driver...");
-}
-
-I2C::~I2C()
-{
-    deinitialize();
-}
-
 esp_err_t I2C::initialize()
 {        
     if(_initialized){

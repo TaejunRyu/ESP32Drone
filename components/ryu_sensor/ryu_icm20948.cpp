@@ -8,7 +8,6 @@
 
 namespace Sensor{
 
-const char *ICM20948::TAG = "ICM20948";
 
 ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
@@ -291,12 +290,6 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
         }
         return {err, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}};
     }
-}
-
-
-ICM20948::ICM20948()
-{
-    ESP_LOGI(TAG,"Initializing ICM20948 Sensor...");
 }
 
 esp_err_t ICM20948::enable_mag_bypass()

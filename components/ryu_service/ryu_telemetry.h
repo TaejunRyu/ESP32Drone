@@ -13,20 +13,20 @@ namespace Service
 {
 
 class  Telemetry{
-    private:
-        Telemetry();
+ private:
+        Telemetry() = default; 
+        ~Telemetry() = default;
+        static constexpr const char* TAG = "Telemetry";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Telemetry& get_instance() {
+            static Telemetry instance; 
+            return instance;
+        }
         Telemetry(const Telemetry&) = delete;
         Telemetry& operator=(const Telemetry&) = delete;
-        ~Telemetry();
+        Telemetry(Telemetry&&) = delete;
+        Telemetry& operator=(Telemetry&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Telemetry& get_instance() {
-            static Telemetry* instance = new Telemetry(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         
         esp_err_t initialize();
         static void telemetry_task(void *pv);
@@ -36,7 +36,6 @@ class  Telemetry{
     private:
         TaskHandle_t _task_handle = nullptr;
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

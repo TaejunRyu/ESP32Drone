@@ -18,19 +18,18 @@ namespace Service
 
 class Flysky{
     private:
-        Flysky();
+        Flysky() = default; 
+        ~Flysky() = default;
+        static constexpr const char* TAG = "Flysky";
     public:
-            // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static Flysky& get_instance() {
+            static Flysky instance; 
+            return instance;
+        }
         Flysky(const Flysky&) = delete;
         Flysky& operator=(const Flysky&) = delete;
-        ~Flysky();
-
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static Flysky& get_instance() {
-            static Flysky* instance = new Flysky(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
+        Flysky(Flysky&&) = delete;
+        Flysky& operator=(Flysky&&) = delete;
         // PPM으로 데이터를 보낼때
         static inline constexpr gpio_num_t FLYSKY_PPM_PIN = GPIO_NUM_4; 
         static inline constexpr uint8_t    MAX_CHANNELS  = 8;
@@ -66,7 +65,6 @@ class Flysky{
 
         mcpwm_cap_timer_handle_t _cap_timer = nullptr;
         bool _initialized = false;
-        static const char* TAG;
 }; 
 
  

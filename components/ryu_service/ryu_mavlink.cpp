@@ -21,15 +21,6 @@
 
 namespace Service{
 
-const char* Mavlink::TAG = "Mavlink";
-
-Mavlink::Mavlink(){
-    ESP_LOGI(TAG,"Initializing Mavlink Service...");
-}
-Mavlink::~Mavlink()
-{
-}
-
 void Mavlink::send_status_text(const char *text, uint8_t severity)
 {
     mavlink_message_t msg;

@@ -7,16 +7,6 @@
 
 namespace Service{
 
-const char* Mahony::TAG="Mahony";
-
-Mahony::Mahony(){
-    ESP_LOGI(TAG,"Initializing Service...");
-}
-
-Mahony::~Mahony()
-{
-}
-
 // ========== PID 파라미터 (현재 드론 튜닝값) ==========
 // Kp: P 게인 - 반응 속도 결정 (높으면 빠르나 진동 증가)
 //   권장 범위: 1.0 ~ 3.0

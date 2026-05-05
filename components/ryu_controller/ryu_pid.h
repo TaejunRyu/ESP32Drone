@@ -18,20 +18,20 @@ namespace Controller{
  *      이 시스템에는 단 1개의  pid만 존재한다.
  */
 class PID{
-    private:
-        PID();
+  private:
+        PID() = default; 
+        ~PID() = default;
+        static constexpr const char* TAG = "PID";
     public:
-        // 🌟 복사 생성자와 대입 연산자 비활성화 (싱글톤 복사 방지)
+        static PID& get_instance() {
+            static PID instance; 
+            return instance;
+        }
         PID(const PID&) = delete;
         PID& operator=(const PID&) = delete;
-        ~PID();
+        PID(PID&&) = delete;
+        PID& operator=(PID&&) = delete;
 
-        // 싱글톤 인스턴스 접근 메서드
-        // 🌟 get_instance() 메서드 구현
-        static PID& get_instance() {
-            static PID* instance = new PID(); // 힙에 할당하여 소멸 순서 꼬임 방지
-            return *instance;
-        }  
         // PID 구조체
         // 프레임워크 전반에서 공유되므로 연속적인 초기화와 링크를 위해 inline 선언합니다.
         struct  drone_pid_t{
@@ -62,7 +62,6 @@ class PID{
     private:
 
         bool _initialized = false;
-        static const char* TAG;
 };
 
 

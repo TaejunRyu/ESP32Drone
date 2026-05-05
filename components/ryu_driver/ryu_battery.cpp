@@ -10,15 +10,7 @@
  */
 namespace Driver
 {
-const char* Battery::TAG ="Baterry" ;
 
-Battery::Battery(){
-    ESP_LOGI(TAG,"Initializing Baterry Driver...");
-}
-
-Battery::~Battery()
-{
-}
 esp_err_t Battery::initialize()
 {
     if(_initialized) return ESP_OK;

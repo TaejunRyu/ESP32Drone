@@ -27,15 +27,6 @@
 namespace Controller
 {
 
-const char* Flight::TAG = "Flight";
-
-Flight::Flight(){
-    ESP_LOGI(TAG,"Initializing Flight Controller.");
-}
-
-Flight::~Flight(){}
-
-
 /**
  * @brief 
  *      1. flight task를 실행하려면 초기화를 반드시 처리해야한다.

@@ -5,22 +5,6 @@
 namespace Service {
 
 
-const char* Timer::TAG = "Timer";
-
-Timer::Timer(){
-    ESP_LOGI(TAG,"Initializing Timer Service...");
-}
-
-Timer::~Timer()
-{
-    Stop();
-    if (_timer_handle) {
-        xTimerDelete(_timer_handle, 0);
-        _timer_handle = nullptr;
-    }
-    ESP_LOGI(TAG, "TimerService destroyed");
-}
-
 esp_err_t Timer::intiallize()
 {
     if (_initialized) return ESP_OK;
@@ -41,6 +25,17 @@ esp_err_t Timer::intiallize()
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
+    return ESP_OK;
+}
+
+esp_err_t Timer::deintiallize()
+{
+    Stop();
+    if (_timer_handle) {
+        xTimerDelete(_timer_handle, 0);
+        _timer_handle = nullptr;
+    }
+    ESP_LOGI(TAG, "TimerService destroyed");
     return ESP_OK;
 }
 
