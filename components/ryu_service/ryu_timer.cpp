@@ -8,8 +8,6 @@ namespace Service {
 esp_err_t Timer::intiallize()
 {
     if (_initialized) return ESP_OK;
-
-    ESP_LOGI(TAG, "Initializing TimerService...");
     // 100ms 단위로 처리됨.
     _timer_handle = xTimerCreate(
                 "xTimer_xMs", 
