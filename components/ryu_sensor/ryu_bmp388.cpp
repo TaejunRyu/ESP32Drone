@@ -6,103 +6,100 @@
 namespace Sensor{
     
 
-BMP388 BMP388::mainInstance("MAIN_BMP388",BMP388::ADDR_VCC);
-BMP388 BMP388::subInstance("SUB_BMP388",BMP388::ADDR_GND);
+BMP388 BMP388::mainInstance("BMP388 Main",BMP388::ADDR_VCC);
+BMP388 BMP388::subInstance ("BMP388 Sub",BMP388::ADDR_GND);
 
 const char *BMP388::TAG = "BMP388";
 
-BMP388::BMP388(){
-    ESP_LOGI(TAG,"Initializing BMP388 Sensor...");
-}
-
+BMP388::BMP388(){}
 
 esp_err_t BMP388::initialize()
 {    
+    esp_err_t err = ESP_FAIL;
+
     if(_initialized){
         ESP_LOGI(TAG,"%s Already initialized.",this->name.c_str());
         return ESP_FAIL;
     }
     _bus_handle =  Driver::I2C::get_instance().get_bus_handle();
-    
-    //%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    ESP_LOGI(TAG,"%s Start initialization.",this->name.c_str());
-
-    esp_err_t ret_code = ESP_FAIL;
+    if (_bus_handle == nullptr){
+        ESP_LOGI(TAG,"%s I2C not initialized.",this->name.c_str());
+        return ESP_FAIL;
+    }
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     dev_cfg.device_address = _dev_address;
     dev_cfg.scl_speed_hz = Driver::I2C::I2C_SPEED;
 
-    ret_code = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
-    if(ret_code !=ESP_OK){
+    err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
+    if(err !=ESP_OK){
         ESP_LOGI(TAG,"%s is not add.",this->name.c_str());
-        return ret_code;
+        return err;
     } 
     
-
      // 1. Soft Reset
     uint8_t reset_cmd[] = {0x7E, 0xB6};
-    ret_code = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK){ 
+    err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK){ 
         ESP_LOGI(TAG,"%s Soft Reset Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }    
     vTaskDelay(pdMS_TO_TICKS(100)); // 시간을 넉넉히 줍니다.
 
     // 2. 중요: 일단 Sleep Mode로 전환하여 설정을 초기화 (0x1B에 0x00)
     uint8_t sleep_cmd[] = {0x1B, 0x00};
-    ret_code = i2c_master_transmit(_dev_handle, sleep_cmd, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err = i2c_master_transmit(_dev_handle, sleep_cmd, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG,"%s Sleep Mode Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     vTaskDelay(pdMS_TO_TICKS(10));
 
     // 1. OSR 설정 (압력 x8, 온도 x2 권장: 0x11)
     uint8_t osr_cmd[] = {0x1C, (0x03 << 0)  | (0x01 << 3)}; 
-    ret_code = i2c_master_transmit(_dev_handle, osr_cmd, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err = i2c_master_transmit(_dev_handle, osr_cmd, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG,"%s OSR Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     //IIR 필터 계수 (0x1F): 현재 0x02 << 1 (계수 3) 정도로 설정되어 있습니다. 
     //비행 중 진동이 심하다면 이 값을 조금 더 높여(예: 계수 7) 노이즈를 억제할 수 있습니다.
     // 2. IIR 필터 및 ODR(100Hz) 설정
     uint8_t iir_cmd[] = {0x1F, 0x02<<1}; 
-    ret_code = i2c_master_transmit(_dev_handle, iir_cmd, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err = i2c_master_transmit(_dev_handle, iir_cmd, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG,"%s IIR Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     // 2. ODR 설정 (100Hz로 설정하여 50Hz 읽기 루프 지원)
     uint8_t odr_data[] = {0x1D, 0x02}; // 0x02 = 100Hz
-    ret_code = i2c_master_transmit(_dev_handle, odr_data, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err = i2c_master_transmit(_dev_handle, odr_data, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG,"%s ODR Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     // 0x13: Forced Mode, Temp EN, Press EN
     uint8_t pwr_forced[] = {0x1B, 0x13}; 
-    ret_code =i2c_master_transmit(_dev_handle, pwr_forced, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err =i2c_master_transmit(_dev_handle, pwr_forced, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG,"%s Forced Mode Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     vTaskDelay(pdMS_TO_TICKS(50)); // 측정 완료 대기
 
     // 4. 드디어 Normal Mode 작동 (0x33)
     uint8_t pwr_cmd[] = {0x1B, 0x33}; 
-    ret_code = i2c_master_transmit(_dev_handle, pwr_cmd, 2, pdMS_TO_TICKS(10));
-    if(ret_code !=ESP_OK) {
+    err = i2c_master_transmit(_dev_handle, pwr_cmd, 2, pdMS_TO_TICKS(10));
+    if(err !=ESP_OK) {
         ESP_LOGI(TAG," %s Normal Mode Failure.",this->name.c_str());
-        return ret_code;
+        return err;
     }
     // 5. 첫 측정 대기: 중요!
     vTaskDelay(pdMS_TO_TICKS(50));
     // 보정계수 읽어오기
-    ret_code = read_calib();   
-    if(ret_code !=ESP_OK){ 
-        return ret_code;    
+    err = read_calib();   
+    if(err !=ESP_OK){ 
+        return err;    
     }
     else{ // 복잡한 수식 계산 미리 처리
         init_coefficients();
@@ -110,7 +107,7 @@ esp_err_t BMP388::initialize()
     _initialized = true;
 
     ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
-    return ret_code;
+    return err;
 }
 
 /**

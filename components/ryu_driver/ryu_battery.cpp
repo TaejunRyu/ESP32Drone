@@ -86,8 +86,8 @@ void Battery::battery_check_task(void *pvParameters)
         // 예: 1셀당 3.5V 미만일 때 (3S 배터리 기준 10.5V)
         if (voltage > 0.5f && voltage < 10.5f) { 
             // 에러 핸들러 태스크에 '저전압 비트' 세팅
-            auto& failsafe = Service::FailSafe::get_instance();
-            xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_BATTERY_LOW, eSetBits);
+            //auto& failsafe = Service::FailSafe::get_instance();
+            //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_BATTERY_LOW, eSetBits);
         }
         vTaskDelay(pdMS_TO_TICKS(1000)); // 1초마다 확인
     }

@@ -8,6 +8,7 @@ idf_component_register(
         esp_driver_uart
         esp_driver_i2c  
         esp_timer
+        esp_event
         ryu_driver
         ryu_service
         

@@ -12,11 +12,11 @@
 
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
+#include "ryu_sensor_event.h"
 
 // 에러 비트 정의 (Bitmask 방식)
 namespace Service
 {
-
 class  FailSafe{
     private:
         FailSafe();
@@ -75,10 +75,12 @@ class  FailSafe{
         // 태스크 핸들 (Core 0의 에러 태스크를 지칭)
         TaskHandle_t _task_handle = nullptr;
         // 시스템 통합 상태 (비트마스크)
-        volatile uint32_t g_system_health = 0xFFFFFFFF; // 초기값은 모두 OK
+        volatile uint32_t system_health = 0xFFFFFFFF; // 초기값은 모두 OK 
 
         esp_err_t initialize();
         esp_err_t reinit_all_sensors();
+        static void event_handler_relay(void *arg, esp_event_base_t base, int32_t id, void *data);
+        void update_health(fault_event_data_t *fault);
         static void failsafe_manager_task(void *pvParameters);
         void start_task();
 

@@ -78,8 +78,8 @@ void Flysky::flysky_task(void *pvParameters)
         
         if(g_sys.is_armed){  // 신호 이상~~~~ 비상~~~~~~
             if (local_ppm[0] < 800 || local_ppm[0] > 2200){
-                auto& failsafe = Service::FailSafe::get_instance();
-                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
+                //auto& failsafe = Service::FailSafe::get_instance();
+                //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
             }
         }
 

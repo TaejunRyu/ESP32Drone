@@ -4,13 +4,16 @@
 #include <freertos/FreeRTOS.h>
 #include <esp_timer.h>
 #include "ryu_i2c.h"
+#include "ryu_sensor_event.h"
 
 namespace Sensor{
 
 const char *ICM20948::TAG = "ICM20948";
 
-ICM20948 ICM20948::mainInstance("MAIN_ICM20948",ICM20948::ADDR_VCC);
-ICM20948 ICM20948::subInstance("SUB_ICM20948",ICM20948::ADDR_GND);
+ESP_EVENT_DEFINE_BASE(SENSOR_EVENT_BASE);
+
+ICM20948 ICM20948::mainInstance("ICM20948 Main",ICM20948::ADDR_VCC);
+ICM20948 ICM20948::subInstance("ICM20948 Sub",ICM20948::ADDR_GND);
 
 void ICM20948::icm20948_select_bank(uint8_t bank)
 {
@@ -21,29 +24,30 @@ void ICM20948::icm20948_select_bank(uint8_t bank)
 
 esp_err_t ICM20948::initialize()
 {
-    if(_dev_handle) {
-        ESP_LOGI(TAG,"%s Already initialized.",name.c_str());
+    esp_err_t err;
+    if(_initialized && _dev_handle) {
+        ESP_LOGI(TAG,"%s Already initialized.",_name.c_str());
+        return ESP_OK;
     }
     // bus handle을 바로 가져오기
     if (Driver::I2C::get_instance().get_bus_handle() != nullptr){
         this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
     }
     else{
+        ESP_LOGE(TAG, "%s : Failed to get i2c handle", _name.c_str());
         return ESP_FAIL;
     }
-
 
     i2c_device_config_t dev_cfg = {};
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
     dev_cfg.device_address = this->_dev_address;
     dev_cfg.scl_speed_hz = Driver::I2C::I2C_SPEED;; // 400kHz
 
-    
     // 버스에 장치 추가 및 핸들 획득
-    esp_err_t err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
+    err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
     if (err != ESP_OK) {
-        ESP_LOGE(TAG,"%s %s is not add.",name.c_str());
-        this->isAlive = false; // 명시적으로 상태 기록
+        ESP_LOGE(TAG,"%s Failed to add device to bus.",_name.c_str());
+        this->_isAlive = false; // 명시적으로 상태 기록
         return err;
     }
 
@@ -53,6 +57,7 @@ esp_err_t ICM20948::initialize()
     uint8_t reset_cmd[] = {B0_PWR_MGMT_1, 0x80};
     err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(100));
     if(err != ESP_OK){
+        ESP_LOGE(TAG, "%s : Soft Reset setting failed", _name.c_str());
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(100)); // 리셋 후 대기 필수
@@ -61,6 +66,7 @@ esp_err_t ICM20948::initialize()
     uint8_t wake_cmd[] = {B0_PWR_MGMT_1, 0x01};
     err = i2c_master_transmit(_dev_handle, wake_cmd, 2, pdMS_TO_TICKS(100));
     if(err != ESP_OK){
+        ESP_LOGE(TAG, "%s : Sleep & Auto Clock setting failed", _name.c_str());
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(100));
@@ -80,9 +86,9 @@ esp_err_t ICM20948::initialize()
     uint8_t gyro_cfg[] = {B2_GYRO_CONFIG_1, 0x1D};
     err = i2c_master_transmit(_dev_handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
     if(err != ESP_OK){
+        ESP_LOGE(TAG, "%s : Gyro DLPF setting failed", _name.c_str());
         return err;
     }
-
 
     // --- [3. 가속도계 설정: ±8g & DLPF 설정] ---
     /* 
@@ -95,6 +101,7 @@ esp_err_t ICM20948::initialize()
     uint8_t accel_cfg[] = {B2_ACCEL_CONFIG, 0x1D};
     err = i2c_master_transmit(_dev_handle, accel_cfg, 2, pdMS_TO_TICKS(100));
     if(err != ESP_OK){
+        ESP_LOGE(TAG, "%s : Accel DLPF setting failed", _name.c_str());
         return err;
     }
 
@@ -103,10 +110,11 @@ esp_err_t ICM20948::initialize()
     vTaskDelay(pdMS_TO_TICKS(10));
     
     _initialized = true;
-    this->isAlive = true;
-    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->name.c_str());    
-    return ESP_OK;
+    this->_isAlive = true;
+    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->_name.c_str());    
+    return err;
 }
+
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()
 {
@@ -116,7 +124,7 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     uint8_t d[12]; // Accel(6) + Gyro(6)
     
     icm20948_select_bank(0);
-    esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &B0_ACCEL_XOUT_H, 1, d, 12, pdMS_TO_TICKS(2));
+    esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &B0_ACCEL_XOUT_H, 1, d, 12, pdMS_TO_TICKS(3));
     if(ret != ESP_OK){
         return{ret,{},{}};
     } 
@@ -135,18 +143,18 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
 void ICM20948::calibrate()
 {
     if (_calibration){
-        ESP_LOGW(TAG,"%s Already Calibration was performed.",name.c_str());
+        ESP_LOGW(TAG,"%s Already Calibration was performed.",_name.c_str());
         return ;
     }
+    ESP_LOGI(TAG, "%s : Zeroing... Keep the aircraft level.",_name.c_str());
+
     float sum_acc[3] ={},sum_gyro[3]={};
      int valid_samples = 0; // 실제로 성공한 샘플 수만 카운트
-    const int samples = 500; // 1000번 샘플링 (약 1~2초 소요)
+    const int samples = 500; // 500번 샘플링    
     uint8_t buf[12];
     uint8_t reg = B0_ACCEL_XOUT_H;
     
     icm20948_select_bank(0);
-
-    ESP_LOGI(TAG, "Start sensor zeroing... Keep the aircraft level.");
     for (int i = 0; i < samples; i++) {
         uint64_t start_time = esp_timer_get_time(); // 시작 시간 기록
         if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(100)) == ESP_OK) [[likely]]{    
@@ -165,11 +173,7 @@ void ICM20948::calibrate()
         if (elapsed < 2500) {
             esp_rom_delay_us(2500 - elapsed); // 남은 시간만큼 마이크로초 단위 대기
         }   
-        //printf("\r         ICM20948: 센서 영점 조절 작업중. 진행율(%d/%d), valid samples(%d) ", i+1,samples,valid_samples);
-        //ESP_LOGI("ICM20948", "센서 영점 조절 작업중.%d/%d",i,samples);
-        //vTaskDelay(pdMS_TO_TICKS(2)); // 200Hz 이상  빠르게 샘플링
     }
-    //printf("\n");
     if(valid_samples > 0 )[[likely]]{
         // 평균값 계산 (Offset 저장)
         sum_acc[0]  = sum_acc[0] / valid_samples;
@@ -190,14 +194,15 @@ void ICM20948::calibrate()
     _offset_gyro[0] = sum_gyro[0];
     _offset_gyro[1] = sum_gyro[1];
     _offset_gyro[2] = sum_gyro[2];
-    //return {{sum_acc[X],sum_acc[Y],sum_acc[Z]},{sum_gyro[X],sum_gyro[Y],sum_gyro[Z]}};
     _calibration = true;
+    ESP_LOGI(TAG, "%s : Zeroing Completed. ",_name.c_str());
+
 }
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_with_offset()
 {
     if (!_calibration){
-        ESP_LOGW(TAG,"%s Calibration was not performed.",name.c_str());
+        ESP_LOGW(TAG,"%s Calibration was not performed.",_name.c_str());
         return {ESP_FAIL,{},{}};
     }
 
@@ -220,25 +225,107 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     return {ret,acc,gyro};
 }
 
-ICM20948::ICM20948(){
+std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Managed_read_with_offset()
+{
+    static size_t active_index =0;
+    static size_t err_count = 0;        
+    static size_t err_continue_count = 0;
+    static float avr_acc[3] = {}, avr_gyro[3] = {};
+
+    esp_err_t ret = ESP_OK;
+
+    // 문제 발생하였기 때문에 에러 복구 처리를 해야함.
+    if ( err_continue_count > 10 ){
+        // 에러를 이벤트로 처리하면 ? 모듈간의 밀집도가 낮아지겠다.
+        // sensor_data_t data = { .sensor_id = 3, .err_code = ESP_ERR_TIMEOUT };
+        // esp_event_post(SENSOR_EVENT_BASE, SENSOR_EVENT_READ_ERROR, &error_data, sizeof(sensor_error_data_t), portMAX_DELAY);
+        ESP_LOGE(TAG,"Problems occurred with both sensors.");
+        return {ESP_FAIL,{avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}}; 
+    }
+
+    switch(active_index){ 
+        case 0: {
+            auto [err,acc,gyro] =  ICM20948::mainInstance.read_with_offset();
+            if (err == ESP_OK){
+                avr_acc[0]  = acc[0];
+                avr_acc[1]  = acc[1];
+                avr_acc[2]  = acc[2];
+                avr_gyro[0] = gyro[0];   
+                avr_gyro[1] = gyro[1];   
+                avr_gyro[2] = gyro[2];   
+                err_count = 0;   
+                err_continue_count =0;
+                return {err, {avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}};
+            } else {
+                err_count++;
+                if ( err_count > 3){
+                    active_index = 1;
+                    err_count = 0;
+                    
+                    err_continue_count ++;
+                }
+            }
+            ret = err;
+            break;
+        }
+        case 1:{
+            auto [err,acc,gyro] =  ICM20948::subInstance.read_with_offset();
+            if (err == ESP_OK){
+                avr_acc[0]  = acc[0];
+                avr_acc[1]  = acc[1];
+                avr_acc[2]  = acc[2];
+                avr_gyro[0] = gyro[0];   
+                avr_gyro[1] = gyro[1];   
+                avr_gyro[2] = gyro[2];
+                err_count = 0;   
+                err_continue_count = 0;
+                return {ret, {avr_acc[0],avr_acc[1],avr_acc[2]}, {avr_gyro[0],avr_gyro[1],avr_gyro[2]}};
+            } else {
+                err_count++;
+                if ( err_count > 3){
+                    active_index = 0;
+                    err_count = 0;
+
+                    err_continue_count++;
+                }
+            }
+            ret = err;
+            break;
+        }
+    }
+    return {ret,{}, {}};
+}
+ICM20948::ICM20948()
+{
     ESP_LOGI(TAG,"Initializing ICM20948 Sensor...");
 }
 
 esp_err_t ICM20948::enable_mag_bypass()
 {
+    esp_err_t err;
     icm20948_select_bank(0);
     // 1. I2C Master 모드 비활성화 (Bypass를 쓰기 위함)
     uint8_t user_ctrl_cmd[] = {B0_USER_CTRL, 0x00};
-    i2c_master_transmit(_dev_handle, user_ctrl_cmd, 2, pdMS_TO_TICKS(10));
+    err = i2c_master_transmit(_dev_handle, user_ctrl_cmd, 2, pdMS_TO_TICKS(10));
+    if (err != ESP_OK){
+        ESP_LOGI(TAG,"%s : I2C Master Mode Deactivation Fialed.",_name.c_str());
+        return err;
+    }
 
     // 2. Bypass 모드 활성화 (BYPASS_EN = 1)
     uint8_t bypass_cmd[] = {B0_INT_PIN_CFG, 0x02};
-    esp_err_t ret = i2c_master_transmit(_dev_handle, bypass_cmd, 2, pdMS_TO_TICKS(10));
-    
-    if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Geomagnetic Field (AK09916) Bypass Mode Activation Complete");
+    err = i2c_master_transmit(_dev_handle, bypass_cmd, 2, pdMS_TO_TICKS(10));    
+    if (err != ESP_OK) {
+        ESP_LOGI(TAG,"%s : Bypass Mode Activation Failed.",_name.c_str());
+        return err;
     }
-    return ret;
+
+    ESP_LOGI(TAG, "Geomagnetic Field (AK09916) Bypass Mode Activation Complete");
+    return err;
 }
+
+
+
+
 
 } // namespace Sensor

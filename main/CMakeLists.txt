@@ -15,6 +15,7 @@ idf_component_register(
                 esp_driver_i2c      esp_driver_ledc     esp_timer 
                 bootloader_support  esp_pm              freertos
                 esp_system          lwip                mavlink
+                esp_event
                 ryu_sensor          ryu_config          ryu_driver
                 ryu_controller      ryu_service
                 

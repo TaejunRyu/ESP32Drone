@@ -31,6 +31,7 @@
 
 // gps에 있는 지자계센서.
 #include "ryu_ist8310.h"
+
 // motor
 #include "ryu_motor.h"
 #include "ryu_battery.h"
@@ -48,22 +49,20 @@ Flight::Flight(){
 
 Flight::~Flight(){}
 
+
+/**
+ * @brief 
+ *      1. flight task를 실행하려면 초기화를 반드시 처리해야한다.
+ * @return esp_err_t 
+ */
 esp_err_t Flight::initialize()
 {
-    if(_initialized) return ESP_OK;
+    if(_initialized){ 
+        return ESP_OK;
+    }
+    
     esp_err_t err;
-    auto& espnow        = Service::EspNow::get_instance();
-        err = espnow.initialize();
-        if (err != ESP_OK){
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    auto& battery       = Driver::Battery::get_instance();
-        err = battery.initialize();
-        if (err != ESP_OK){
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
+    
     auto& i2c           = Driver::I2C::get_instance();
         err = i2c.initialize();
         if (err != ESP_OK){
@@ -75,103 +74,129 @@ esp_err_t Flight::initialize()
         if (err != ESP_OK){
             return err;
         }
-
         err = icm20948_main.enable_mag_bypass();        
         if (err != ESP_OK){
-            ESP_LOGW(TAG, "ICM20948 main module Bypass mode setting failed!");
+            ESP_LOGE(TAG, "ICM20948 main module Bypass mode setting failed.");
             return err;
-        }
-        else{
-            ESP_LOGI(TAG, "ICM20948 main module Bypass mode setup complete!");
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& icm20948_sub  = Sensor::ICM20948::Sub();
         err = icm20948_sub.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 sub module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& ist8310       = Sensor::IST8310::get_instance();
         err = ist8310.initialize();
-            if (err != ESP_OK){
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "IST8310 module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& ak09916       = Sensor::AK09916::get_instance();
         err = ak09916.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "AK09916 module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& bmp388_main   = Sensor::BMP388::Main();
         err = bmp388_main.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Main module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& bmp388_sub    = Sensor::BMP388::Sub();
         err = bmp388_sub.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Sub module initialize failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+
+    auto& espnow        = Service::EspNow::get_instance();
+        err = espnow.initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "Espnow module initialize failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(50));
+    auto& battery       = Driver::Battery::get_instance();
+        err = battery.initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "Baterry module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& mahony        = Service::Mahony::get_instance();
         err = mahony.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Mahony module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& motor         = Driver::Motor::get_instance();
         err = motor.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Motor module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& gps           = Sensor::Gps::get_instance();
         err = gps.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Gps module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& flysky        = Service::Flysky::get_instance();
         err = flysky.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Flysky module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& buzzer        = Driver::Buzzer::get_instance();
         err = buzzer.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Buzzer module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& mavlink       = Service::Mavlink::get_instance();
         err = mavlink.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Mavlink module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& telemetry     = Service::Telemetry::get_instance();
         err = telemetry.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Telemetry module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& pid           = Controller::PID::get_instance();
         err = pid.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Pid module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& failsafe      = Service::FailSafe::get_instance();
         err = failsafe.initialize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "FailSafe module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
     auto& timer         = Service::Timer::get_instance();
         err = timer.intiallize();
         if (err != ESP_OK){
+            ESP_LOGI(TAG, "Timer module initialize failed.");
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));  
@@ -181,28 +206,32 @@ esp_err_t Flight::initialize()
     return err;
 }
 
+/**
+ * @brief 
+ *      1. 실제 비행 로직이 처리되는 task.
+ *      2. class들은 initialize에서 초기화.
+ * @param pvParameters 
+ */
 void Flight::flight_task(void *pvParameters)
 {
     auto flight = static_cast<Flight*>(pvParameters);
+    auto& motor         = Driver::Motor::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
     auto& icm20948_sub  = Sensor::ICM20948::Sub();
-    auto& ist8310       = Sensor::IST8310::get_instance();
     auto& ak09916       = Sensor::AK09916::get_instance();
-    auto& failsafe      = Service::FailSafe::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& bmp388_sub    = Sensor::BMP388::Sub();
+    auto& ist8310       = Sensor::IST8310::get_instance();
     auto& pid           = Controller::PID::get_instance();
-    auto& motor         = Driver::Motor::get_instance();
     auto& mahony        = Service::Mahony::get_instance();
+    //auto& failsafe      = Service::FailSafe::get_instance();
     
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
 
     //Watch Dog 등록.  
-    esp_task_wdt_add(NULL);     
- 
-    
-
+    esp_task_wdt_add(flight->_task_handle);     
+     
     while(true) {
         int64_t now = esp_timer_get_time();
         flight->calculated_dt = (now- last_time);
@@ -217,10 +246,13 @@ void Flight::flight_task(void *pvParameters)
  
         static float   calculation_acc_x  = 0.0f,  calculation_acc_y  = 0.0f,  calculation_acc_z  = 0.0f;
         static float   calculation_gyro_x = 0.0f,  calculation_gyro_y = 0.0f,  calculation_gyro_z = 0.0f;
+    
         if (flight->imu_error_cnt < ERROR_MAX_NUM+1){
             switch(flight->imu_active_index){
                 case 0:{
-                    auto [ret,macc,mgyro] = icm20948_main.read_with_offset();
+                    auto [ret,macc,mgyro] = icm20948_main.Managed_read_with_offset();
+
+                    //auto [ret,macc,mgyro] = icm20948_main.read_with_offset();
                     g_imu.acc   = macc;
                     g_imu.gyro  = mgyro;
                     ret_code    = ret;
@@ -252,7 +284,7 @@ void Flight::flight_task(void *pvParameters)
                 }
             }     
             if (flight->imu_error_cnt ==ERROR_MAX_NUM){
-                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 flight->imu_error_cnt = ERROR_MAX_NUM+1;  // overflow나지 않도록 잡아둔다.
             }
@@ -306,7 +338,7 @@ void Flight::flight_task(void *pvParameters)
             // 3.치명적 에러 발생 (10회 연속 실패)
             if (flight->mag_error_cnt == ERROR_MAX_NUM) {
                 ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
-                xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                 g_sys.error_hold_mode = true;
                 flight->mag_error_cnt = ERROR_MAX_NUM+1; // 차단
             }             
@@ -459,7 +491,7 @@ void Flight::flight_task(void *pvParameters)
                 }
                 if (flight->baro_error_cnt == ERROR_MAX_NUM) {
                     ESP_LOGW("BARO", "xTaskNotify()-> sending to signal(ERR_BUS_HANG)");
-                    xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
+                    //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
                     g_sys.error_hold_mode = true;
                     flight->baro_error_cnt = ERROR_MAX_NUM + 1; // 차단
                 }
@@ -538,6 +570,8 @@ void Flight::flight_task(void *pvParameters)
             motor_v[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
             motor.update_compare_value({motor_v[0],motor_v[1],motor_v[2],motor_v[3]});
         }           
+        // loop check 
+        flight->loop_check();
         flight->total_us = esp_timer_get_time() - last_time;
         int64_t current_time;
         while ((current_time = esp_timer_get_time()) - last_time < INTERVAL_US) {
@@ -549,7 +583,7 @@ void Flight::flight_task(void *pvParameters)
 }
 
 
-// ========== [5단계] 비행 제어 태스크 생성 (모든 검증 완료 후) ==========
+// ========== 비행 제어 태스크 생성  ==========
 void Flight::start_task()
 {
     auto& espnow        = Service::EspNow::get_instance();
@@ -573,22 +607,13 @@ void Flight::start_task()
     auto& timer         = Service::Timer::get_instance();
     
     esp_err_t ret;
-
     auto mac_addr = espnow.get_my_mac_address();
     ESP_LOGI(TAG, "My MAC address: %02x:%02x:%02x:%02x:%02x:%02x",mac_addr[0], mac_addr[1], mac_addr[2],mac_addr[3], mac_addr[4], mac_addr[5]);
-
-    //auto ret_code = icm20948_main.enable_mag_bypass();
-    // if (ret_code != ESP_OK)
-    //     ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 실패!");
-    // else
-    //     ESP_LOGI(TAG, "IMU MAIN MODULE Bypass 모드 설정 완료!");
-    // vTaskDelay(pdMS_TO_TICKS(10));
     
     // 각각의 오프셋을 구한다.
     icm20948_main.calibrate();  
-    vTaskDelay(pdMS_TO_TICKS(100));
+    vTaskDelay(pdMS_TO_TICKS(50));
     icm20948_sub.calibrate();		
-
 
     auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
     vTaskDelay(pdMS_TO_TICKS(50));
@@ -629,17 +654,17 @@ void Flight::start_task()
         bmp388_sub.get_dev_handle()     == nullptr) 
         {
         if (icm20948_main.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "ICM20948");
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!",   "ICM20948");
         if (icm20948_sub.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "ICM20948");
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!",    "ICM20948");
         if( ist8310.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "IST8310");
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!",   "IST8310");
         if( ak09916.get_dev_handle()  == nullptr) 
-            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "AK09916");
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!",    "AK09916");
         if (bmp388_main.get_dev_handle()   == nullptr) 
-            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!", "BMP388");
+            ESP_LOGE(TAG, "❌ %s MAIN에 연결할 수 없습니다!",   "BMP388");
         if (bmp388_sub.get_dev_handle()    == nullptr) 
-            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!", "BMP388");
+            ESP_LOGE(TAG, "❌ %s SUB에 연결할 수 없습니다!",    "BMP388");
 
         ESP_LOGE(TAG, "❌ 필수 센서 미연결! 시스템 중단");
 
@@ -655,29 +680,42 @@ void Flight::start_task()
     }
 
     // ========== [4단계] 보조 태스크 생성 ==========
-    // 0. espnow tx task
-    espnow.start_task();
-    flysky.start_task();
-    gps.start_task();
-    telemetry.start_task();
-    battery.start_task();
-    failsafe.start_task();
+    espnow.start_task();        // 1. espnow tx task
+    flysky.start_task();        // 2. flysky task
+    gps.start_task();           // 3. gps task
+    telemetry.start_task();     // 4. telemetry task
+    battery.start_task();       // 5. battery check task
+    failsafe.start_task();      // 6. failsafe task
     
-    {
-        auto res = xTaskCreatePinnedToCore(flight_task, "flight", 8192,this, 24, &_task_handle, 1);
-        if (res != pdPASS) {
-            ESP_LOGE(TAG, "❌ 6.Flight Task is Failed! code: %d", res);
-            // 모터 안전 정지
-            motor.stop_all_motors();
-        } else {
-            ESP_LOGI(TAG, "✓ 6.Flight Task is passed...");
-        }
+    // 7. flight task
+    auto res = xTaskCreatePinnedToCore(
+                        flight_task, 
+                        "flight", 
+                        8192,
+                        this, 
+                        24, 
+                        &_task_handle, 
+                        1);
+    if (res != pdPASS) {
+        ESP_LOGE(TAG, "❌ 6.Flight Task is Failed! code: %d", res);
+        // 모터 안전 정지
+        motor.stop_all_motors();
+    } else {
+        ESP_LOGI(TAG, "✓ 6.Flight Task is passed...");
     }
+    
     ESP_LOGI(TAG, "✅ All Processes is passed... Flight ready!");
 
     // 콜백이 등록되어야지 데이터가 들어온다.
     espnow.connect_callback();
+    // 10hz,1hz...일정하게 qgc로 보내는 mavlink message처리를 한다.
     timer.Start();
+}
+
+void Flight::loop_check()
+{
+    // if ( calculated_dt > 2'500 )
+    //     ESP_LOGI(TAG,"dt > 2'500 us...");
 }
 
 

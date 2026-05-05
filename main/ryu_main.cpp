@@ -37,6 +37,7 @@ void app_main(void) {
     
     watch_dog_initialize();
 
+    
     { // 2번 포트 led 설정
         gpio_reset_pin(GPIO_NUM_2); // 핀 상태 초기화
         gpio_set_direction(GPIO_NUM_2, GPIO_MODE_OUTPUT); // 출력 모드로 설정       
