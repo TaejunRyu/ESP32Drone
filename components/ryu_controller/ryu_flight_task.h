@@ -40,7 +40,7 @@ class  Flight{
         
         esp_err_t initialize();
         static void flight_task(void *pvParameters);
-        void start_task();
+        BaseType_t start_task();
         void loop_check(); // loop안의 체크 목적.
         
     private:

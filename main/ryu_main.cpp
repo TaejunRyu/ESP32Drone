@@ -51,9 +51,13 @@ void app_main(void) {
     auto& flight = Controller::Flight::get_instance();
     esp_err_t err = flight.initialize();
     if (err != ESP_OK){
-        ESP_LOGE(TAG, "Fligth start failed: %s", esp_err_to_name(err));
+        ESP_LOGE(TAG, "Fligth Initialize Failed: %s", esp_err_to_name(err));
     }else{
-        flight.start_task();
+        BaseType_t ret = flight.start_task();
+        if (ret != pdPASS){
+            ESP_LOGE(TAG, "Fligth Task Staring... Failed.");
+        }
+
     }
     
     while (true) {

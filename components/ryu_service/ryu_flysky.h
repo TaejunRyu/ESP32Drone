@@ -56,7 +56,7 @@ class Flysky{
         bool is_arming_gesture();
         bool is_disarming_gesture();
 
-        void start_task();
+        BaseType_t start_task();
 
     private:
         TaskHandle_t   _task_handle = nullptr;

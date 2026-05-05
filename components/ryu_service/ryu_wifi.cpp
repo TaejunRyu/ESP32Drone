@@ -164,6 +164,7 @@ esp_err_t EspNow::connect_callback()
         ESP_LOGE(TAG, "send callback register failed: %s", esp_err_to_name(err));
         return err;
     }
+    ESP_LOGI(TAG, "EspNow callback registered.");    
     return err;
 }
 
@@ -178,6 +179,7 @@ esp_err_t EspNow::disconnect_callback(){
         ESP_LOGE(TAG, "send callback unregister failed: %s", esp_err_to_name(err));
         return err;
     }
+    ESP_LOGI(TAG, "EspNow callback unregistered.");    
     return err;
 }
 
@@ -297,11 +299,16 @@ void EspNow::mavlink_tx_task(void *pvParameters)
     }    
 }
 
-void EspNow::start_task()
+BaseType_t EspNow::start_task()
 {
     auto res = xTaskCreatePinnedToCore(mavlink_tx_task, "mavlink_tx_task", 4096, this, 15,&_task_handle, 0);
-    if (res != pdPASS) ESP_LOGE(TAG, "❌ 0.ESP TX Task is Failed! code: %d", res);
-    else ESP_LOGI(TAG, "✓ 0.ESP TX Task is passed... ");
-}
+    if (res != pdPASS){ 
+        ESP_LOGE(TAG, "❌ 0.ESP TX Task is Failed! code: %d", res);
+    }
+    else{ 
+        ESP_LOGI(TAG, "✓ 0.ESP TX Task is passed... ");
+    }
+    return res;
+}   
 
 } // namespace WIFI

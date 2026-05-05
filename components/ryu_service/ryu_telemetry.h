@@ -30,7 +30,7 @@ class  Telemetry{
         
         esp_err_t initialize();
         static void telemetry_task(void *pv);
-        void start_task();
+        BaseType_t start_task();
 
 
     private:

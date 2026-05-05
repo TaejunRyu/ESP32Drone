@@ -60,11 +60,12 @@ void Telemetry::telemetry_task(void *pv)
     } //while(true)
 }
 
-void Telemetry::start_task()
+BaseType_t Telemetry::start_task()
 {
     auto res = xTaskCreatePinnedToCore(telemetry_task, "telemetry", 8192, this, 15,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 3.Telemetry Task is failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 3.Telemetry task is passed...");
+    return res;
 }
 
 } // namespace TELEM

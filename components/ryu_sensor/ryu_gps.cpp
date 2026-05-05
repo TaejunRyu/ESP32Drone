@@ -250,11 +250,12 @@ void Gps::gps_ubx_mode_task(void *pvParameters)
     }
 }
 
-void Gps::start_task()
+BaseType_t Gps::start_task()
 {
     auto res = xTaskCreatePinnedToCore(gps_ubx_mode_task, "gps", 4096, this, 5,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 2.Gps Task is Failed! code: %d", res);
     else ESP_LOGI(TAG, "✓ 2.Gps Task is passed... ");
+    return res;
 }
 
 

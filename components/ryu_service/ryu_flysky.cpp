@@ -186,11 +186,12 @@ bool Flysky::is_disarming_gesture() {
                          g_rc.yaw < -YAW_ARM_THRESHOLD, disarm_cnt);
 }
 
-void Flysky::start_task()
+BaseType_t Flysky::start_task()
 {
-    auto ret = xTaskCreatePinnedToCore(flysky_task,"flysky",4096,this,12,&_task_handle,0);
-    if (ret != pdPASS) ESP_LOGE(TAG, "❌ 1.Flysky Task is failed!  code: %d", ret);
+    auto res = xTaskCreatePinnedToCore(flysky_task,"flysky",4096,this,12,&_task_handle,0);
+    if (res != pdPASS) ESP_LOGE(TAG, "❌ 1.Flysky Task is failed!  code: %d", res);
     else ESP_LOGI(TAG, "✓ 1.Flysky Task is passed...");
+    return res;
 }
 
 } // namespace Service

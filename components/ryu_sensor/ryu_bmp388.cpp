@@ -2,6 +2,7 @@
 #include <tuple>
 #include <freertos/FreeRTOS.h>
 #include "ryu_i2c.h" 
+#include "ryu_sensor_event.h"
 
 namespace Sensor{
     
@@ -156,12 +157,13 @@ esp_err_t BMP388::read_calib()
 float BMP388::update_climb_rate()
 {
     // 현재 진행되어지는 고도는 fitered_alt가지고 작업 진행중...
-    float raw_rate = (this->filtered_alt - this->last_altitude) / 0.020f; // 50Hz = 0.020s  , 40hz = 0.025s
-    this->last_altitude = this->filtered_alt;
+    float raw_rate = (this->_filtered_alt - this->_last_altitude) / 0.020f; // 50Hz = 0.020s  , 40hz = 0.025s
+    this->_last_altitude = this->_filtered_alt;
     // 속도 필터 (기압계 노이즈 제거용)
-    this->climb_rate = (this->climb_rate * 0.8f) + (raw_rate * 0.2f);
-    return this->climb_rate;
+    this->_climb_rate = (this->_climb_rate * 0.8f) + (raw_rate * 0.2f);
+    return this->_climb_rate;
 }
+
 
 
 std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
@@ -200,9 +202,9 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
     }
 
     if (count >= 50) { // 최소 50개 이상의 유효 샘플 확보 시
-        this->ground_pressure = sum / (float)count;
-        ESP_LOGI(TAG, "✓ Ground pressure setting complete: %.2f hPa (Samples: %d)", this->ground_pressure, count);
-        return {ret_code,this->ground_pressure};
+        this->_ground_pressure = sum / (float)count;
+        ESP_LOGI(TAG, "✓ Ground pressure setting complete: %.2f hPa (Samples: %d)", this->_ground_pressure, count);
+        return {ret_code,this->_ground_pressure};
     }
     ESP_LOGE(TAG, "❌ Ground pressure correction failed (sensor check needed)");
     return {ret_code,0.0f};
@@ -291,27 +293,89 @@ std::tuple <esp_err_t,float> BMP388::get_pressure()
     }
 }
 
+std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
+    static size_t active_index = 0;
+    static size_t err_count = 0;        
+    static size_t err_continue_count = 0;
+    static float  baro_alt;
+    static bool is_fault_posted = false; // 이벤트 중복 발행 방지
+
+    static float clib_rate = 0;
+
+    // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
+    if (err_continue_count > 6) {
+        if (!is_fault_posted) {
+            Service::fault_event_data_t data = { 
+                .id = Service::FAULT_ID_BARO, 
+                .is_recovered = false,
+                .reason = ESP_ERR_TIMEOUT 
+            };
+            // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
+            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, 
+                           &data, sizeof(data), 0);
+            is_fault_posted = true; 
+            
+            ESP_LOGE(TAG, "Both Baro sensors failed. Event posted.");
+        }
+        return {ESP_FAIL, baro_alt,clib_rate}; 
+    }
+
+    // 센서 읽기 로직 (Main/Sub 스위칭)
+    auto& target_instance = (active_index == 0) ? BMP388::mainInstance : BMP388::subInstance;
+    auto [err, alt] = target_instance.get_relative_altitude();
+    float rate      = target_instance.update_climb_rate();
+
+    if (err == ESP_OK) {
+        // 성공 시 데이터 업데이트 및 에러 카운트 초기화
+        baro_alt = alt;
+        clib_rate = rate;
+        err_count = 0;
+        err_continue_count = 0;
+
+        // [핵심] 복구되었다면 복구 이벤트 발행
+        if (is_fault_posted) {
+            Service::fault_event_data_t data = { .id = Service::FAULT_ID_BARO, .is_recovered = true };
+            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
+            is_fault_posted = false;
+        }
+        return {ESP_OK, alt, rate};
+    } 
+    else {
+        // 실패 시 스위칭 로직
+        err_count++;
+        if (err_count > 3) {
+            ESP_LOGW(TAG, "Baro %d failed, switching...", active_index);
+            active_index = (active_index == 0) ? 1 : 0; // 스위칭
+            err_count = 0;
+            err_continue_count++;
+        }
+        return {err, baro_alt,clib_rate};
+    }
+}
+
 std::tuple<esp_err_t ,float> BMP388::get_relative_altitude()
 {
-    if (this->ground_pressure <= 500.0f) {
+    if (this->_ground_pressure <= 500.0f) {
         ESP_LOGE(TAG, "Error => Verify Ground Pressure..."); // 에러 종류 확인
         return {ESP_FAIL,0.0f}; // 비정상적인 지면 기압 차단
     }
     auto [ret_code, pressure] = get_pressure();
     
     if (ret_code != ESP_OK || pressure <= 500.0f )
-        return {ret_code,this->last_altitude}; // 일시적 오류 시 이전 값 유지
+        return {ret_code,this->_last_altitude}; // 일시적 오류 시 이전 값 유지
 
     // 고도 계산 공식 (ISA 모델)
-    this->current_alt = 44330.0f * (1.0f - powf(pressure / this->ground_pressure, 0.190295f));
+    this->_current_alt = 44330.0f * (1.0f - powf(pressure / this->_ground_pressure, 0.190295f));
 
     // 간단한 1차 저주파 필터 (Alpha: 0.1 ~ 0.3 권장)
     // 노이즈를 줄이고 부드러운 고도 변화를 만듭니다.
     const float alpha = 0.2f; 
-    this->filtered_alt = (this->current_alt * alpha) + (this->last_altitude * (1.0f - alpha));
+    this->_filtered_alt = (this->_current_alt * alpha) + (this->_last_altitude * (1.0f - alpha));
     
-    this->last_altitude = this->filtered_alt;
-    return {ret_code,this->filtered_alt};
+    this->_last_altitude = this->_filtered_alt;
+
+    this->update_climb_rate();
+    return {ret_code,this->_filtered_alt};
 }
 
 

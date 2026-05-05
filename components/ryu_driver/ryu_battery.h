@@ -36,7 +36,7 @@ class Battery{
         esp_err_t initialize();
         float get_battery_voltage();
         static void battery_check_task(void *pvParameters);
-        void start_task();
+        BaseType_t start_task();
 
     private:
         TaskHandle_t _task_handle = nullptr;

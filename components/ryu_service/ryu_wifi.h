@@ -59,7 +59,7 @@ class  EspNow{
         std::array<uint8_t, 6> get_my_mac_address(void);
         uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle);
         static void mavlink_tx_task(void *pvParameters);
-        void start_task();
+        BaseType_t start_task();
         
 
     private:

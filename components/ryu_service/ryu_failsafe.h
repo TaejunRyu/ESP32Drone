@@ -81,7 +81,7 @@ class  FailSafe{
         static void event_handler_relay(void *arg, esp_event_base_t base, int32_t id, void *data);
         void update_health(fault_event_data_t *fault);
         static void failsafe_manager_task(void *pvParameters);
-        void start_task();
+        BaseType_t start_task();
 
     private:
         bool _initialized = false;

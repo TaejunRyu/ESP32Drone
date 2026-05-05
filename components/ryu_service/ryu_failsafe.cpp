@@ -63,11 +63,14 @@ void FailSafe::update_health(fault_event_data_t* fault) {
     switch(fault->id) {
         case FAULT_ID_IMU:{  
             bit = SYS_HEALTH_IMU_OK;
-            ESP_LOGI(TAG,"EVENT...."); 
+            g_sys.error_hold_mode = true;  // 에러가 발생하여 HOLD_MODE 상태로 전환 ( 이 곳에서도 시스템 모드전환 및 산태 프래그를 체크하여 현재모드 설정을 어떻게 할지)
+            break;
+        }
+        case FAULT_ID_BARO:{
+            bit = SYS_HEALTH_BARO_OK; 
             break;
         }
         case FAULT_ID_MAG:  bit = SYS_HEALTH_MAG_OK; break;
-        case FAULT_ID_BARO: bit = SYS_HEALTH_BARO_OK; break;
         case FAULT_ID_GPS:  bit = SYS_HEALTH_GPS_OK; break;
         case FAULT_ID_RC:   bit = SYS_HEALTH_RC_OK; break;
         default: break;
@@ -81,7 +84,7 @@ void FailSafe::update_health(fault_event_data_t* fault) {
         ESP_LOGE(TAG, "Sensor %d Fault! Reason: %s", fault->id, esp_err_to_name(fault->reason));
         
         // 특정 비트 조합에 따른 즉각 대응 로직 수행 가능
-        if (!(system_health & MASK_REQUIRED_MANUAL)) {
+        if (!(system_health & MASK_REQUIRED_MANUAL)) { //IMU와 RC가 정상이 아니면...
             ESP_LOGW(TAG, "CRITICAL: Manual flight impossible!");
         }
     }
@@ -93,15 +96,15 @@ esp_err_t FailSafe::reinit_all_sensors()
     //1. 상태 비트 끄기 (제어 루프 차단)
     system_health &= ~(SYS_HEALTH_IMU_OK | SYS_HEALTH_BARO_OK | SYS_HEALTH_MAG_OK);
 
+    Sensor::AK09916::get_instance().deinitialize();
     Sensor::ICM20948::Main().deinitialize();
     Sensor::ICM20948::Sub().deinitialize();
-    Sensor::AK09916::get_instance().deinitialize();
     Sensor::IST8310::get_instance().deinitialize();
     Sensor::BMP388::Main().deinitialize();
     Sensor::BMP388::Sub().deinitialize();
     Driver::I2C::get_instance().deinitialize();
 
-        // 2. SCL/SDA 핀 제어권 획득 및 강제 토글 (Bus Clear)
+    // 2. SCL/SDA 핀 제어권 획득 및 강제 토글 (Bus Clear)
     gpio_config_t io_conf = {};
     io_conf.pin_bit_mask = (1ULL << Driver::I2C::I2C_SCL) | (1ULL << Driver::I2C::I2C_SDA);
     io_conf.mode = GPIO_MODE_INPUT_OUTPUT_OD; 
@@ -117,12 +120,8 @@ esp_err_t FailSafe::reinit_all_sensors()
     }
 
     Driver::I2C::get_instance().initialize();
-
-    // 2. ICM20948 (IMU 1 & 2) 초기화
-    //    가속도/자이로 범위, 샘플 레이트, LP 필터 등 설정
     Sensor::ICM20948::Main().initialize();
     Sensor::ICM20948::Sub().initialize();
-
     if (Sensor::ICM20948::Main().get_dev_handle() != NULL){
         system_health |= SYS_HEALTH_IMU_OK;
         Sensor::ICM20948::Main().enable_mag_bypass();
@@ -130,19 +129,15 @@ esp_err_t FailSafe::reinit_all_sensors()
     else{
         ret = ESP_FAIL;
     }
-
     Sensor::IST8310::get_instance().initialize();    
     Sensor::AK09916::get_instance().initialize();
-
     if ( Sensor::IST8310::get_instance().get_dev_handle() != nullptr ){
         system_health |= SYS_HEALTH_MAG_OK;
     }else{
         ret = ESP_FAIL;
     }
-
     Sensor::BMP388::Main().initialize();
     Sensor::BMP388::Sub().initialize();
-
     if(Sensor::BMP388::Main().get_dev_handle() != NULL){
         system_health |= SYS_HEALTH_BARO_OK;
     }else{
@@ -157,25 +152,40 @@ esp_err_t FailSafe::reinit_all_sensors()
 void FailSafe::failsafe_manager_task(void *pvParameters) {
     FailSafe& instance = FailSafe::get_instance();
     while(1) {
-        if (!(instance.system_health & SYS_HEALTH_IMU_OK)) {
-            // IMU가 죽어있다면 여기서 I2C 리셋 시도 등 전역 복구 수행
-            ESP_LOGI(TAG,"이벤트발생!!!!!!!!!!!!!!!!!!!");
+        if (!(instance.system_health & SYS_HEALTH_IMU_OK)) { //IMU가 정상이 아니면 센서 전체 initialize...
+            // IMU가 죽어있다면 여기서 I2C 리셋 시도 등 전역 복구 수행    
             instance.reinit_all_sensors();
+        }        
+        if (!(instance.system_health & SYS_HEALTH_BARO_OK)) { 
+            // baro sensor check   ,  수동 전환하여 Go to Home         
+        }
+        if (!(instance.system_health & SYS_HEALTH_MAG_OK)) { 
+            // mag sensor check    ,  수동 전환하여 Go to Home
+        }
+        if (!(instance.system_health & SYS_HEALTH_GPS_OK)) { 
+            // gps sensor check    , 수동 전환하여 Go to Home
+        }
+        if (!(instance.system_health & SYS_HEALTH_RC_OK)) { 
+            // flysky sensor check , QGC든지 아니면 BRIGE에서 신호를           
+        }
+        if (!(instance.system_health & SYS_HEALTH_BATTERY_OK)) { 
+            // battery sensor check , RTL 처리            
         }
         vTaskDelay(pdMS_TO_TICKS(100));
     }
 }
 
 
-void FailSafe::start_task()
+BaseType_t FailSafe::start_task()
 {
     auto res= xTaskCreatePinnedToCore(failsafe_manager_task, "failsafe_manager_task", 4096, this, 10,&_task_handle, 0);
-    if (res != pdPASS) ESP_LOGE(TAG, "❌ 5.Error Check Task is failed! code: %d", res);
-    else ESP_LOGI(TAG, "✓ 5.Error Check Task is passed...");
+    if (res != pdPASS) ESP_LOGE(TAG, "❌ 5.FailSafe Task is failed! code: %d", res);
+    else ESP_LOGI(TAG, "✓ 5.FailSafe Task is passed...");
+    return res;
 }
 
 
-}
+} // namespace Service
 
 // namespace Service{
 
