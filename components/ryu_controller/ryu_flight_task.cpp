@@ -24,6 +24,8 @@
 #include "ryu_battery.h"
 #include "ryu_i2c.h"
 #include "ryu_mag.h"
+#include "ryu_icm20948.h"
+#include "ryu_businterface.h"
 
 namespace Controller
 {
@@ -55,24 +57,20 @@ esp_err_t Flight::initialize()
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(50));
-    auto& icm20948_main = Sensor::ICM20948::Main();
-        err = icm20948_main.initialize();
-        if (err != ESP_OK){
-            return err;
-        }
-        err = icm20948_main.enable_mag_bypass();        
-        if (err != ESP_OK){
-            ESP_LOGE(TAG, "ICM20948 main module Bypass mode setting failed.");
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    auto& icm20948_sub  = Sensor::ICM20948::Sub();
-        err = icm20948_sub.initialize();
-        if (err != ESP_OK){
-            ESP_LOGI(TAG, "ICM20948 sub module initialize failed.");
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
+
+
+    auto bus_handle = i2c.get_bus_handle();
+    // 1. Main IMU 설정 (주소 전달 -> 내부에서 장치추가/Bus객체생성/set_bus/init까지 한방에)
+    Sensor::ICM20948::Main().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_VCC);
+    Sensor::ICM20948::Main().initialize();
+    Sensor::ICM20948::Main().enable_mag_bypass();
+    //Sensor::ICM20948::Main().calibrate();
+
+    // 2. Sub IMU 설정
+    Sensor::ICM20948::Sub().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_GND);
+    Sensor::ICM20948::Sub().initialize();
+    //Sensor::ICM20948::Sub().calibrate();
+
     auto& ist8310       = Sensor::IST8310::get_instance();
         err = ist8310.initialize();
         if (err != ESP_OK){
@@ -195,8 +193,9 @@ void Flight::flight_task(void *pvParameters)
 {
     auto flight = static_cast<Flight*>(pvParameters);
     auto& motor         = Driver::Motor::get_instance();
+
     auto& icm20948_main = Sensor::ICM20948::Main();
-    //auto& icm20948_sub  = Sensor::ICM20948::Sub();
+    //auto& cicm20948_sub  = Sensor::ICM20948::Sub();
     //auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     //auto& bmp388_sub    = Sensor::BMP388::Sub();
@@ -209,6 +208,7 @@ void Flight::flight_task(void *pvParameters)
     auto& managed_mag  = Service::ManageMag::get_instance();
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
+
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
@@ -456,7 +456,7 @@ BaseType_t Flight::start_task()
     auto& battery       = Driver::Battery::get_instance();
     //auto& i2c           = Driver::I2C::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
-    auto& icm20948_sub  = Sensor::ICM20948::Sub();
+    auto& icm20948_sub = Sensor::ICM20948::Sub();    
     auto& ist8310       = Sensor::IST8310::get_instance();
     auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
@@ -476,7 +476,7 @@ BaseType_t Flight::start_task()
     auto mac_addr = espnow.get_my_mac_address();
     ESP_LOGI(TAG, "My MAC address: %02x:%02x:%02x:%02x:%02x:%02x",mac_addr[0], mac_addr[1], mac_addr[2],mac_addr[3], mac_addr[4], mac_addr[5]);
     
-    // 각각의 오프셋을 구한다.
+    // // 각각의 오프셋을 구한다.
     icm20948_main.calibrate();  
     vTaskDelay(pdMS_TO_TICKS(50));
     icm20948_sub.calibrate();		
@@ -506,33 +506,18 @@ BaseType_t Flight::start_task()
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}
 
-
-    // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
-    if (
-        icm20948_main.get_dev_handle()  == nullptr ||
-        icm20948_sub.get_dev_handle()   == nullptr ||
-        ist8310.get_dev_handle()        == nullptr ||
-        ak09916.get_dev_handle()        == nullptr ||
-        bmp388_main.get_dev_handle()    == nullptr ||
-        bmp388_sub.get_dev_handle()     == nullptr) 
-        {
-        if (icm20948_main.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "%s MAIN에 연결할 수 없습니다!",   "ICM20948");
-        if (icm20948_sub.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "%s SUB에 연결할 수 없습니다!",    "ICM20948");
-        if( ist8310.get_dev_handle() == nullptr) 
-            ESP_LOGE(TAG, "%s MAIN에 연결할 수 없습니다!",   "IST8310");
-        if( ak09916.get_dev_handle()  == nullptr) 
-            ESP_LOGE(TAG, "%s SUB에 연결할 수 없습니다!",    "AK09916");
-        if (bmp388_main.get_dev_handle()   == nullptr) 
-            ESP_LOGE(TAG, "%s MAIN에 연결할 수 없습니다!",   "BMP388");
-        if (bmp388_sub.get_dev_handle()    == nullptr) 
-            ESP_LOGE(TAG, "%s SUB에 연결할 수 없습니다!",    "BMP388");
-
+    bool is_all_ok = true;
+    // // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
+    if (!icm20948_main.is_initialized()){ ESP_LOGE(TAG, "ICM20948 MAIN 연결 실패!");is_all_ok = false; }
+    if (!icm20948_sub.is_initialized()) { ESP_LOGE(TAG, "ICM20948 SUB 연결 실패!"); is_all_ok = false; }
+    if (!ist8310.is_initialized())       { ESP_LOGE(TAG, "IST8310 MAIN 연결 실패!"); is_all_ok = false; }
+    if (!ak09916.is_initialized())       { ESP_LOGE(TAG, "AK09916 SUB 연결 실패!");  is_all_ok = false; }
+    if (!bmp388_main.is_initialized())   { ESP_LOGE(TAG, "IST8310 MAIN 연결 실패!"); is_all_ok = false; }
+    if (!bmp388_sub.is_initialized())    { ESP_LOGE(TAG, "IST8310 MAIN 연결 실패!"); is_all_ok = false; }
+    if (!is_all_ok) {
         ESP_LOGE(TAG, "필수 센서 미연결! 시스템 중단");
-
-        motor.stop_all_motors();    
-
+        motor.stop_all_motors();
+        // 무한 루프 진입
         // 무한 대기 (리부팅 필요)
         while (true) {
             static bool blink_led = false;

@@ -148,9 +148,11 @@ esp_err_t FailSafe::reinit_all_sensors()
     }
 
     Driver::I2C::get_instance().initialize();
+    Sensor::ICM20948::Main().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_VCC);
     Sensor::ICM20948::Main().initialize();
+    Sensor::ICM20948::Sub().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_GND);
     Sensor::ICM20948::Sub().initialize();
-    if (Sensor::ICM20948::Main().get_dev_handle() != NULL){
+    if (Sensor::ICM20948::Main().is_initialized()){
         system_health |= SYS_HEALTH_IMU_OK;
         Sensor::ICM20948::Main().enable_mag_bypass();
     }
@@ -159,14 +161,14 @@ esp_err_t FailSafe::reinit_all_sensors()
     }
     Sensor::IST8310::get_instance().initialize();    
     Sensor::AK09916::get_instance().initialize();
-    if ( Sensor::IST8310::get_instance().get_dev_handle() != nullptr ){
+    if ( Sensor::IST8310::get_instance().is_initialized()){
         system_health |= SYS_HEALTH_MAG_OK;
     }else{
         ret = ESP_FAIL;
     }
     Sensor::BMP388::Main().initialize();
     Sensor::BMP388::Sub().initialize();
-    if(Sensor::BMP388::Main().get_dev_handle() != NULL){
+    if(Sensor::BMP388::Main().is_initialized()){
         system_health |= SYS_HEALTH_BARO_OK;
     }else{
         ret = ESP_FAIL;

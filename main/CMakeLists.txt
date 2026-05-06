@@ -19,7 +19,7 @@ idf_component_register(
                 esp_system          lwip                mavlink
                 esp_event
                 ryu_sensor          ryu_config          ryu_driver
-                ryu_controller      ryu_service
+                ryu_controller      ryu_service         ryu_interface
                 
     PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
 )

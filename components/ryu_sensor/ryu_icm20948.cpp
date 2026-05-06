@@ -5,210 +5,233 @@
 #include <esp_timer.h>
 #include "ryu_i2c.h"
 #include "ryu_sensor_event.h"
+#include "ryu_businterface.h"
 
 namespace Sensor{
 
+//이 코드가 정상 동작하려면 SPIBus::read 함수가 구현된 파일에서 spi_device_interface_config_t 설정 시 address_bits = 8이 반드시 설정되어 있어야 합니다. 
+//이 설정이 없다면 주소(B0_ACCEL_XOUT_H)가 전송되지 않아 엉뚱한 데이터를 읽게 됩니다.
 
 ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
 ICM20948 ICM20948::mainInstance("ICM20948 Main",ICM20948::ADDR_VCC);
 ICM20948 ICM20948::subInstance("ICM20948 Sub",ICM20948::ADDR_GND);
 
+
+esp_err_t ICM20948::setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr) {
+    // 1. I2C 장치 등록 (열쇠 생성)
+    i2c_master_dev_handle_t dev_h;
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = 400000,
+    };
+    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_h);
+    if (ret != ESP_OK) return ret;
+
+    // 기존에 할당된 버스가 있다면 정리 (선택 사항)
+    if (_bus) delete _bus;
+    
+    // 2. I2CBus 인터페이스 객체 생성 및 주입 (도구 조립 및 전달)
+    // static 혹은 멤버 변수로 관리하여 메모리 해제 방지
+    _bus = new Interface::I2CBus(dev_h); 
+
+    // 3. 센서 초기화 진행
+    // this->initialize();
+    return ESP_OK;
+}
+
+
 void ICM20948::icm20948_select_bank(uint8_t bank)
 {
-    uint8_t cmd[] = {REG_BANK_SEL, (uint8_t)(bank << 4)};
-    i2c_master_transmit(_dev_handle, cmd, 2, pdMS_TO_TICKS(10));
+    //uint8_t cmd[] = {REG_BANK_SEL, (uint8_t)(bank << 4)};
+    //i2c_master_transmit(_dev_handle, cmd, 2, pdMS_TO_TICKS(10));
+
+    _bus->write(REG_BANK_SEL,(uint8_t)(bank << 4));
     _current_bank = bank;
 }
 
-esp_err_t ICM20948::initialize()
-{
-    esp_err_t err;
-    if(_initialized && _dev_handle) {
-        ESP_LOGI(TAG,"%s Already initialized.",_name.c_str());
+
+esp_err_t ICM20948::initialize() {
+    if (_initialized) {
+        ESP_LOGI(TAG, "%s Already initialized.", _name.c_str());
         return ESP_OK;
     }
-    // bus handle을 바로 가져오기
-    if (Driver::I2C::get_instance().get_bus_handle() != nullptr){
-        this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
-    }
-    else{
-        ESP_LOGE(TAG, "%s : Failed to get i2c handle", _name.c_str());
+
+    // [중요] _bus가 외부에서 주입(set_bus)되었는지 먼저 확인합니다.
+    if (_bus == nullptr) {
+        ESP_LOGE(TAG, "%s : Bus interface not set!", _name.c_str());
         return ESP_FAIL;
     }
 
-    i2c_device_config_t dev_cfg = {};
-    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    dev_cfg.device_address = this->_dev_address;
-    dev_cfg.scl_speed_hz = Driver::I2C::I2C_SPEED;; // 400kHz
+    esp_err_t err;
 
-    // 버스에 장치 추가 및 핸들 획득
-    err = i2c_master_bus_add_device(_bus_handle, &dev_cfg, &_dev_handle);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG,"%s Failed to add device to bus.",_name.c_str());
-        this->_isAlive = false; // 명시적으로 상태 기록
-        return err;
-    }
-
+    // 0. 초기 뱅크 설정
     icm20948_select_bank(0);
-    
+
     // 1. Soft Reset
-    uint8_t reset_cmd[] = {B0_PWR_MGMT_1, 0x80};
-    err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(100));
-    if(err != ESP_OK){
+    // 기존: i2c_master_transmit(_dev_handle, reset_cmd, 2, ...)
+    // 변경: 인터페이스의 write(레지스터, 데이터) 사용
+    err = _bus->write(B0_PWR_MGMT_1, 0x80); 
+    if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s : Soft Reset setting failed", _name.c_str());
         return err;
     }
-    vTaskDelay(pdMS_TO_TICKS(100)); // 리셋 후 대기 필수
+    vTaskDelay(pdMS_TO_TICKS(100));
 
-    // 2. Sleep 해제 및 Auto Clock 선택 (내부 20MHz OSC 사용)
-    uint8_t wake_cmd[] = {B0_PWR_MGMT_1, 0x01};
-    err = i2c_master_transmit(_dev_handle, wake_cmd, 2, pdMS_TO_TICKS(100));
-    if(err != ESP_OK){
+    // 2. Sleep 해제 및 Auto Clock 선택
+    err = _bus->write(B0_PWR_MGMT_1, 0x01);
+    if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s : Sleep & Auto Clock setting failed", _name.c_str());
         return err;
     }
     vTaskDelay(pdMS_TO_TICKS(100));
-    
-    // --- [1. Bank 2로 이동] ---
+
+    // --- [Bank 2로 이동] ---
     icm20948_select_bank(2);
     vTaskDelay(pdMS_TO_TICKS(10));
 
-    // --- [2. 자이로스코프 설정: ±1000dps & DLPF 설정] ---
-    /* 
-       GYRO_CONFIG_1 (0x01) 설정값 계산:
-       - Bit [5:3]: DLPF 대역폭 설정 (3 = 24Hz, 4 = 12Hz) -> 400Hz 루프엔 '3'(24Hz)이 적당
-       - Bit [2:1]: Full Scale (2 = ±1000dps)
-       - Bit [0]: DLPF 활성화 (1 = Enable)
-       => 0b00011101 (0x1D)
-    */
-    uint8_t gyro_cfg[] = {B2_GYRO_CONFIG_1, 0x1D};
-    err = i2c_master_transmit(_dev_handle, gyro_cfg, 2, pdMS_TO_TICKS(100));
-    if(err != ESP_OK){
+    // --- [자이로스코프 설정] ---
+    err = _bus->write(B2_GYRO_CONFIG_1, 0x1D);
+    if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s : Gyro DLPF setting failed", _name.c_str());
         return err;
     }
 
-    // --- [3. 가속도계 설정: ±8g & DLPF 설정] ---
-    /* 
-       ACCEL_CONFIG (0x14) 설정값 계산:
-       - Bit [5:3]: DLPF 대역폭 설정 (3 = 24.6Hz)
-       - Bit [2:1]: Full Scale (2 = ±8g)
-       - Bit [0]: DLPF 활성화 (1 = Enable)
-       => 0b00011101 (0x1D)
-    */
-    uint8_t accel_cfg[] = {B2_ACCEL_CONFIG, 0x1D};
-    err = i2c_master_transmit(_dev_handle, accel_cfg, 2, pdMS_TO_TICKS(100));
-    if(err != ESP_OK){
+    // --- [가속도계 설정] ---
+    err = _bus->write(B2_ACCEL_CONFIG, 0x1D);
+    if (err != ESP_OK) {
         ESP_LOGE(TAG, "%s : Accel DLPF setting failed", _name.c_str());
         return err;
     }
 
-    // --- [4. 다시 Bank 0로 복귀 (데이터 읽기 준비)] ---
+    // --- [Bank 0로 복귀] ---
     icm20948_select_bank(0);
     vTaskDelay(pdMS_TO_TICKS(10));
-    
+
     _initialized = true;
     _isAlive = true;
-    ESP_LOGI(TAG,"%s Initialized sucessfully.",this->_name.c_str());    
-    return err;
+    ESP_LOGI(TAG, "%s Initialized successfully via Interface.", _name.c_str());
+    return ESP_OK;
 }
 
-esp_err_t ICM20948::deinitialize()
-{
-    esp_err_t err = ESP_FAIL;
-    if(_dev_handle != nullptr){
-        err = i2c_master_bus_rm_device(_dev_handle);
-        if (err != ESP_OK) return err;
-        _dev_handle = nullptr;
+
+esp_err_t ICM20948::deinitialize() {
+    // 1. 상태 체크
+    if (!_initialized) {
+        return ESP_OK;
     }
-    this->_initialized = false;
-    ESP_LOGI(TAG,"%s Deinitialized sucessfully.",this->_name.c_str());    
-    return err;
+
+    // 2. 하드웨어 자원 해제 (중요!)
+    // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
+    // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
+    _bus = nullptr; 
+
+    // 3. 상태 업데이트
+    _initialized = false;
+    _isAlive = false;
+
+    ESP_LOGI(TAG, "%s Deinitialized successfully (Interface detached).", _name.c_str());
+    return ESP_OK;
 }
 
-std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data()
-{
-    if (_dev_handle == NULL){ 
-        return {ESP_FAIL, {0.0f, 0.0f, 0.0f},{0.0f,0.0f,0.0f}};
+
+
+std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data() {
+    // 1. 핸들이 아닌 인터페이스(_bus)가 설정되어 있는지 확인
+    if (_bus == nullptr) {
+        return {ESP_FAIL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     }
-    uint8_t d[12]; // Accel(6) + Gyro(6)
+
+    //uint8_t d[12]; // Accel(6) + Gyro(6)
+    uint8_t d[21]; // Accel(6) + Gyro(6) + Temp(2) + Mag(7~9)
     
+    // 2. 데이터 읽기 전 뱅크 0 확인
     icm20948_select_bank(0);
-    esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &B0_ACCEL_XOUT_H, 1, d, 12, pdMS_TO_TICKS(3));
-    if(ret != ESP_OK){
-        return{ret,{},{}};
-    } 
-    float raw_acc[3] = {},raw_gyro[3] ={};
-    // Raw 데이터 결합 (Big-Endian)
-    raw_acc[0]  = (int16_t)(d[0] << 8  | d[1])     / 4096.0f ;
-    raw_acc[1]  = (int16_t)(d[2] << 8  | d[3])     / 4096.0f ;
-    raw_acc[2]  = (int16_t)(d[4] << 8  | d[5])     / 4096.0f ;
-    raw_gyro[0] = (int16_t)(d[6] << 8  | d[7])     / 32.8f   ;
-    raw_gyro[1] = (int16_t)(d[8] << 8  | d[9])     / 32.8f   ;
-    raw_gyro[2] = (int16_t)(d[10] << 8 | d[11])    / 32.8f   ;
+
+    // 3. 인터페이스를 통한 데이터 읽기
+    // I2C/SPI 구현체 내부에서 각 프로토콜에 맞게(MSB 조작 등) 데이터를 채워줍니다.
+    //esp_err_t ret = _bus->read(B0_ACCEL_XOUT_H, d, 12);
+    esp_err_t ret = _bus->read(B0_ACCEL_XOUT_H, d, 21); 
     
-    return {ret,{raw_acc[0],raw_acc[1],raw_acc[2]},{raw_gyro[0],raw_gyro[1],raw_gyro[2]}};
+    if (ret != ESP_OK) {
+        return {ret, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    }
+
+    // 4. 데이터 변환 (Raw -> Physical 단위)
+    std::array<float, 3> acc, gyro;
+
+    // 가속도 데이터 (±8g 설정 기준: 4096 LSB/g)
+    acc[0] = (int16_t)((d[0] << 8) | d[1]) / 4096.0f;
+    acc[1] = (int16_t)((d[2] << 8) | d[3]) / 4096.0f;
+    acc[2] = (int16_t)((d[4] << 8) | d[5]) / 4096.0f;
+
+    // 자이로 데이터 (±1000dps 설정 기준: 32.8 LSB/dps)
+    gyro[0] = (int16_t)((d[6] << 8) | d[7]) / 32.8f;
+    gyro[1] = (int16_t)((d[8] << 8) | d[9]) / 32.8f;
+    gyro[2] = (int16_t)((d[10] << 8) | d[11]) / 32.8f;
+
+    return {ret, acc, gyro};
 }
 
-void ICM20948::calibrate()
-{
-    if (_calibration){
-        ESP_LOGW(TAG,"%s Already Calibration was performed.",_name.c_str());
-        return ;
+void ICM20948::calibrate() {
+    if (_calibration) {
+        ESP_LOGW(TAG, "%s Already Calibration was performed.", _name.c_str());
+        return;
     }
-    ESP_LOGI(TAG, "%s : Zeroing... Keep the aircraft level.",_name.c_str());
 
-    float sum_acc[3] ={},sum_gyro[3]={};
-     int valid_samples = 0; // 실제로 성공한 샘플 수만 카운트
-    const int samples = 500; // 500번 샘플링    
+    // 인터페이스 연결 확인
+    if (_bus == nullptr) {
+        ESP_LOGE(TAG, "%s : Bus interface not set!", _name.c_str());
+        return;
+    }
+
+    ESP_LOGI(TAG, "%s : Zeroing... Keep the aircraft level.", _name.c_str());
+    
+    float sum_acc[3] = {}, sum_gyro[3] = {};
+    int valid_samples = 0;
+    const int samples = 500;
     uint8_t buf[12];
-    uint8_t reg = B0_ACCEL_XOUT_H;
     
     icm20948_select_bank(0);
+
     for (int i = 0; i < samples; i++) {
-        uint64_t start_time = esp_timer_get_time(); // 시작 시간 기록
-        if (i2c_master_transmit_receive(_dev_handle, &reg, 1, buf, 12, pdMS_TO_TICKS(100)) == ESP_OK) [[likely]]{    
-            sum_acc[0] += (int16_t)((buf[0] << 8) | buf[1])   / 4096.0f;
-            sum_acc[1] += (int16_t)((buf[2] << 8) | buf[3])   / 4096.0f;
-            sum_acc[2] += (int16_t)((buf[4] << 8) | buf[5])   / 4096.0f;
-            
-            sum_gyro[0] += (int16_t)((buf[6] << 8) | buf[7])   / 32.8f;  
-            sum_gyro[1] += (int16_t)((buf[8] << 8) | buf[9])   / 32.8f;
+        uint64_t start_time = esp_timer_get_time();
+
+        // [변경] i2c_master_transmit_receive 대신 인터페이스의 read 사용
+        if (_bus->read(B0_ACCEL_XOUT_H, buf, 12) == ESP_OK) [[likely]] {
+            sum_acc[0] += (int16_t)((buf[0] << 8) | buf[1]) / 4096.0f;
+            sum_acc[1] += (int16_t)((buf[2] << 8) | buf[3]) / 4096.0f;
+            sum_acc[2] += (int16_t)((buf[4] << 8) | buf[5]) / 4096.0f;
+            sum_gyro[0] += (int16_t)((buf[6] << 8) | buf[7]) / 32.8f;
+            sum_gyro[1] += (int16_t)((buf[8] << 8) | buf[9]) / 32.8f;
             sum_gyro[2] += (int16_t)((buf[10] << 8) | buf[11]) / 32.8f;
-            valid_samples++; 
-        }  
-        // 400Hz(2500us) 주기를 정확히 맞추기 위한 대기
+            valid_samples++;
+        }
+
+        // 주기 제어 (400Hz)
         uint64_t end_time = esp_timer_get_time();
         uint32_t elapsed = (uint32_t)(end_time - start_time);
         if (elapsed < 2500) {
-            esp_rom_delay_us(2500 - elapsed); // 남은 시간만큼 마이크로초 단위 대기
-        }   
+            esp_rom_delay_us(2500 - elapsed);
+        }
     }
-    if(valid_samples > 0 )[[likely]]{
-        // 평균값 계산 (Offset 저장)
-        sum_acc[0]  = sum_acc[0] / valid_samples;
-        sum_acc[1]  = sum_acc[1] / valid_samples;
-        sum_acc[2]  = (sum_acc[2] / valid_samples) -1.0f;  // 가속도는 중력 가속도(1g)를 제외하고 0이 되어야 함m
 
-        sum_gyro[0] = sum_gyro[0] / valid_samples;
-        sum_gyro[1] = sum_gyro[1] / valid_samples;
-        sum_gyro[2] = sum_gyro[2] / valid_samples;
-    }else{
-        sum_acc[0] =0.0f;sum_acc[1] =0.0f;sum_acc[2] =0.0f; 
-        sum_gyro[0] = 0.0f,sum_gyro[1] = 0.0f,sum_gyro[2] = 0.0f;
+    // ... (이하 평균값 계산 및 오프셋 저장 로직은 기존과 동일) ...
+    if (valid_samples > 0) [[likely]] {
+        _offset_acc[0] = sum_acc[0] / valid_samples;
+        _offset_acc[1] = sum_acc[1] / valid_samples;
+        _offset_acc[2] = (sum_acc[2] / valid_samples) - 1.0f;
+        _offset_gyro[0] = sum_gyro[0] / valid_samples;
+        _offset_gyro[1] = sum_gyro[1] / valid_samples;
+        _offset_gyro[2] = sum_gyro[2] / valid_samples;
+        _calibration = true;
+        ESP_LOGI(TAG, "%s : Zeroing Completed.", _name.c_str());
+    } else {
+        ESP_LOGE(TAG, "%s : Calibration Failed (No valid samples).", _name.c_str());
     }
-    
-    _offset_acc[0] = sum_acc[0];
-    _offset_acc[1] = sum_acc[1];
-    _offset_acc[2] = sum_acc[2];
-    _offset_gyro[0] = sum_gyro[0];
-    _offset_gyro[1] = sum_gyro[1];
-    _offset_gyro[2] = sum_gyro[2];
-    _calibration = true;
-    ESP_LOGI(TAG, "%s : Zeroing Completed. ",_name.c_str());
-
 }
+
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_with_offset()
 {
@@ -296,32 +319,34 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
     }
 }
 
-esp_err_t ICM20948::enable_mag_bypass()
-{
-    esp_err_t err;
-    icm20948_select_bank(0);
-    // 1. I2C Master 모드 비활성화 (Bypass를 쓰기 위함)
-    uint8_t user_ctrl_cmd[] = {B0_USER_CTRL, 0x00};
-    err = i2c_master_transmit(_dev_handle, user_ctrl_cmd, 2, pdMS_TO_TICKS(10));
-    if (err != ESP_OK){
-        ESP_LOGI(TAG,"%s : I2C Master Mode Deactivation Fialed.",_name.c_str());
-        return err;
+
+esp_err_t ICM20948::enable_mag_bypass() {
+    if (_bus == nullptr) return ESP_FAIL;
+
+    if (_bus->get_type() == Interface::BusType::I2C) {
+        // --- [I2C 모드: 기존 Bypass 로직] ---
+        icm20948_select_bank(0);
+        _bus->write(B0_USER_CTRL, 0x00);    // I2C Master Off
+        _bus->write(B0_INT_PIN_CFG, 0x02); // Bypass On
+        ESP_LOGI(TAG, "%s Bypass Mode Enabled",_name.c_str());
+    } 
+    else if (_bus->get_type() == Interface::BusType::SPI) {
+        // --- [SPI 모드: Internal I2C Master 로직] ---
+        // 앞서 설명드린 Bank 3 슬레이브 설정 로직 실행
+        icm20948_select_bank(0);
+        _bus->write(B0_USER_CTRL, 0x20);    // I2C Master On
+        
+        icm20948_select_bank(3);
+        _bus->write(B3_I2C_MST_CTRL, 0x07); // 400kHz
+        _bus->write(B3_I2C_SLV0_ADDR, 0x0C | 0x80); // Mag Read
+        _bus->write(B3_I2C_SLV0_REG, 0x11);
+        _bus->write(B3_I2C_SLV0_CTRL, 0x89);
+        
+        icm20948_select_bank(0);
+        ESP_LOGI(TAG, "SPI Internal I2C Master Enabled for Mag");
     }
 
-    // 2. Bypass 모드 활성화 (BYPASS_EN = 1)
-    uint8_t bypass_cmd[] = {B0_INT_PIN_CFG, 0x02};
-    err = i2c_master_transmit(_dev_handle, bypass_cmd, 2, pdMS_TO_TICKS(10));    
-    if (err != ESP_OK) {
-        ESP_LOGI(TAG,"%s : Bypass Mode Activation Failed.",_name.c_str());
-        return err;
-    }
-
-    ESP_LOGI(TAG, "Geomagnetic Field (AK09916) Bypass Mode Activation Complete");
-    return err;
+    return ESP_OK;
 }
-
-
-
-
 
 } // namespace Sensor

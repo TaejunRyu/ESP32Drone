@@ -11,4 +11,6 @@ idf_component_register(
         esp_timer 
         ryu_config  
         ryu_service
+        ryu_interface
+        ryu_sensor
 )
