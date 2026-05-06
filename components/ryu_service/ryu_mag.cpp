@@ -25,6 +25,7 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
     auto& ist8310 = Sensor::IST8310::get_instance();
     auto& ak09916 = Sensor::AK09916::get_instance();
 
+    // 2개의 센서 값의 차이 만큼을 보정.
     const float diff_x =  0.2784f;
     const float diff_y = -0.1175f;
     const float diff_z = -0.1285;

@@ -18,7 +18,7 @@ class  ManageMag{
         ~ManageMag() = default;
         static constexpr const char* TAG = "ManageMag";
 
-        public:
+    public:
         static ManageMag& get_instance() {
             static ManageMag instance; 
             return instance;

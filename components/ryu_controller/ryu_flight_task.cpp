@@ -239,71 +239,15 @@ void Flight::flight_task(void *pvParameters)
         calculation_gyro_y = mgyro[1] ;
         calculation_gyro_z = mgyro[2] ;
 
-
-        // 두 지자계의 기본 차이값을 저장하여 main을 기준으로 sub의 값을 변경.
-        // 고정 상태에서 측정하여 차이만큼 보정
-        // const float diff_x =  0.2784f;
-        // const float diff_y = -0.1175f;
-        // const float diff_z = -0.1285;
-
         static float calulation_mag_x=0.0f, calulation_mag_y=0.0f, calulation_mag_z=0.0f;
-        if (loop_cnt % 20 == 0){ 
+        if (loop_cnt % 8 == 0){ 
             auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
             calulation_mag_x=mag[0]; 
             calulation_mag_y=mag[1]; 
             calulation_mag_z=mag[2]; 
-
             //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calulation_mag_x,calulation_mag_y,calulation_mag_z);
-
             ret_code = ret;
         }
-
-        //20 hz단위로 처리. (전체루프는 400hz이다)
-        // if ((loop_cnt % 20 == 0) && (flight->mag_error_cnt < ERROR_MAX_NUM + 1)) [[likely]] { // 0. 치명적 에러 시 읽기 시도 방지 (11 이상이면 스킵)
- 
-        //     // 1.인덱스별로  main과 sub별 실행을 분리한다.     
-        //     switch(flight->mag_active_index){
-        //         case 0:{
-        //             auto [ret, mag_main] = ist8310.read_with_offset();
-        //             calulation_mag_x=mag_main[0]; 
-        //             calulation_mag_y=mag_main[1]; 
-        //             calulation_mag_z=mag_main[2]; 
-        //             ret_code = ret;
-        //             }
-        //             break;
-        //         case 1:{
-        //             auto [ret, mag_sub] = ak09916.read_with_offset();                    
-        //             calulation_mag_x=mag_sub[0]; 
-        //             calulation_mag_y=mag_sub[1]; 
-        //             calulation_mag_z=mag_sub[2]; 
-  
-        //             ret_code = ret;
-        //             }
-        //             break;
-        //     }
-
-        //     if(ret_code == ESP_OK)[[likely]]{
-        //         flight->mag_error_cnt = 0;
-        //         // main과 격차를 줄이기위하여 보정한다.
-        //         calulation_mag_x = calulation_mag_x + ((flight->mag_active_index == 1) ?  diff_x : 0.0f);
-        //         calulation_mag_y = calulation_mag_y + ((flight->mag_active_index == 1) ?  diff_y : 0.0f);
-        //         calulation_mag_z = calulation_mag_z + ((flight->mag_active_index == 1) ?  diff_z : 0.0f);
-        //     }else{
-        //         flight->mag_error_cnt++;
-        //         if (flight->mag_error_cnt > ERROR_CNT_NUM) {
-        //             flight->mag_active_index = (flight->mag_active_index == 0) ? 1 : 0;
-        //             ESP_LOGW("MAG", "Primary MAG failed %d times, trying Backup (MAG %d)",flight->mag_error_cnt, flight->mag_active_index);
-        //             flight->mag_error_cnt = 0;
-        //         }
-        //     }                           
-        //     // 3.치명적 에러 발생 (10회 연속 실패)
-        //     if (flight->mag_error_cnt == ERROR_MAX_NUM) {
-        //         ESP_LOGW("MAG", "xTaskNotify()-> sending to signal(ERR_MAG_DEV_INVALID)");
-        //         //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_I2C_BUS_HANG, eSetBits);
-        //         g_sys.error_hold_mode = true;
-        //         flight->mag_error_cnt = ERROR_MAX_NUM+1; // 차단
-        //     }             
-        // }
        
         mahony.MahonyAHRSupdate(   
                             calculation_gyro_x * DEG_TO_RAD,
@@ -406,7 +350,7 @@ void Flight::flight_task(void *pvParameters)
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 // barro_active_index = 1;
 //&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&      
-            if (loop_cnt % 8 ==0){
+            if (loop_cnt % 20 ==0){
                 float temp_alt = 0.0f,temp_rate = 0.0f;
                 std::tie(ret_code,temp_alt,temp_rate)   = bmp388_main.Managed_get_relative_altitude();
                 
@@ -527,8 +471,6 @@ BaseType_t Flight::start_task()
     auto& failsafe      = Service::FailSafe::get_instance();
     auto& timer         = Service::Timer::get_instance();
     
-    
-
     esp_err_t ret;
     auto mac_addr = espnow.get_my_mac_address();
     ESP_LOGI(TAG, "My MAC address: %02x:%02x:%02x:%02x:%02x:%02x",mac_addr[0], mac_addr[1], mac_addr[2],mac_addr[3], mac_addr[4], mac_addr[5]);
