@@ -9,7 +9,8 @@ namespace Sensor
 {
 
 esp_err_t IST8310::initialize()
-{
+{   
+    //======================삭제==========================
     this->_bus_handle = Driver::I2C::get_instance().get_bus_handle();
 
     i2c_device_config_t mag_cfg = {};
@@ -21,10 +22,15 @@ esp_err_t IST8310::initialize()
     if (err != ESP_OK){
         return err;
     }
+    //=====================================================
+    //if(_bus == nullptr) return ESP_FAIL; // 인터페이스 주입 확인
+
+
 
     // 1. 소프트 리셋 (중요: 리셋 후 반드시 50ms 이상 대기)
     uint8_t reset_cmd[] = {CONTROL2, 0x01}; // CNTL2, Soft Reset
     err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    //err = _bus->write(CONTROL2,0x01);
     if (err != ESP_OK){
         return err;
     }
@@ -33,6 +39,7 @@ esp_err_t IST8310::initialize()
     //2. WHO_AM_I 확인 (정상 연결 체크)
     uint8_t who_reg = 0x00, who_val = 0;
     err = i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    //err = _bus->read(0x00,&who_val,1);
     if (err != ESP_OK){
         return err;
     }
@@ -45,6 +52,7 @@ esp_err_t IST8310::initialize()
     // AVGCNTL(0x41): 0x24 (X,Y,Z 모두 16회 평균으로 노이즈 제거)
     uint8_t avg_data[] = {AVGCNTL, 0x24};
     err = i2c_master_transmit(_dev_handle, avg_data, 2, pdMS_TO_TICKS(10));
+    //err = _bus->write(AVGCNTL, 0x24);
     if (err != ESP_OK){
         return err;
     }
@@ -53,6 +61,7 @@ esp_err_t IST8310::initialize()
     // PDCNTL(0x42): 0xC0 (Pulse Duration 권장값)
     uint8_t pd_data[] = {PDCNTL, 0xC0};
     err = i2c_master_transmit(_dev_handle, pd_data, 2, pdMS_TO_TICKS(10));
+    //err = _bus->write(PDCNTL, 0xC0);
     if (err != ESP_OK){
         return err;
     }
@@ -62,6 +71,7 @@ esp_err_t IST8310::initialize()
     // CROSS  AXIS 1
     uint8_t mode_cmd_axis1[] = {CROSSAXIS1, 0x01};
     err = i2c_master_transmit(_dev_handle, mode_cmd_axis1, 2, pdMS_TO_TICKS(10));
+    //err = _bus->write(CROSSAXIS1, 0x01);
     if (err != ESP_OK){
         return err;
     }
@@ -71,6 +81,7 @@ esp_err_t IST8310::initialize()
     // CROSS  AXIS 2
     uint8_t mode_cmd_axis2[] = {CROSSAXIS2, 0x01};
     err = i2c_master_transmit(_dev_handle, mode_cmd_axis2, 2, pdMS_TO_TICKS(10));
+    //err = _bus->write(CROSSAXIS2, 0x01);
     if (err != ESP_OK){
         return err;
     }
@@ -80,6 +91,7 @@ esp_err_t IST8310::initialize()
     // 0x08 = 100Hz Continuous Mode
     uint8_t mode_cmd_continuous[] = {CONTROL1, 0x0B};
     err = i2c_master_transmit(_dev_handle, mode_cmd_continuous, 2, pdMS_TO_TICKS(10));
+    //err = _bus->write(CONTROL1, 0x0B);
     if (err != ESP_OK){
         return err;
     }
@@ -102,6 +114,18 @@ esp_err_t IST8310::deinitialize()
     this->_initialized = false;
     ESP_LOGI(TAG,"%s Deinitialized sucessfully.");    
     return err;
+    // 1. 상태 체크
+    // if (!_initialized) {
+    //     return ESP_OK;
+    // }
+    // // 2. 하드웨어 자원 해제 (중요!)
+    // // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
+    // // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
+    // _bus = nullptr; 
+    // // 3. 상태 업데이트
+    // _initialized = false;
+    // ESP_LOGI(TAG, "Deinitialized successfully (Interface detached).");
+    // return ESP_OK; 
 }
 
 
@@ -118,7 +142,7 @@ std::tuple<esp_err_t, std::array<float, 3>> IST8310::read_raw_data()
         rx_buf, 6, 
         pdMS_TO_TICKS(2) // 2ms 타임아웃
     );
-
+    
     // 2. I2C 통신 실패 시 방어 코드
     if (ret != ESP_OK) {
         // 통신이 실패하면 드론이 추락하는 것을 막기 위해 '직전 정상 데이터'를 그대로 반환합니다.

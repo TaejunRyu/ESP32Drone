@@ -19,6 +19,8 @@ esp_err_t BMP388::initialize()
         ESP_LOGI(TAG,"%s Already initialized.",_name.c_str());
         return ESP_FAIL;
     }
+
+    //=========================== 삭제-----------
     _bus_handle =  Driver::I2C::get_instance().get_bus_handle();
     if (_bus_handle == nullptr){
         ESP_LOGI(TAG,"%s I2C not initialized.",_name.c_str());
@@ -34,7 +36,10 @@ esp_err_t BMP388::initialize()
         ESP_LOGI(TAG,"%s is not add.",_name.c_str());
         return err;
     } 
-    
+    //==================================================
+
+      //if(_bus == nullptr) return ESP_FAIL; // 인터페이스 주입 확인
+
      // 1. Soft Reset
     uint8_t reset_cmd[] = {0x7E, 0xB6};
     err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(10));
@@ -119,6 +124,19 @@ esp_err_t BMP388::deinitialize()
     this->_initialized = false;
     ESP_LOGI(TAG,"%s Deinitialized sucessfully.",this->_name.c_str());    
     return err;
+
+    // 1. 상태 체크
+    // if (!_initialized) {
+    //     return ESP_OK;
+    // }
+    // // 2. 하드웨어 자원 해제 (중요!)
+    // // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
+    // // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
+    // _bus = nullptr; 
+    // // 3. 상태 업데이트
+    // _initialized = false;
+    // ESP_LOGI(TAG, "Deinitialized successfully (Interface detached).");
+    // return ESP_OK; 
 }
 
 /**

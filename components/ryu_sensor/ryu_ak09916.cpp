@@ -14,28 +14,28 @@ namespace Sensor
 
 esp_err_t AK09916::deinitialize()
 {
-    // esp_err_t err = ESP_FAIL;
-    // if(_dev_handle != nullptr){
-    //     err = i2c_master_bus_rm_device(_dev_handle);
-    //     if (err != ESP_OK) return err;
-    //     _dev_handle = nullptr;
-    // }
-    // this->_initialized = false;
-    // ESP_LOGI(TAG,"Deinitialized sucessfully.");    
-    // return err;
-
-   // 1. 상태 체크
-    if (!_initialized) {
-        return ESP_OK;
+    esp_err_t err = ESP_FAIL;
+    if(_dev_handle != nullptr){
+        err = i2c_master_bus_rm_device(_dev_handle);
+        if (err != ESP_OK) return err;
+        _dev_handle = nullptr;
     }
-    // 2. 하드웨어 자원 해제 (중요!)
-    // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
-    // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
-    _bus = nullptr; 
-    // 3. 상태 업데이트
-    _initialized = false;
-    ESP_LOGI(TAG, "Deinitialized successfully (Interface detached).");
-    return ESP_OK;    
+    this->_initialized = false;
+    ESP_LOGI(TAG,"Deinitialized sucessfully.");    
+    return err;
+
+    // // 1. 상태 체크
+    // if (!_initialized) {
+    //     return ESP_OK;
+    // }
+    // // 2. 하드웨어 자원 해제 (중요!)
+    // // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
+    // // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
+    // _bus = nullptr; 
+    // // 3. 상태 업데이트
+    // _initialized = false;
+    // ESP_LOGI(TAG, "Deinitialized successfully (Interface detached).");
+    // return ESP_OK;    
 }
 
 
