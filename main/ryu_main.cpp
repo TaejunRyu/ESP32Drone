@@ -14,6 +14,7 @@ extern "C" {
 }
 
 void watch_dog_initialize();
+void check_memory_check();
 void check_system_health_on_boot(void);
 void __attribute__((weak)) esp_panic_handler_reboot(void);
 
@@ -57,7 +58,7 @@ void app_main(void) {
         }
 
     }
-    
+    check_memory_check();    
     while (true) {
         led.toggle();
         vTaskDelay(pdMS_TO_TICKS(500)); // 메인 태스크가 종료되지 않게 붙잡음
@@ -101,6 +102,15 @@ void __attribute__((weak)) esp_panic_handler_reboot(void) {
 	}
 }
 
+void check_memory_check(){
+    ESP_LOGI(TAG, "========== System Health Check ==========",);
+    ESP_LOGI(TAG, "Free heap: %u bytes", esp_get_free_heap_size());
+    ESP_LOGI(TAG, "Min free heap: %u bytes", esp_get_minimum_free_heap_size());
+    ESP_LOGI(TAG, "Free PSRAM: %u bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    ESP_LOGI(TAG, "Total PSRAM: %u bytes", heap_caps_get_total_size(MALLOC_CAP_SPIRAM));
+    ESP_LOGI(TAG, "=========================================");
+}
+
 /**
  * @brief 
  * 		1. 부팅시 실행
@@ -130,11 +140,6 @@ void check_system_health_on_boot(void) {
             ESP_LOGW(TAG, "Reset occurred due to reason: %d", reason);
             break;
     }
-    ESP_LOGI(TAG, "========== System Health Check ==========",);
-    ESP_LOGI(TAG, "Free heap: %u bytes", esp_get_free_heap_size());
-    ESP_LOGI(TAG, "Min free heap: %u bytes", esp_get_minimum_free_heap_size());
-    ESP_LOGI(TAG, "Free PSRAM: %u bytes", heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
-    ESP_LOGI(TAG, "Total PSRAM: %u bytes", heap_caps_get_total_size(MALLOC_CAP_SPIRAM));
-    ESP_LOGI(TAG, "=========================================");
+    check_memory_check();
 }
 
