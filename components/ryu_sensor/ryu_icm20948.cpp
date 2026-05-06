@@ -273,7 +273,11 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
 
         // [핵심] 복구되었다면 복구 이벤트 발행
         if (is_fault_posted) {
-            Service::fault_event_data_t data = { .id = Service::FAULT_ID_IMU, .is_recovered = true };
+            Service::fault_event_data_t data = { 
+                .id = Service::FAULT_ID_IMU, 
+                .is_recovered = true,
+                .reason = ESP_ERR_TIMEOUT
+            };
             esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             is_fault_posted = false;
         }

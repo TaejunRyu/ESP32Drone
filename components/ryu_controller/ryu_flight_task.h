@@ -29,13 +29,13 @@ class  Flight{
         static inline constexpr  uint64_t   INTERVAL_US     = 2500ULL;
         static inline constexpr  float      dt              = 0.0025f;  // 400hz
 
-        uint8_t imu_error_cnt   =0;
+        // uint8_t imu_error_cnt   =0;
         uint8_t mag_error_cnt   =0;
-        uint8_t baro_error_cnt  =0;
+        // uint8_t baro_error_cnt  =0;
 
-        uint8_t imu_active_index    =0;
+        // uint8_t imu_active_index    =0;
         uint8_t mag_active_index    =0;
-        uint8_t baro_active_index   =0;
+        // uint8_t baro_active_index   =0;
 
         uint64_t  total_us  =0;
         
@@ -50,24 +50,4 @@ class  Flight{
         bool _initialized = false;        
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
+} //namespace Controller

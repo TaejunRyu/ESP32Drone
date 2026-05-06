@@ -26,4 +26,5 @@ namespace Service {
         bool is_recovered; // false=에러발생, true=복구됨
         esp_err_t reason;
     } fault_event_data_t;
-}
+    
+} // namespace Service

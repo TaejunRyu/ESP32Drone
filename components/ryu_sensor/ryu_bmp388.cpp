@@ -5,7 +5,9 @@
 #include "ryu_sensor_event.h"
 
 namespace Sensor{
-    
+
+ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
+
 BMP388 BMP388::mainInstance("BMP388 Main",BMP388::ADDR_VCC);
 BMP388 BMP388::subInstance ("BMP388 Sub",BMP388::ADDR_GND);
 

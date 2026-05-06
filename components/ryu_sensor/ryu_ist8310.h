@@ -30,7 +30,7 @@ class IST8310{
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset();
         void calibrate_hard_iron();
         i2c_master_dev_handle_t get_dev_handle(){ return _dev_handle;};
-
+        bool is_initialized(){return _initialized;};
     private:
         std::array<float, 3> last_valid_mag ={};
 

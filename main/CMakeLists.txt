@@ -1,11 +1,12 @@
 # This file was automatically generated for projects
 # without default 'CMakeLists.txt' file.
 
-FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
+#FILE(GLOB_RECURSE app_sources ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp)
 
 idf_component_register(
-    SRCS ${app_sources}
-        
+    SRCS #${app_sources}
+        "ryu_nvs.cpp"
+        "ryu_main.cpp"
     INCLUDE_DIRS 
         "." 
 
