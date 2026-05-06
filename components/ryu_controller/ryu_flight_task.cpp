@@ -197,10 +197,10 @@ void Flight::flight_task(void *pvParameters)
     auto& motor         = Driver::Motor::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
     //auto& icm20948_sub  = Sensor::ICM20948::Sub();
-    auto& ak09916       = Sensor::AK09916::get_instance();
+    //auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     //auto& bmp388_sub    = Sensor::BMP388::Sub();
-    auto& ist8310       = Sensor::IST8310::get_instance();
+    //auto& ist8310       = Sensor::IST8310::get_instance();
     auto& pid           = Controller::PID::get_instance();
     auto& mahony        = Service::Mahony::get_instance();
     //auto& failsafe      = Service::FailSafe::get_instance();
@@ -228,27 +228,36 @@ void Flight::flight_task(void *pvParameters)
         // 연속적인 데이터 읽기 실패를 체크한다.
         esp_err_t ret_code = ESP_FAIL;
  
-        static float   calculation_acc_x  = 0.0f,  calculation_acc_y  = 0.0f,  calculation_acc_z  = 0.0f;
-        static float   calculation_gyro_x = 0.0f,  calculation_gyro_y = 0.0f,  calculation_gyro_z = 0.0f;
+        static float    calculation_acc_x  = 0.0f,  
+                        calculation_acc_y  = 0.0f,  
+                        calculation_acc_z  = 0.0f;
+        static float    calculation_gyro_x = 0.0f,  
+                        calculation_gyro_y = 0.0f,  
+                        calculation_gyro_z = 0.0f;
 
         auto [ret,macc,mgyro] = icm20948_main.Managed_read_with_offset();
-        calculation_acc_x  = macc[0] ;
-        calculation_acc_y  = macc[1] ;
-        calculation_acc_z  = macc[2] ;
-        calculation_gyro_x = mgyro[0] ;
-        calculation_gyro_y = mgyro[1] ;
-        calculation_gyro_z = mgyro[2] ;
+        if (ret == ESP_OK){
+            calculation_acc_x  = macc[0] ;
+            calculation_acc_y  = macc[1] ;
+            calculation_acc_z  = macc[2] ;
+            calculation_gyro_x = mgyro[0] ;
+            calculation_gyro_y = mgyro[1] ;
+            calculation_gyro_z = mgyro[2] ;
+        }
 
-        static float calulation_mag_x=0.0f, calulation_mag_y=0.0f, calulation_mag_z=0.0f;
-        if (loop_cnt % 8 == 0){ 
+        static float    calulation_mag_x=0.0f, 
+                        calulation_mag_y=0.0f, 
+                        calulation_mag_z=0.0f;
+        if (loop_cnt % 8 == 0){ // 50HZ
             auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
-            calulation_mag_x=mag[0]; 
-            calulation_mag_y=mag[1]; 
-            calulation_mag_z=mag[2]; 
+            if(ret_mag == ESP_OK){
+                calulation_mag_x=mag[0]; 
+                calulation_mag_y=mag[1]; 
+                calulation_mag_z=mag[2];
+            } 
             //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calulation_mag_x,calulation_mag_y,calulation_mag_z);
             ret_code = ret;
         }
-       
         mahony.MahonyAHRSupdate(   
                             calculation_gyro_x * DEG_TO_RAD,
                             calculation_gyro_y * DEG_TO_RAD, 
@@ -304,12 +313,8 @@ void Flight::flight_task(void *pvParameters)
         float heading_deg = g_attitude.yaw;
         while (heading_deg < 0)    heading_deg += 360.0f;
         while (heading_deg >= 360) heading_deg -= 360.0f;
-
         g_attitude.heading = heading_deg;
 
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        
-//        g_sys.is_armed =true;
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
         if(!g_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
             motor.stop_all_motors();
@@ -347,13 +352,9 @@ void Flight::flight_task(void *pvParameters)
             // 1초에 한번 파라미터 테이블에서 최신 PID 계수를 읽어옵니다
             //if(loop_cnt==100) sync_pid_from_params();
       
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-// barro_active_index = 1;
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&      
-            if (loop_cnt % 20 ==0){
+            if (loop_cnt % 20 == 2){ //20HZ
                 float temp_alt = 0.0f,temp_rate = 0.0f;
-                std::tie(ret_code,temp_alt,temp_rate)   = bmp388_main.Managed_get_relative_altitude();
-                
+                std::tie(ret_code,temp_alt,temp_rate)   = bmp388_main.Managed_get_relative_altitude();       
                 if (ret_code == ESP_OK){
                     g_baro.filtered_altitude = temp_alt;
                     filtered_alt        = temp_alt;                    
