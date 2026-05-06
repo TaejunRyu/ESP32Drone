@@ -18,6 +18,7 @@ class IST8310{
             static IST8310 instance; 
             return instance;
         }
+
         IST8310(const IST8310&) = delete;
         IST8310& operator=(const IST8310&) = delete;
         IST8310(IST8310&&) = delete;
@@ -25,16 +26,18 @@ class IST8310{
 
         esp_err_t initialize();
         esp_err_t deinitialize();
+        bool is_initialized(){return _initialized;};
 
+        void calibrate_hard_iron();
         std::tuple<esp_err_t, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset();
-        void calibrate_hard_iron();
         i2c_master_dev_handle_t get_dev_handle(){ return _dev_handle;};
-        bool is_initialized(){return _initialized;};
-    private:
+
+        private:
         std::array<float, 3> last_valid_mag ={};
 
         static inline constexpr float FILTER_ALPHA = 0.4f; 
+
         // IST8310 레지스터 정의
         static inline constexpr uint8_t ADDR       =    0x0E; // 기본 주소 (ADR핀 상태에 따라 다를 수 있음)
         static inline constexpr uint8_t WHO_AM_I   =    0x00; // ID 확인용 (값: 0x10)
@@ -68,7 +71,6 @@ class IST8310{
         i2c_master_bus_handle_t _bus_handle = nullptr;
         i2c_master_dev_handle_t _dev_handle = nullptr;
         bool _initialized = false;
-
 };
 
 

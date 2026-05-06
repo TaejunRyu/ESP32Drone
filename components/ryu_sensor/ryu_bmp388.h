@@ -39,6 +39,7 @@ class BMP388{
         void setStatus(bool status) { _isAlive = status; }
         bool getStatus() { return _isAlive; }
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         esp_err_t deinitialize();
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         std::tuple<esp_err_t ,float> get_relative_altitude();

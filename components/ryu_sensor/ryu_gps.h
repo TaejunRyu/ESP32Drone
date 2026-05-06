@@ -104,6 +104,7 @@ class  Gps{
         Health Gps_status = Health::HEALTHY;
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         Health check_gps_health(const gps_data_t& m_gps);
         void calculate_ubx_checksum(uint8_t* data, int len, uint8_t* ck_a, uint8_t* ck_b);
         uint8_t checkDataReliability(ubx_nav_pvt_t *pvt);

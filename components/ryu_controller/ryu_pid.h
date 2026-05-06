@@ -48,6 +48,8 @@ class PID{
         float run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt);
         void  sync_pid_from_params();
         esp_err_t  initialize();
+        bool is_initialized(){return _initialized;};
+
 
         drone_pid_t pid_alt_pos {};     //목표고도유지 
         drone_pid_t pid_alt_rate {};    //상승/하강 속도제어

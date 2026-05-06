@@ -33,6 +33,8 @@ class Battery{
         static inline constexpr float          VOLTAGE_DIVIDER_RATIO   = 11.0f;
         // 함수 선언
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
+
         float get_battery_voltage();
         static void battery_check_task(void *pvParameters);
         BaseType_t start_task();

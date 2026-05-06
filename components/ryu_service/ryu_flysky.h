@@ -45,6 +45,7 @@ class Flysky{
 
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         static void flysky_task(void *pvParameters);
         static bool ppm_capture_callback( mcpwm_cap_channel_handle_t cap_chan, 
                                              const mcpwm_capture_event_data_t *edata, 

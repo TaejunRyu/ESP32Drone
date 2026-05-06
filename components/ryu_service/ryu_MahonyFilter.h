@@ -29,6 +29,7 @@ class Mahony{
         void reset_mahony_integral(void);
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
 
     private:
         //초기 안정화를 빠르게하기 위한 변수

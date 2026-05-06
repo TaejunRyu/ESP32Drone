@@ -37,12 +37,12 @@ class AK09916{
 
         esp_err_t  deinitialize();
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         std::tuple<esp_err_t, std::array<float, 3>> read_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset(); 
         std::tuple<esp_err_t,uint8_t> ready_data();
         void calibrate_hard_iron();
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
-        bool is_initialized(){return _initialized;};
 
     private:
 

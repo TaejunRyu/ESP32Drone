@@ -76,6 +76,7 @@ class  FailSafe{
         volatile uint32_t system_health = SYS_HEALTH_ALL_OK; // 초기값은 모두 OK 
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         esp_err_t reinit_all_sensors();
         static void event_handler_relay(void *arg, esp_event_base_t base, int32_t id, void *data);
         void update_health(fault_event_data_t *fault);

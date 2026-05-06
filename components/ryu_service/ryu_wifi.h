@@ -49,6 +49,8 @@ class  EspNow{
         QueueHandle_t mavlink_rx_queue = nullptr; 
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
+
         static void on_esp_now_recv(const esp_now_recv_info_t *recv_info, const uint8_t *data, int len);
         static void on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status);
         esp_err_t connect_callback();

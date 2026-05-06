@@ -41,6 +41,7 @@ class Motor{
         static inline constexpr int MOTOR_PINS[4] = {GPIO_NUM_26, GPIO_NUM_27, GPIO_NUM_32, GPIO_NUM_33}; 
 
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         esp_err_t stop_all_motors();
         void set_drop_angle(int angle);
         void update_compare_value(std::array<float,4> values);

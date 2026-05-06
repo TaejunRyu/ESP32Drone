@@ -22,6 +22,7 @@ class Timer{
         Timer& operator=(Timer&&) = delete;
 
         esp_err_t intiallize();
+        bool is_initialized(){return _initialized;};
         esp_err_t deintiallize();
         
         // 콜백 설정

@@ -29,6 +29,7 @@ class  Telemetry{
 
         
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         static void telemetry_task(void *pv);
         BaseType_t start_task();
 

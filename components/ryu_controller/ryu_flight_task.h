@@ -43,6 +43,7 @@ class  Flight{
         static void flight_task(void *pvParameters);
         BaseType_t start_task();
         void loop_check(); // loop안의 체크 목적.
+        bool is_initialized(){return _initialized;};
         
     private:
         TaskHandle_t _task_handle = nullptr;

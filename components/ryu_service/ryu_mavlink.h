@@ -39,6 +39,8 @@ class Mavlink{
          
         void on_timer_tick();
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
+
 
     private:
         bool _initialized = false;

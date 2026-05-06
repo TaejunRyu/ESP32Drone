@@ -59,6 +59,7 @@ class ICM20948{
         esp_err_t enable_mag_bypass();
         void calibrate();
         esp_err_t initialize();
+        bool is_initialized(){return _initialized;};
         esp_err_t deinitialize();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();
