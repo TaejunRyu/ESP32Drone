@@ -25,10 +25,10 @@ public:
     SPI& operator=(SPI&&) = delete;
 
     // ESP32-S3 기본 SPI 핀 설정 (원하는 핀으로 변경 가능)
-    static inline constexpr spi_host_device_t SPI_HOST = SPI2_HOST; // FSPI
-    static inline constexpr gpio_num_t SPI_SCLK = GPIO_NUM_12;
-    static inline constexpr gpio_num_t SPI_MOSI = GPIO_NUM_11;
-    static inline constexpr gpio_num_t SPI_MISO = GPIO_NUM_13;
+    static inline constexpr spi_host_device_t   SPI_HOST = SPI2_HOST; // FSPI
+    static inline constexpr gpio_num_t          SPI_SCLK = GPIO_NUM_12;
+    static inline constexpr gpio_num_t          SPI_MOSI = GPIO_NUM_11;
+    static inline constexpr gpio_num_t          SPI_MISO = GPIO_NUM_13;
 
     /**
      * @brief SPI 버스 초기화

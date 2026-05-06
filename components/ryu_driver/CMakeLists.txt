@@ -12,4 +12,5 @@ idf_component_register(
         esp_driver_mcpwm
         ryu_config 
         ryu_service
+        ryu_event
 )

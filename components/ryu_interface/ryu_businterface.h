@@ -1,11 +1,10 @@
 #pragma once
 
 #include <esp_err.h>
-//#include <freertos/FreeRTOS.h> // pdMS_TO_TICKS 사용을 위해 필요
 #include <driver/spi_master.h>
 #include <driver/i2c_master.h>
 
-namespace Driver {
+namespace Interface {
 
 // 1. 핸들(Handle) 준비 (하드웨어 연결)
 //     1.1 I2C 핸들: i2c_master_dev_handle_t (어떤 주소의 장치인가?)
