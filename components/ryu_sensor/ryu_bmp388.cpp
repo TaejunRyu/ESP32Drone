@@ -395,5 +395,28 @@ inline std::tuple<esp_err_t,uint32_t,uint32_t> BMP388::read_bmp388(){
     return {ret_code,adc_p,adc_t};
 }
 
+esp_err_t BMP388::setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr)
+{
+     // 1. I2C 장치 등록 (열쇠 생성)
+    i2c_master_dev_handle_t dev_h;
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = 400000,
+    };
+    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_h);
+    if (ret != ESP_OK) return ret;
+
+    // 기존에 할당된 버스가 있다면 정리 (선택 사항)
+    if (_bus) delete _bus;
+    
+    // 2. I2CBus 인터페이스 객체 생성 및 주입 (도구 조립 및 전달)
+    // static 혹은 멤버 변수로 관리하여 메모리 해제 방지
+    _bus = new Interface::I2CBus(dev_h); 
+
+    // 3. 센서 초기화 진행
+    // this->initialize();
+    return ESP_OK;
+}
 
 }// namespace Sensor

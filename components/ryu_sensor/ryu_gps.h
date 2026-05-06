@@ -28,8 +28,6 @@ class  Gps{
         }
         Gps(const Gps&) = delete;
         Gps& operator=(const Gps&) = delete;
-        Gps(Gps&&) = delete;
-        Gps& operator=(Gps&&) = delete;
 
         //=====ubx 바이너리 프로토콜======= start
         typedef struct {

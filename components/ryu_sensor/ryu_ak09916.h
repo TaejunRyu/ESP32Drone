@@ -3,6 +3,10 @@
 #include <driver/i2c_master.h>
 #include <esp_log.h>
 
+namespace Interface {
+    class BusInterface;
+}
+
 namespace Sensor
 {
 
@@ -18,8 +22,11 @@ class AK09916{
         }
         AK09916(const AK09916&) = delete;
         AK09916& operator=(const AK09916&) = delete;
-        AK09916(AK09916&&) = delete;
-        AK09916& operator=(AK09916&&) = delete;
+
+        // 인터페이스 주입 (핵심!)  
+        void set_bus(Interface::BusInterface* bus) { _bus = bus; }
+        Interface::BusInterface* get_bus(){ return _bus;};    
+
         static inline constexpr uint8_t ADDR       =    0x0C;
         static inline constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
 
@@ -43,12 +50,11 @@ class AK09916{
         std::tuple<esp_err_t,uint8_t> ready_data();
         void calibrate_hard_iron();
         i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
-
+        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
     private:
-
-       
-        i2c_master_bus_handle_t _bus_handle = nullptr;
-        i2c_master_dev_handle_t _dev_handle = nullptr;
+        Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어       
+        i2c_master_bus_handle_t _bus_handle = nullptr; // 삭제
+        i2c_master_dev_handle_t _dev_handle = nullptr; // 삭제
         bool _initialized = false;
 };
 

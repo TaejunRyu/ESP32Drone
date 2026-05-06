@@ -138,38 +138,52 @@ esp_err_t ICM20948::deinitialize() {
 
 
 std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read_raw_data() {
-    // 1. 핸들이 아닌 인터페이스(_bus)가 설정되어 있는지 확인
     if (_bus == nullptr) {
         return {ESP_FAIL, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
     }
 
-    //uint8_t d[12]; // Accel(6) + Gyro(6)
-    uint8_t d[21]; // Accel(6) + Gyro(6) + Temp(2) + Mag(7~9)
-    
-    // 2. 데이터 읽기 전 뱅크 0 확인
+    esp_err_t ret;
+    std::array<float, 3> acc, gyro;
     icm20948_select_bank(0);
 
-    // 3. 인터페이스를 통한 데이터 읽기
-    // I2C/SPI 구현체 내부에서 각 프로토콜에 맞게(MSB 조작 등) 데이터를 채워줍니다.
-    //esp_err_t ret = _bus->read(B0_ACCEL_XOUT_H, d, 12);
-    esp_err_t ret = _bus->read(B0_ACCEL_XOUT_H, d, 21); 
-    
-    if (ret != ESP_OK) {
-        return {ret, {0.0f, 0.0f, 0.0f}, {0.0f, 0.0f, 0.0f}};
+    // [구분 처리] I2C vs SPI
+    if (_bus->get_type() == Interface::BusType::I2C) {
+        // I2C일 때는 기존처럼 Accel + Gyro (12바이트)만 읽음
+        uint8_t d[12];
+        ret = _bus->read(B0_ACCEL_XOUT_H, d, 12);
+        if (ret != ESP_OK) return {ret, {}, {}};
+
+        acc[0] = (int16_t)((d[0] << 8) | d[1]) / 4096.0f;
+        acc[1] = (int16_t)((d[2] << 8) | d[3]) / 4096.0f;
+        acc[2] = (int16_t)((d[4] << 8) | d[5]) / 4096.0f;
+
+        gyro[0] = (int16_t)((d[6] << 8) | d[7]) / 32.8f;
+        gyro[1] = (int16_t)((d[8] << 8) | d[9]) / 32.8f;
+        gyro[2] = (int16_t)((d[10] << 8) | d[11]) / 32.8f;
+    } 
+    else {
+        // SPI일 때는 Mag 포함 (21바이트) 읽음 (Accel 6 + Gyro 6 + Temp 2 + Mag 7)
+        // 0x2D(Accel_X) ~ 0x41(Mag_Status2)까지 연속 읽기
+        uint8_t d[21];
+        ret = _bus->read(B0_ACCEL_XOUT_H, d, 21);
+        if (ret != ESP_OK) return {ret, {}, {}};
+
+        // Accel & Gyro 변환 (기존과 동일)
+        acc[0] = (int16_t)((d[0] << 8) | d[1]) / 4096.0f;
+        acc[1] = (int16_t)((d[2] << 8) | d[3]) / 4096.0f;
+        acc[2] = (int16_t)((d[4] << 8) | d[5]) / 4096.0f;
+
+        gyro[0] = (int16_t)((d[6] << 8) | d[7]) / 32.8f;
+        gyro[1] = (int16_t)((d[8] << 8) | d[9]) / 32.8f;
+        gyro[2] = (int16_t)((d[10] << 8) | d[11]) / 32.8f;
+
+        // 지자계 데이터 변환 (d[14]부터 Mag 데이터 시작)
+        // AK09916 데이터 포맷: Little-Endian 방식 주의
+        // d[14]: ST1, d[15]: HXL, d[16]: HXH, ... d[20]: ST2
+        _mag_data[0] = (int16_t)((d[16] << 8) | d[15]) * 0.15f; // uT 단위 변환
+        _mag_data[1] = (int16_t)((d[18] << 8) | d[17]) * 0.15f;
+        _mag_data[2] = (int16_t)((d[20] << 8) | d[19]) * 0.15f;
     }
-
-    // 4. 데이터 변환 (Raw -> Physical 단위)
-    std::array<float, 3> acc, gyro;
-
-    // 가속도 데이터 (±8g 설정 기준: 4096 LSB/g)
-    acc[0] = (int16_t)((d[0] << 8) | d[1]) / 4096.0f;
-    acc[1] = (int16_t)((d[2] << 8) | d[3]) / 4096.0f;
-    acc[2] = (int16_t)((d[4] << 8) | d[5]) / 4096.0f;
-
-    // 자이로 데이터 (±1000dps 설정 기준: 32.8 LSB/dps)
-    gyro[0] = (int16_t)((d[6] << 8) | d[7]) / 32.8f;
-    gyro[1] = (int16_t)((d[8] << 8) | d[9]) / 32.8f;
-    gyro[2] = (int16_t)((d[10] << 8) | d[11]) / 32.8f;
 
     return {ret, acc, gyro};
 }

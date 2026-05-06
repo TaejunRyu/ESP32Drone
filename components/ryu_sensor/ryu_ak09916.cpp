@@ -6,6 +6,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "ryu_i2c.h"
+#include "ryu_businterface.h"
 
 
 namespace Sensor
@@ -13,22 +14,37 @@ namespace Sensor
 
 esp_err_t AK09916::deinitialize()
 {
-    esp_err_t err = ESP_FAIL;
-    if(_dev_handle != nullptr){
-        err = i2c_master_bus_rm_device(_dev_handle);
-        if (err != ESP_OK) return err;
-        _dev_handle = nullptr;
+    // esp_err_t err = ESP_FAIL;
+    // if(_dev_handle != nullptr){
+    //     err = i2c_master_bus_rm_device(_dev_handle);
+    //     if (err != ESP_OK) return err;
+    //     _dev_handle = nullptr;
+    // }
+    // this->_initialized = false;
+    // ESP_LOGI(TAG,"Deinitialized sucessfully.");    
+    // return err;
+
+   // 1. 상태 체크
+    if (!_initialized) {
+        return ESP_OK;
     }
-    this->_initialized = false;
-    ESP_LOGI(TAG,"Deinitialized sucessfully.");    
-    return err;
+    // 2. 하드웨어 자원 해제 (중요!)
+    // 만약 BusInterface 객체의 생명주기를 ICM20948이 관리한다면 여기서 delete 합니다.
+    // 외부에서 관리한다면 단순히 포인터를 nullptr로 만듭니다.
+    _bus = nullptr; 
+    // 3. 상태 업데이트
+    _initialized = false;
+    ESP_LOGI(TAG, "Deinitialized successfully (Interface detached).");
+    return ESP_OK;    
 }
+
 
 esp_err_t AK09916::initialize()
 {
     if(_initialized){
         return ESP_OK;
     } 
+    //삭제==============================================================
     _bus_handle = Driver::I2C::get_instance().get_bus_handle();
 
     // AK09916 디바이스 추가 (I2C 버스에 직접 연결된 것처럼 동작)
@@ -41,11 +57,15 @@ esp_err_t AK09916::initialize()
         ESP_LOGE(TAG, "Bus 추가 실패");
         return err;
     }
+    //=================================================================== 끝
+    
+    //if(_bus == nullptr) return ESP_FAIL; // 인터페이스 주입 확인
 
     // 3. WHO_AM_I 확인 (AK09916의 ID는 0x09)
     uint8_t who_reg = WHO_AM_I;
     uint8_t who_val = 0;
     err = i2c_master_transmit_receive(_dev_handle, &who_reg, 1, &who_val, 1, pdMS_TO_TICKS(100));
+    //err = _bus->read(who_reg,&who_val,1);
     if (err != ESP_OK) {
         return err;
     }
@@ -57,6 +77,7 @@ esp_err_t AK09916::initialize()
     //4. AK09916 소프트 리셋 및 모드 설정
     uint8_t reset_cmd[] = {CNTL3, 0x01};
     err = i2c_master_transmit(_dev_handle, reset_cmd, 2, pdMS_TO_TICKS(50));
+    //err = _bus->write(CNTL3,0x01);
     if (err != ESP_OK) {
         return err;
     }
@@ -65,6 +86,7 @@ esp_err_t AK09916::initialize()
     // CNTL2: 0x08 (Continuous measurement mode 4 - 100Hz)
     uint8_t mode_cmd[] = {CNTL2, 0x08}; 
     err = i2c_master_transmit(_dev_handle, mode_cmd, 2, pdMS_TO_TICKS(100));
+    //err = _bus->write(CNTL2,0x08);
     if (err != ESP_OK) {
         return err;
     }    
@@ -72,6 +94,7 @@ esp_err_t AK09916::initialize()
     ESP_LOGI(TAG, "Initialized successfully. (ID: 0x09)");
     return err;
 }
+
 
 std::tuple<esp_err_t, std::array<float, 3>> AK09916::read_data()
 {
@@ -84,7 +107,7 @@ std::tuple<esp_err_t, std::array<float, 3>> AK09916::read_data()
     uint8_t buf[8];     // X(2) + Y(2) + Z(2) + TMPS(1) + ST2(1)
 
     esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &HXL, 1, buf, 8, pdMS_TO_TICKS(2));
- 
+    //esp_err_t ret = _bus->read(HXL,buf,8);
     if (ret == ESP_OK) {
         // 2. ST2 레지스터(buf[7]) 확인 (HOFL 비트 체크용, 필수는 아님)
         // 3. Little Endian 결합
@@ -101,6 +124,7 @@ std::tuple<esp_err_t, std::array<float, 3>> AK09916::read_data()
     }
     return {ESP_FAIL, {}};
 }
+
 
 std::tuple<esp_err_t, std::array<float, 3>> AK09916::read_with_offset()
 {
@@ -128,6 +152,7 @@ std::tuple<esp_err_t, uint8_t> AK09916::ready_data()
 {
     uint8_t data = 0x00;
     esp_err_t ret_st  = i2c_master_transmit_receive(_dev_handle, &STAT1, 1, &data, 1,  pdMS_TO_TICKS(1));
+    //esp_err_t ret_st  = _bus->read(STAT1,&data,1);
     return {ret_st,data};
 }
 
@@ -147,7 +172,7 @@ void AK09916::calibrate_hard_iron()
     for (int i = 0; i < 5000; i++) {
 
         esp_err_t ret = i2c_master_transmit_receive(_dev_handle, &HXL, 1, buf, 8, pdMS_TO_TICKS(2));
-
+        //esp_err_t ret = _bus->read(HXL,buf,8);
         if (ret == ESP_OK) {
             // 2. ST2 레지스터(buf[7]) 확인 (HOFL 비트 체크용, 필수는 아님)
             // 3. Little Endian 결합
@@ -205,6 +230,30 @@ void AK09916::calibrate_hard_iron()
     printf("inline constexpr float MAG_OFFSET_X   = %.2f;\n", offset_x);
     printf("inline constexpr float MAG_OFFSET_Y   = %.2f;\n", offset_y);
     printf("inline constexpr float MAG_OFFSET_Z   = %.2f;\n\n", offset_z);
+}
+
+esp_err_t AK09916::setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr)
+{
+     // 1. I2C 장치 등록 (열쇠 생성)
+    i2c_master_dev_handle_t dev_h;
+    i2c_device_config_t dev_cfg = {
+        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
+        .device_address = addr,
+        .scl_speed_hz = 400000,
+    };
+    esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_h);
+    if (ret != ESP_OK) return ret;
+
+    // 기존에 할당된 버스가 있다면 정리 (선택 사항)
+    if (_bus) delete _bus;
+    
+    // 2. I2CBus 인터페이스 객체 생성 및 주입 (도구 조립 및 전달)
+    // static 혹은 멤버 변수로 관리하여 메모리 해제 방지
+    _bus = new Interface::I2CBus(dev_h); 
+
+    // 3. 센서 초기화 진행
+    // this->initialize();
+    return ESP_OK;
 }
 
 }// namespace Sensor

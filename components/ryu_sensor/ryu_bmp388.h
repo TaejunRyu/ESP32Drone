@@ -6,6 +6,11 @@
 #include <string>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
+#include "ryu_businterface.h"
+
+namespace Interface {
+    class BusInterface;
+}
 
 namespace Sensor{
 
@@ -20,8 +25,10 @@ class BMP388{
 
         BMP388(const BMP388&) = delete;
         BMP388& operator=(const BMP388&) = delete;
-        BMP388(BMP388&&) = delete;
-        BMP388& operator=(BMP388&&) = delete;
+
+        // 인터페이스 주입 (핵심!)
+        void set_bus(Interface::BusInterface* bus) { _bus = bus; }
+        Interface::BusInterface* get_bus(){ return _bus;};    
 
         // 2개의 내부 인스턴스에 접근하기 위한 인터페이스
         static BMP388& Main() { return mainInstance; }
@@ -48,6 +55,7 @@ class BMP388{
         float get_climb_rate(){return _climb_rate;};
 
     private:
+        Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
         //보정계수        
         struct {
             double      t_lin;
@@ -84,7 +92,9 @@ class BMP388{
         bool  is_data_ready();
         esp_err_t  read_calib();
         void init_coefficients();
-        std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388(); 
+        std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388();
+        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
+
         std::tuple<esp_err_t, float> get_pressure();
 
 

@@ -4,6 +4,12 @@
 #include <tuple>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
+#include "ryu_businterface.h"
+
+
+namespace Interface {
+    class BusInterface;
+}
 
 namespace Sensor
 {
@@ -21,19 +27,23 @@ class IST8310{
 
         IST8310(const IST8310&) = delete;
         IST8310& operator=(const IST8310&) = delete;
-        IST8310(IST8310&&) = delete;
-        IST8310& operator=(IST8310&&) = delete;
+
+        // 인터페이스 주입 (핵심!)
+        void set_bus(Interface::BusInterface* bus) { _bus = bus; }
+        Interface::BusInterface* get_bus(){ return _bus;};    
 
         esp_err_t initialize();
         esp_err_t deinitialize();
         bool is_initialized(){return _initialized;};
 
         void calibrate_hard_iron();
+        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
         std::tuple<esp_err_t, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset();
         i2c_master_dev_handle_t get_dev_handle(){ return _dev_handle;};
 
-        private:
+    private:
+        Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
         std::array<float, 3> last_valid_mag ={};
 
         static inline constexpr float FILTER_ALPHA = 0.4f; 

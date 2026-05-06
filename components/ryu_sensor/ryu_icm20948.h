@@ -5,7 +5,7 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <driver/i2c_master.h>
-
+ 
 // 인터페이스 전방 선언
 namespace Interface {
     class BusInterface;
@@ -78,9 +78,10 @@ public:
     std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();    
     // 통합 관리 함수 (예: Main/Sub 데이터 동시 처리 등)
     std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> Managed_read_with_offset();
-
+    std::array<float, 3> get_mag() { return _mag_data; } // 지자계 데이터 접근자
 private:
     Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
+    std::array<float, 3> _mag_data = {0.0f, 0.0f, 0.0f}; // 최신 지자계 데이터 보관
     
     std::array<float, 3> _offset_acc = {0.0f, 0.0f, 0.0f};
     std::array<float, 3> _offset_gyro = {0.0f, 0.0f, 0.0f};
