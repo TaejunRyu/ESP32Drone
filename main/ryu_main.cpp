@@ -12,7 +12,7 @@
 #include "ryu_led.h"
 #include "ryu_sensor_event.h"
 #include "ryu_failsafe.h"
-
+#include "ryu_FlightEventManager.h"
 extern "C" {
 	void app_main(void);
 }
@@ -60,6 +60,10 @@ void app_main(void) {
         failsafe.start_task();
     }
 
+    auto& manager = Service::FlightEventManager::get_instance();
+    manager.initialize();
+
+    
     watch_dog_initialize();
 
     auto& flight = Controller::Flight::get_instance();

@@ -6,6 +6,7 @@
 idf_component_register(
     SRCS #${app_sources}
         "ryu_nvs.cpp"
+        "ryu_FlightEventManager.cpp"
         "ryu_main.cpp"
     INCLUDE_DIRS 
         "." 

@@ -18,6 +18,7 @@
 #include "ryu_gps.h"
 #include "ryu_battery.h"
 #include "ryu_flight_task.h"
+#include "ryu_flight_event.h"
 
 namespace Service{
 
@@ -331,11 +332,14 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
 // 여기서는 시동 상태만 업데이트하고 ACK만 보내도록 수정합니다.
 void Mavlink::MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid); 
+    
     //시동이 자동으로 꺼지니 일단 막아놓는다.
     if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
-        g_sys.is_armed = true;
+        //g_sys.is_armed = true;
+        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);    
     } else if (cmd.param1 < 0.5f) {
-        g_sys.is_armed = false;
+        //g_sys.is_armed = false;
+        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);    
     }
     ESP_LOGI(TAG,"MAV_CMD_COMPONENT_ARM_DISARM_func Param1: %8.5f",cmd.param1);
 }

@@ -17,8 +17,8 @@
 namespace Service
 {
 class  FailSafe{
- private:
-        FailSafe() = default; 
+    private:
+        FailSafe() = default;  
         ~FailSafe() = default;
         static constexpr const char* TAG = "FailSafe";
     public:
@@ -28,8 +28,6 @@ class  FailSafe{
         }
         FailSafe(const FailSafe&) = delete;
         FailSafe& operator=(const FailSafe&) = delete;
-        FailSafe(FailSafe&&) = delete;
-        FailSafe& operator=(FailSafe&&) = delete;
 
         // 시스템 상태 비트 정의  
         static inline constexpr uint32_t SYS_HEALTH_IMU_OK     =  (1 << 0);

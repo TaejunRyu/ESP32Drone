@@ -7,6 +7,9 @@
 
 #include "ryu_config.h"
 #include "ryu_failsafe.h"
+#include "ryu_flight_event.h"
+#include "ryu_buzzer.h"
+
 
 namespace Service
 { 
@@ -100,12 +103,14 @@ void Flysky::flysky_task(void *pvParameters)
         // if (!g_sys.is_armed) {
         //     if (flysky->is_arming_gesture()) {
         //         g_sys.is_armed = true;
-        //         BUZZ::sound_connected();
+        //         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);   
+        //         Driver::Buzzer::get_instance().sound_connected();
         //     }
         // } else {
         //     if (flysky->is_disarming_gesture()) {
         //         g_sys.is_armed = false;
-        //         BUZZ::sound_disconnected();
+        //         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);   
+        //         Driver::Buzzer::get_instance().sound_disconnected();
         //     }
         // }
 //@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
@@ -115,9 +120,6 @@ void Flysky::flysky_task(void *pvParameters)
         }else{
             g_sys.manual_hold_mode =false;
         }
-        // 기존 printf보다 빠르며 타입 체크가 엄격합니다.
-        //std::println("R:{:>5.1f} | P:{:>5.1f} | Y:{:>5.1f} | T:{:>5.1f} | Armed:{}", 
-        //             flysky_roll, flysky_pitch, flysky_yaw, flysky_throttle, DRONE.is_armed);
 
         vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }

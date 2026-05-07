@@ -39,6 +39,7 @@ inline constexpr gpio_num_t  HSPI_MOSI    = GPIO_NUM_13; //  JTAG핀
 inline constexpr gpio_num_t  HSPI_CS      = GPIO_NUM_2;  // 부팅관련
 inline constexpr gpio_num_t  T1    = GPIO_NUM_0;  // 부팅관련
   
+// 시스템의 순차적 진행
 enum sys_status_t{                    
     SYS_STATE_UNINIT,            // 시스템 초기화 중 (센서 체크 전) 	       
     SYS_STATE_BOOT,              // 부팅 완료, 시스템 검사 시작 	     
@@ -51,7 +52,7 @@ enum sys_status_t{
     SYS_STATE_FLIGHT_TERMINATION //	강제 비행 종료 (낙하산 전개 등 최후 수단) 
 };
 
-// 기체 시동 상태 정의
+//  SYS_STATE_STANBY, SYS_STATE_ACTIVE 상태에서 (기체 시동 상태 정의)
 enum arming_state_t {
     ARM_STATE_DISARMED = 0,
     ARM_STATE_PREARM_CHECK,
@@ -59,6 +60,7 @@ enum arming_state_t {
     ARM_STATE_FAILSAFE
 } ;
 
+// 비행 모드 상태 
 enum flight_mode_t {
     MODE_MANUAL = 0,      // 수동
     MODE_STABILIZED,      // Stabilized
@@ -73,7 +75,7 @@ enum flight_mode_t {
 } ;
 
 struct sys_t {
-    flight_mode_t   flight_mode;     // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
+    flight_mode_t   flight_mode;        // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
     uint8_t         system_status;      // standby(3), active(4), critical 등
     uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
     bool            is_armed;           // 시동 상태
