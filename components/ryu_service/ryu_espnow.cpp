@@ -1,4 +1,4 @@
-#include "ryu_wifi.h"
+#include "ryu_espnow.h"
 
 #include <array>
 #include <esp_mac.h>
@@ -297,10 +297,10 @@ BaseType_t EspNow::start_task()
 {
     auto res = xTaskCreatePinnedToCore(mavlink_tx_task, "mavlink_tx_task", 4096, this, 15,&_task_handle, 0);
     if (res != pdPASS){ 
-        ESP_LOGE(TAG, "❌ 0.ESP TX Task is Failed! code: %d", res);
+        ESP_LOGE(TAG, "❌ 0.EspNow TX Task is Failed! code: %d", res);
     }
     else{ 
-        ESP_LOGI(TAG, "✓ 0.ESP TX Task is passed... ");
+        ESP_LOGI(TAG, "✓ 0.EspNow TX Task is passed... ");
     }
     return res;
 }   

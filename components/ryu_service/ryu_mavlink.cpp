@@ -11,7 +11,7 @@
 
 #include "ryu_ParamTable.h"
 #include "ryu_pid.h"
-#include "ryu_wifi.h"
+#include "ryu_espnow.h"
 #include "ryu_buzzer.h"
 #include "ryu_config.h"
 #include "ryu_timer.h"

@@ -1,11 +1,9 @@
-#include "ryu_mag.h"
+#include "ryu_magsensor.h"
 
 #include <esp_log.h>
 #include "ryu_ist8310.h"
 #include "ryu_ak09916.h"
 #include "ryu_sensor_event.h"
-
-
 
 namespace Service{
     
@@ -102,5 +100,7 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
         }
         return {err, {this->avr_mag[0], this->avr_mag[1], this->avr_mag[2]}};
     }
-} 
+}
+
+
 } // namespace Service

@@ -22,7 +22,7 @@ esp_err_t IST8310::initialize()
 
     //2. WHO_AM_I 확인 (정상 연결 체크)
     uint8_t who_reg = 0x00, who_val = 0;
-    err = _bus->read(0x00,&who_val,1);
+    err = _bus->read(who_reg,&who_val,1);
     if (err != ESP_OK){
         return err;
     }

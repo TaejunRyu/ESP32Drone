@@ -9,7 +9,7 @@
 #include "ryu_flysky.h"
 #include "ryu_MahonyFilter.h"
 #include "ryu_pid.h"
-#include "ryu_wifi.h"
+#include "ryu_espnow.h"
 #include "ryu_failsafe.h"
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
@@ -23,7 +23,7 @@
 #include "ryu_motor.h"
 #include "ryu_battery.h"
 #include "ryu_i2c.h"
-#include "ryu_mag.h"
+#include "ryu_magsensor.h"
 #include "ryu_icm20948.h"
 #include "ryu_businterface.h"
 
