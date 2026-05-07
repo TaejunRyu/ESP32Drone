@@ -10,6 +10,10 @@ namespace Sensor{
     class AK09916;
 }
 
+namespace Interface{
+    enum class BusType;
+}
+
 namespace Service{
 
 class  ManageMag{
@@ -40,12 +44,14 @@ class  ManageMag{
 
         // 실행과정에서 복구가 되면 
         bool is_fault_posted = false; // 이벤트 중복 발행 방지
- 
+        
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};
         std::tuple<esp_err_t, std::array<float, 3>> Managed_read_with_offset();
+        Interface::BusType get_bus_type(){return _busType;};
 
     private:
+        Interface::BusType _busType;
         bool  _initialized = false;
 };
 

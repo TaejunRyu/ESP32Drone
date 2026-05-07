@@ -17,7 +17,7 @@ class ICM20948 {
 private:
     // private 생성자: Main()과 Sub() 인스턴스 생성 시 사용
     // 1. 누락된 생성자 구현부 추가
-    ICM20948(std::string n, uint16_t addr) :_dev_address(addr),_name(n),_isAlive(true) {}
+    ICM20948(std::string n) :_name(n),_isAlive(true) {}
     ~ICM20948() = default;
 
     static constexpr const char* TAG = "ICM20948";
@@ -87,7 +87,6 @@ private:
     std::array<float, 3> _offset_gyro = {0.0f, 0.0f, 0.0f};
     
     uint8_t _current_bank = 0;
-    uint16_t _dev_address = 0x00;
     std::string _name {};
     
     bool _initialized = false;

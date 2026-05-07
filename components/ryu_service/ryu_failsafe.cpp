@@ -13,8 +13,10 @@
 #include "esp_log.h"
 
 
+
 namespace Service {
 
+// Service namespace 에는 오직하나만 존재한다 이곳에서 받는거기때문에 
 ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
 esp_err_t FailSafe::initialize() {
@@ -148,10 +150,12 @@ esp_err_t FailSafe::reinit_all_sensors()
     }
 
     Driver::I2C::get_instance().initialize();
+    // 기존의 offset은 가지고 있으므로 그대로 사용한다.
     Sensor::ICM20948::Main().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_VCC);
     Sensor::ICM20948::Main().initialize();
     Sensor::ICM20948::Sub().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_GND);
     Sensor::ICM20948::Sub().initialize();
+
     if (Sensor::ICM20948::Main().is_initialized()){
         system_health |= SYS_HEALTH_IMU_OK;
         Sensor::ICM20948::Main().enable_mag_bypass();
@@ -166,6 +170,7 @@ esp_err_t FailSafe::reinit_all_sensors()
     }else{
         ret = ESP_FAIL;
     }
+    
     Sensor::BMP388::Main().initialize();
     Sensor::BMP388::Sub().initialize();
     if(Sensor::BMP388::Main().is_initialized()){
@@ -184,5 +189,6 @@ BaseType_t FailSafe::start_task()
     else ESP_LOGI(TAG, "✓ 5.FailSafe Task is passed...");
     return res;
 }
+
 
 } // namespace Service

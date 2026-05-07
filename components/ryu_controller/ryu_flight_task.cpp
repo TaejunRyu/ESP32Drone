@@ -45,138 +45,189 @@ esp_err_t Flight::initialize()
     auto& buzzer        = Driver::Buzzer::get_instance();
         err = buzzer.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Buzzer module initialize failed.");
+            ESP_LOGI(TAG, "Buzzer Module Initialize Failed.");
             return err;
         }        
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
         //buzzer.sound_system_start();
+
+    // 이 부분에서 SPI Interface 를 할용하면 SPI로 처리된다
     
     auto& i2c           = Driver::I2C::get_instance();
-        err = i2c.initialize();
-        if (err != ESP_OK){
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(50));
-
-
+    err = i2c.initialize();
+    if (err != ESP_OK){
+        ESP_LOGI(TAG, "I2C Module Initialize Failed.");
+        return err;
+    }
+    vTaskDelay(pdMS_TO_TICKS(10));
     auto bus_handle = i2c.get_bus_handle();
-    // 1. Main IMU 설정 (주소 전달 -> 내부에서 장치추가/Bus객체생성/set_bus/init까지 한방에)
-    Sensor::ICM20948::Main().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_VCC);
-    Sensor::ICM20948::Main().initialize();
-    Sensor::ICM20948::Main().enable_mag_bypass();
-    //Sensor::ICM20948::Main().calibrate();
 
-    // 2. Sub IMU 설정
-    Sensor::ICM20948::Sub().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_GND);
-    Sensor::ICM20948::Sub().initialize();
-    //Sensor::ICM20948::Sub().calibrate();
+    { //ICM20948의 main 초기화
+        // 1. Main IMU 설정 (주소 전달 -> 내부에서 장치추가/Bus객체생성/set_bus/init까지 한방에)
+        err = Sensor::ICM20948::Main().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_VCC);
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 Main Module Setup Failed.");
+            return err;
+        }
+        err = Sensor::ICM20948::Main().initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 Main Module Initialize Failed.");
+            return err;
+        }
+        err = Sensor::ICM20948::Main().enable_mag_bypass();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 Main Module enable_mag_bypass Failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+    {// 2. Sub IMU 설정
+        err = Sensor::ICM20948::Sub().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_GND);
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 Sub Module Setup Failed.");
+            return err;
+        }
+        err = Sensor::ICM20948::Sub().initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "ICM20948 Sub Module Initialize Failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
-    auto& ist8310       = Sensor::IST8310::get_instance();
-        err = ist8310.initialize();
+    { //AK09916 INITIALIZE
+        err = Sensor::AK09916::get_instance().setup_i2c_interface(bus_handle,Sensor::AK09916::ADDR);
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "IST8310 module initialize failed.");
+            ESP_LOGI(TAG, "AK09916 Module Setup Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    auto& ak09916       = Sensor::AK09916::get_instance();
-        err = ak09916.initialize();
+        err = Sensor::AK09916::get_instance().initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "AK09916 module initialize failed.");
+            ESP_LOGI(TAG, "AK09916 Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    auto& bmp388_main   = Sensor::BMP388::Main();
-        err = bmp388_main.initialize();
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    {
+        err = Sensor::IST8310::get_instance().setup_i2c_interface(bus_handle,Sensor::IST8310::ADDR);
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "BMP338 Main module initialize failed.");
+            ESP_LOGI(TAG, "IST8310 Module Setup Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
-    auto& bmp388_sub    = Sensor::BMP388::Sub();
-        err = bmp388_sub.initialize();
+        err = Sensor::IST8310::get_instance().initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "BMP338 Sub module initialize failed.");
+            ESP_LOGI(TAG, "IST8310 Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    {    
+        Sensor::BMP388::Main().setup_i2c_interface(bus_handle,Sensor::BMP388::ADDR_VCC);
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Main Module setup Failed.");
+            return err;
+        }
+        Sensor::BMP388::Main().initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Main Module Initialize Failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
+
+    {
+        Sensor::BMP388::Sub().setup_i2c_interface(bus_handle,Sensor::BMP388::ADDR_GND);
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Sub Module Setup Failed.");
+            return err;
+        }
+        Sensor::BMP388::Sub().initialize();
+        if (err != ESP_OK){
+            ESP_LOGI(TAG, "BMP338 Sub Module Initialize Failed.");
+            return err;
+        }
+        vTaskDelay(pdMS_TO_TICKS(10));
+    }
 
     auto& espnow        = Service::EspNow::get_instance();
         err = espnow.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Espnow module initialize failed.");
+            ESP_LOGI(TAG, "Espnow Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& battery       = Driver::Battery::get_instance();
         err = battery.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Baterry module initialize failed.");
+            ESP_LOGI(TAG, "Baterry Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& mahony        = Service::Mahony::get_instance();
         err = mahony.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Mahony module initialize failed.");
+            ESP_LOGI(TAG, "Mahony Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& motor         = Driver::Motor::get_instance();
         err = motor.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Motor module initialize failed.");
+            ESP_LOGI(TAG, "Motor Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& gps           = Sensor::Gps::get_instance();
         err = gps.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Gps module initialize failed.");
+            ESP_LOGI(TAG, "Gps Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& flysky        = Service::Flysky::get_instance();
         err = flysky.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Flysky module initialize failed.");
+            ESP_LOGI(TAG, "Flysky Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& mavlink       = Service::Mavlink::get_instance();
         err = mavlink.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Mavlink module initialize failed.");
+            ESP_LOGI(TAG, "Mavlink Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& telemetry     = Service::Telemetry::get_instance();
         err = telemetry.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Telemetry module initialize failed.");
+            ESP_LOGI(TAG, "Telemetry Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& pid           = Controller::PID::get_instance();
         err = pid.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Pid module initialize failed.");
+            ESP_LOGI(TAG, "Pid Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& failsafe      = Service::FailSafe::get_instance();
         err = failsafe.initialize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "FailSafe module initialize failed.");
+            ESP_LOGI(TAG, "FailSafe Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));
+        vTaskDelay(pdMS_TO_TICKS(10));
     auto& timer         = Service::Timer::get_instance();
         err = timer.intiallize();
         if (err != ESP_OK){
-            ESP_LOGI(TAG, "Timer module initialize failed.");
+            ESP_LOGI(TAG, "Timer Module Initialize Failed.");
             return err;
         }
-        vTaskDelay(pdMS_TO_TICKS(50));  
+        vTaskDelay(pdMS_TO_TICKS(10));  
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
@@ -193,7 +244,6 @@ void Flight::flight_task(void *pvParameters)
 {
     auto flight = static_cast<Flight*>(pvParameters);
     auto& motor         = Driver::Motor::get_instance();
-
     auto& icm20948_main = Sensor::ICM20948::Main();
     //auto& cicm20948_sub  = Sensor::ICM20948::Sub();
     //auto& ak09916       = Sensor::AK09916::get_instance();
@@ -248,15 +298,23 @@ void Flight::flight_task(void *pvParameters)
         static float    calulation_mag_x=0.0f, 
                         calulation_mag_y=0.0f, 
                         calulation_mag_z=0.0f;
-        if (loop_cnt % 8 == 0){ // 50HZ
-            auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
-            if(ret_mag == ESP_OK){
-                calulation_mag_x=mag[0]; 
-                calulation_mag_y=mag[1]; 
-                calulation_mag_z=mag[2];
-            } 
-            //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calulation_mag_x,calulation_mag_y,calulation_mag_z);
-            ret_code = ret;
+
+        if (managed_mag.get_bus_type() == Interface::BusType::SPI){
+            auto mag = icm20948_main.get_mag();
+            calulation_mag_x=mag[0]; 
+            calulation_mag_y=mag[1]; 
+            calulation_mag_z=mag[2];
+        }else{ //Interface::BusType::I2C
+            if (loop_cnt % 8 == 0){ // 50HZ
+                auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
+                if(ret_mag == ESP_OK){
+                    calulation_mag_x=mag[0]; 
+                    calulation_mag_y=mag[1]; 
+                    calulation_mag_z=mag[2];
+                } 
+                //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calulation_mag_x,calulation_mag_y,calulation_mag_z);
+                ret_code = ret;
+            }
         }
         mahony.MahonyAHRSupdate(   
                             calculation_gyro_x * DEG_TO_RAD,

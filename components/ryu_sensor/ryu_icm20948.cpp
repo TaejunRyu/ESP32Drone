@@ -14,18 +14,18 @@ namespace Sensor{
 
 ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
-ICM20948 ICM20948::mainInstance("ICM20948 Main",ICM20948::ADDR_VCC);
-ICM20948 ICM20948::subInstance("ICM20948 Sub",ICM20948::ADDR_GND);
-
+ICM20948 ICM20948::mainInstance("ICM20948 Main");
+ICM20948 ICM20948::subInstance("ICM20948 Sub");
 
 esp_err_t ICM20948::setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr) {
     // 1. I2C 장치 등록 (열쇠 생성)
     i2c_master_dev_handle_t dev_h;
-    i2c_device_config_t dev_cfg = {
-        .dev_addr_length = I2C_ADDR_BIT_LEN_7,
-        .device_address = addr,
-        .scl_speed_hz = 400000,
-    };
+    
+    i2c_device_config_t dev_cfg = {};
+    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_cfg.device_address = addr;
+    dev_cfg.scl_speed_hz = 400000;
+
     esp_err_t ret = i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_h);
     if (ret != ESP_OK) return ret;
 
@@ -41,12 +41,8 @@ esp_err_t ICM20948::setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint
     return ESP_OK;
 }
 
-
 void ICM20948::icm20948_select_bank(uint8_t bank)
 {
-    //uint8_t cmd[] = {REG_BANK_SEL, (uint8_t)(bank << 4)};
-    //i2c_master_transmit(_dev_handle, cmd, 2, pdMS_TO_TICKS(10));
-
     _bus->write(REG_BANK_SEL,(uint8_t)(bank << 4));
     _current_bank = bank;
 }
@@ -184,7 +180,6 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
         _mag_data[1] = (int16_t)((d[18] << 8) | d[17]) * 0.15f;
         _mag_data[2] = (int16_t)((d[20] << 8) | d[19]) * 0.15f;
     }
-
     return {ret, acc, gyro};
 }
 
@@ -211,7 +206,6 @@ void ICM20948::calibrate() {
 
     for (int i = 0; i < samples; i++) {
         uint64_t start_time = esp_timer_get_time();
-
         // [변경] i2c_master_transmit_receive 대신 인터페이스의 read 사용
         if (_bus->read(B0_ACCEL_XOUT_H, buf, 12) == ESP_OK) [[likely]] {
             sum_acc[0] += (int16_t)((buf[0] << 8) | buf[1]) / 4096.0f;
@@ -222,7 +216,6 @@ void ICM20948::calibrate() {
             sum_gyro[2] += (int16_t)((buf[10] << 8) | buf[11]) / 32.8f;
             valid_samples++;
         }
-
         // 주기 제어 (400Hz)
         uint64_t end_time = esp_timer_get_time();
         uint32_t elapsed = (uint32_t)(end_time - start_time);

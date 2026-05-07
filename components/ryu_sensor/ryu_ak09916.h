@@ -49,12 +49,12 @@ class AK09916{
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset(); 
         std::tuple<esp_err_t,uint8_t> ready_data();
         void calibrate_hard_iron();
-        i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
+        //i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
     private:
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어       
-        i2c_master_bus_handle_t _bus_handle = nullptr; // 삭제
-        i2c_master_dev_handle_t _dev_handle = nullptr; // 삭제
+        //i2c_master_bus_handle_t _bus_handle = nullptr; // 삭제
+        //i2c_master_dev_handle_t _dev_handle = nullptr; // 삭제
         bool _initialized = false;
 };
 

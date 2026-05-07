@@ -37,25 +37,27 @@ class BMP388{
         static inline constexpr uint8_t ADDR_VCC   =   0x77;
         static inline constexpr uint8_t ADDR_GND   =   0x76;
 
-        static inline constexpr uint8_t REG_ID        =   0x00;
-        static inline constexpr uint8_t REG_DATA      =   0x04; // Pressure(3), Temp(3) 연속
-        static inline constexpr uint8_t REG_PWR_CTRL  =   0x1B;
-        static inline constexpr uint8_t REG_CALIB     =   0x31;
-        static inline constexpr uint8_t STATUS        =   0x03;
 
         void setStatus(bool status) { _isAlive = status; }
         bool getStatus() { return _isAlive; }
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};
         esp_err_t deinitialize();
-        i2c_master_dev_handle_t get_dev_handle(){return _dev_handle;};
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();        
         std::tuple<esp_err_t, float,float> Managed_get_relative_altitude();
         float get_climb_rate(){return _climb_rate;};
+        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
 
     private:
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
+
+        static inline constexpr uint8_t REG_ID        =   0x00;
+        static inline constexpr uint8_t REG_DATA      =   0x04; // Pressure(3), Temp(3) 연속
+        static inline constexpr uint8_t REG_PWR_CTRL  =   0x1B;
+        static inline constexpr uint8_t REG_CALIB     =   0x31;
+        static inline constexpr uint8_t STATUS        =   0x03;
+
         //보정계수        
         struct {
             double      t_lin;
@@ -93,19 +95,15 @@ class BMP388{
         esp_err_t  read_calib();
         void init_coefficients();
         std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388();
-        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
 
         std::tuple<esp_err_t, float> get_pressure();
 
 
-        i2c_master_bus_handle_t _bus_handle = nullptr;
-        i2c_master_dev_handle_t _dev_handle = nullptr;
-        uint16_t _dev_address {};
         bool _initialized = false;
         std::string _name {};
         bool _isAlive = false;
         // private 생성자: 외부에서 호출 불가
-        BMP388(std::string n,uint16_t addr) : _dev_address(addr), _name(n), _isAlive(true) {}
+        BMP388(std::string n) : _name(n), _isAlive(true) {}
 
 
 

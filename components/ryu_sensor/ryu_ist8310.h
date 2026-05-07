@@ -28,10 +28,13 @@ class IST8310{
         IST8310(const IST8310&) = delete;
         IST8310& operator=(const IST8310&) = delete;
 
+        static inline constexpr uint8_t ADDR       =    0x0E; // 기본 주소 (ADR핀 상태에 따라 다를 수 있음)
+
+
+
         // 인터페이스 주입 (핵심!)
         void set_bus(Interface::BusInterface* bus) { _bus = bus; }
         Interface::BusInterface* get_bus(){ return _bus;};    
-
         esp_err_t initialize();
         esp_err_t deinitialize();
         bool is_initialized(){return _initialized;};
@@ -40,7 +43,7 @@ class IST8310{
         esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
         std::tuple<esp_err_t, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset();
-        i2c_master_dev_handle_t get_dev_handle(){ return _dev_handle;};
+
 
     private:
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
@@ -49,7 +52,6 @@ class IST8310{
         static inline constexpr float FILTER_ALPHA = 0.4f; 
 
         // IST8310 레지스터 정의
-        static inline constexpr uint8_t ADDR       =    0x0E; // 기본 주소 (ADR핀 상태에 따라 다를 수 있음)
         static inline constexpr uint8_t WHO_AM_I   =    0x00; // ID 확인용 (값: 0x10)
         static inline constexpr uint8_t STAT1      =    0x02; // 데이터 준비 상태 (Bit 0: DRDY)
         static inline constexpr uint8_t DATA_X_L   =    0x03; // 데이터 시작 (X-axis Low)
@@ -78,8 +80,6 @@ class IST8310{
         static inline constexpr float SCALE_Y       =  0.99f;
         static inline constexpr float SCALE_Z       =  1.03f;
 
-        i2c_master_bus_handle_t _bus_handle = nullptr;
-        i2c_master_dev_handle_t _dev_handle = nullptr;
         bool _initialized = false;
 };
 

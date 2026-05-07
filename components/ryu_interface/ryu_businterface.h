@@ -15,7 +15,7 @@ enum class BusType { I2C, SPI }; // 통신 타입 정의
 class BusInterface {
 public:
     virtual ~BusInterface() = default;
-    virtual BusType get_type() const = 0; // 이 함수 추가!
+    virtual BusType get_type() const = 0;      // 특이한 사항이 있을경우 _bus의 type을 알아서 대처한다. 
     virtual esp_err_t write(uint8_t reg, uint8_t data) = 0;
     virtual esp_err_t read(uint8_t reg, uint8_t* data, size_t len) = 0;
 }; // 네임스페이스 안에서 인터페이스 정의 완료
@@ -54,13 +54,14 @@ public:
     }
 };
 
+
 /**
  * 3. I2C 통신 구현체
  */
 class I2CBus : public BusInterface {
 private:
     i2c_master_dev_handle_t _handle;
-    static constexpr uint32_t I2C_TIMEOUT_MS = 50;
+    static constexpr uint32_t I2C_TIMEOUT_MS = 2;
 
 public:
     I2CBus(i2c_master_dev_handle_t handle) : _handle(handle) {}
@@ -80,5 +81,6 @@ public:
         return i2c_master_transmit_receive(_handle, &reg, 1, data, len, pdMS_TO_TICKS(I2C_TIMEOUT_MS));
     }
 };
+
 
 } // namespace Driver 끝

@@ -7,6 +7,8 @@
 
 namespace Service{
     
+//ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
+
 esp_err_t Service::ManageMag::initialize(){
     if (_initialized) return ESP_OK;
     auto& ist8310 = Sensor::IST8310::get_instance();
@@ -17,11 +19,21 @@ esp_err_t Service::ManageMag::initialize(){
     if (!ak09916.is_initialized()){
         ak09916.initialize();
     }
+
+    // 현재 bustype 어떤건지 알아야 ak09916의 읽기를 어떻게 처리할것인가 결정한다.
+    // flight_task에서 i2c인가 spi인가를 알아야 imu,mag의 처리 방법 강구.
+    _busType = ist8310.get_bus()->get_type();
     _initialized = true;
     return ESP_OK;
 }
 
 
+/**
+ * @brief 
+ *      1. 두개의 센서를 에러 복구를 위해서 가지고 있다가 문제가 발생하면 바로 보조 센서로 제어권을 넘김.
+ *      2. 지자계센서의 문제는 에러 복구를 하지 않고 바로 GROUND STATION에 알려 조치를 하도록 한다.( 이게 좋은 방법일지도....)
+ * @return std::tuple<esp_err_t, std::array<float, 3>> 
+ */
 std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(){
     auto& ist8310 = Sensor::IST8310::get_instance();
     auto& ak09916 = Sensor::AK09916::get_instance();
@@ -35,8 +47,10 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
                 .is_recovered = false,
                 .reason = ESP_ERR_TIMEOUT 
             };
-            // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
+            // Failsafe 모듈에게 "MAG 둘 다 먹통임"을 알림
             esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, &data, sizeof(data), 0);
+            
+            // 바로 풀어버리면 될까 ???????????????????????????????
             this->is_fault_posted = true; 
             ESP_LOGE(TAG, "Both MAG sensors failed. Event posted.");
         }
