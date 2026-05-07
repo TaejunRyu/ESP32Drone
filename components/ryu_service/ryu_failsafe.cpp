@@ -11,6 +11,7 @@
 #include "ryu_flight_task.h"
 #include "ryu_config.h"
 #include "esp_log.h"
+#include "ryu_flight_event.h"
 
 namespace Event{
     ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
@@ -49,6 +50,7 @@ void FailSafe::update_health(Event::fault_event_data_t* fault) {
     switch(fault->id) {
         case Event::FAULT_ID_IMU:{  
             bit = SYS_HEALTH_IMU_OK;
+            //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
             g_sys.error_hold_mode = true;  // 에러가 발생하여 HOLD_MODE 상태로 전환 ( 이 곳에서도 시스템 모드전환 및 산태 프래그를 체크하여 현재모드 설정을 어떻게 할지)
             break;
         }
@@ -60,11 +62,13 @@ void FailSafe::update_health(Event::fault_event_data_t* fault) {
         case Event::FAULT_ID_GPS:{  
             bit = SYS_HEALTH_GPS_OK; 
             g_sys.error_hold_mode = true;
+            //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
             break;
         }
         case Event::FAULT_ID_RC:{   
             bit = SYS_HEALTH_RC_OK; 
             g_sys.error_hold_mode = true;
+            //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
             break;
         }
         default: break;
