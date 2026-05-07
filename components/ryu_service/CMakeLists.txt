@@ -18,5 +18,6 @@ idf_component_register(
         ryu_config
         ryu_controller
         ryu_driver 
-        ryu_sensor      
+        ryu_sensor
+        ryu_event
 )

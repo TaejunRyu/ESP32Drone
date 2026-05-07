@@ -6,8 +6,6 @@
 
 namespace Sensor{
 
-ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
-
 BMP388 BMP388::mainInstance("BMP388 Main");
 BMP388 BMP388::subInstance ("BMP388 Sub");
 
@@ -297,13 +295,13 @@ std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
     if (err_continue_count > 6) {
         if (!is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_BARO, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_BARO, 
                 .is_recovered = false,
                 .reason = ESP_ERR_TIMEOUT 
             };
             // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, 
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, 
                            &data, sizeof(data), 0);
             is_fault_posted = true; 
             
@@ -326,12 +324,12 @@ std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
 
         // [핵심] 복구되었다면 복구 이벤트 발행
         if (is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_BARO, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_BARO, 
                 .is_recovered = true,
                 .reason = ESP_ERR_TIMEOUT 
             };
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             is_fault_posted = false;
         }
         return {ESP_OK, alt, rate};

@@ -24,7 +24,7 @@ inline constexpr char NVS_NAMESPACE[] = "QGC_PARAMS";
 struct SensorCalibration {
     float mag_main_offset[3];   // IST8310 Hard-iron 보정값
     float mag_sub_offset[3];    // AK09916 Hard-iron 보정값
-    bool is_calibrated;  // 캘리브레이션 완료 여부 플래그
+    bool is_calibrated;         // 캘리브레이션 완료 여부 플래그
 };
 
 }//namespace NVS

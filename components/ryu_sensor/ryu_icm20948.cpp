@@ -12,7 +12,6 @@ namespace Sensor{
 //이 코드가 정상 동작하려면 SPIBus::read 함수가 구현된 파일에서 spi_device_interface_config_t 설정 시 address_bits = 8이 반드시 설정되어 있어야 합니다. 
 //이 설정이 없다면 주소(B0_ACCEL_XOUT_H)가 전송되지 않아 엉뚱한 데이터를 읽게 됩니다.
 
-ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
 ICM20948 ICM20948::mainInstance("ICM20948 Main");
 ICM20948 ICM20948::subInstance("ICM20948 Sub");
@@ -277,13 +276,13 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
     if (err_continue_count > 6) {
         if (!is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_IMU, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_IMU, 
                 .is_recovered = false,
                 .reason = ESP_ERR_TIMEOUT 
             };
             // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, 
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, 
                            &data, sizeof(data), 0);
             is_fault_posted = true; 
             ESP_LOGE(TAG, "Both IMU sensors failed. Event posted.");
@@ -303,12 +302,12 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
 
         // [핵심] 복구되었다면 복구 이벤트 발행
         if (is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_IMU, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_IMU, 
                 .is_recovered = true,
                 .reason = ESP_ERR_TIMEOUT
             };
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             is_fault_posted = false;
         }
         return {ESP_OK, acc, gyro};

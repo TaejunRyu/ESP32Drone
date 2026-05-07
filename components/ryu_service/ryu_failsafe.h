@@ -14,9 +14,6 @@
 #include <freertos/task.h>
 #include "ryu_sensor_event.h"
 
-// 에러 비트 정의 (Bitmask 방식)
-
-
 namespace Service
 {
 class  FailSafe{
@@ -85,7 +82,7 @@ class  FailSafe{
         bool is_initialized(){return _initialized;};
         esp_err_t reinit_all_sensors();
         static void event_handler_relay(void *arg, esp_event_base_t base, int32_t id, void *data);
-        void update_health(fault_event_data_t *fault);
+        void update_health(Event::fault_event_data_t *fault);
         static void failsafe_manager_task(void *pvParameters);
         BaseType_t start_task();
 

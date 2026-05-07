@@ -214,13 +214,14 @@ esp_err_t Flight::initialize()
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(10));
-    auto& failsafe      = Service::FailSafe::get_instance();
-        err = failsafe.initialize();
-        if (err != ESP_OK){
-            ESP_LOGI(TAG, "FailSafe Module Initialize Failed.");
-            return err;
-        }
-        vTaskDelay(pdMS_TO_TICKS(10));
+    // main.cpp 로 넘김..... 제일먼저 실행되어져 감시자 역활을 해야한다.
+    // auto& failsafe      = Service::FailSafe::get_instance();
+    //     err = failsafe.initialize();
+    //     if (err != ESP_OK){
+    //         ESP_LOGI(TAG, "FailSafe Module Initialize Failed.");
+    //         return err;
+    //     }
+    //     vTaskDelay(pdMS_TO_TICKS(10));
     auto& timer         = Service::Timer::get_instance();
         err = timer.intiallize();
         if (err != ESP_OK){
@@ -527,7 +528,7 @@ BaseType_t Flight::start_task()
     //auto& mavlink       = Service::Mavlink::get_instance();
     auto& telemetry     = Service::Telemetry::get_instance();
     //auto& pid           = Controller::PID::get_instance();
-    auto& failsafe      = Service::FailSafe::get_instance();
+    //auto& failsafe      = Service::FailSafe::get_instance();
     auto& timer         = Service::Timer::get_instance();
     
     esp_err_t ret;
@@ -587,6 +588,8 @@ BaseType_t Flight::start_task()
 
     // CORE 0
     BaseType_t res = pdPASS;
+    // res = failsafe.start_task();      // 6. failsafe task
+    // if (res != pdPASS) return res;
     res = espnow.start_task();        // 1. espnow tx task
     if (res != pdPASS) return res;
     res = flysky.start_task();        // 2. flysky task
@@ -596,8 +599,6 @@ BaseType_t Flight::start_task()
     res = telemetry.start_task();     // 4. telemetry task
     if (res != pdPASS) return res;
     res = battery.start_task();       // 5. battery check task
-    if (res != pdPASS) return res;
-    res = failsafe.start_task();      // 6. failsafe task
     if (res != pdPASS) return res;
     
     // CORE 1

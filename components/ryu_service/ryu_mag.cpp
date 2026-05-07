@@ -5,10 +5,10 @@
 #include "ryu_ak09916.h"
 #include "ryu_sensor_event.h"
 
+
+
 namespace Service{
     
-//ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
-
 esp_err_t Service::ManageMag::initialize(){
     if (_initialized) return ESP_OK;
     auto& ist8310 = Sensor::IST8310::get_instance();
@@ -42,13 +42,13 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
     if (this->err_continue_count > 6) {
         if (!this->is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_MAG, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_MAG, 
                 .is_recovered = false,
                 .reason = ESP_ERR_TIMEOUT 
             };
             // Failsafe 모듈에게 "MAG 둘 다 먹통임"을 알림
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_FAILED, &data, sizeof(data), 0);
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, &data, sizeof(data), 0);
             
             // 바로 풀어버리면 될까 ???????????????????????????????
             this->is_fault_posted = true; 
@@ -81,12 +81,12 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
 
         // [핵심] 복구되었다면 복구 이벤트 발행
         if (this->is_fault_posted) {
-            Service::fault_event_data_t data = { 
-                .id = Service::FAULT_ID_MAG, 
+            Event::fault_event_data_t data = { 
+                .id = Event::FAULT_ID_MAG, 
                 .is_recovered = true,
                 .reason = ESP_ERR_TIMEOUT
             };
-            esp_event_post(Service::SYS_FAULT_EVENT_BASE, Service::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             this->is_fault_posted = false;
         }
         return {ESP_OK, {this->avr_mag[0],this->avr_mag[1],this->avr_mag[2]}};

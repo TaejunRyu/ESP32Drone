@@ -12,18 +12,17 @@
 #include "ryu_config.h"
 #include "esp_log.h"
 
-
+namespace Event{
+    ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
+}
 
 namespace Service {
-
-// Service namespace 에는 오직하나만 존재한다 이곳에서 받는거기때문에 
-ESP_EVENT_DEFINE_BASE(SYS_FAULT_EVENT_BASE);
 
 esp_err_t FailSafe::initialize() {
     if(_initialized) return ESP_OK;
 
     // 이벤트 핸들러 등록: 어떤 센서든 에러가 나면 이 핸들러로 모임
-    esp_err_t err = esp_event_handler_instance_register(SYS_FAULT_EVENT_BASE, ESP_EVENT_ANY_ID,
+    esp_err_t err = esp_event_handler_instance_register(Event::SYS_FAULT_EVENT_BASE, ESP_EVENT_ANY_ID,
                                                &FailSafe::event_handler_relay, this, NULL);
     if (err != ESP_OK){
         ESP_LOGI(TAG,"esp_event_handler_instance_register failed.");
@@ -38,32 +37,32 @@ esp_err_t FailSafe::initialize() {
 // 릴레이 함수 (C 스타일 콜백을 클래스 메서드로 연결)
 void FailSafe::event_handler_relay(void* arg, esp_event_base_t base, int32_t id, void* data) {
     auto* obj = static_cast<FailSafe*>(arg);
-    auto* fault = static_cast<fault_event_data_t*>(data);
+    auto* fault = static_cast<Event::fault_event_data_t*>(data);
     obj->update_health(fault);
 }
 
 // event_handler_relay에서 실행하여 이벤트 올때마다 비트 변경.
-void FailSafe::update_health(fault_event_data_t* fault) {
+void FailSafe::update_health(Event::fault_event_data_t* fault) {
     uint32_t bit = 0;
     
     // ID에 매칭되는 비트 결정
     switch(fault->id) {
-        case FAULT_ID_IMU:{  
+        case Event::FAULT_ID_IMU:{  
             bit = SYS_HEALTH_IMU_OK;
             g_sys.error_hold_mode = true;  // 에러가 발생하여 HOLD_MODE 상태로 전환 ( 이 곳에서도 시스템 모드전환 및 산태 프래그를 체크하여 현재모드 설정을 어떻게 할지)
             break;
         }
-        case FAULT_ID_BARO:{
+        case Event::FAULT_ID_BARO:{
             bit = SYS_HEALTH_BARO_OK;
             break;
         }
-        case FAULT_ID_MAG:  bit = SYS_HEALTH_MAG_OK; break;
-        case FAULT_ID_GPS:{  
+        case Event::FAULT_ID_MAG:  bit = SYS_HEALTH_MAG_OK; break;
+        case Event::FAULT_ID_GPS:{  
             bit = SYS_HEALTH_GPS_OK; 
             g_sys.error_hold_mode = true;
             break;
         }
-        case FAULT_ID_RC:{   
+        case Event::FAULT_ID_RC:{   
             bit = SYS_HEALTH_RC_OK; 
             g_sys.error_hold_mode = true;
             break;
@@ -186,7 +185,7 @@ BaseType_t FailSafe::start_task()
 {
     auto res= xTaskCreatePinnedToCore(failsafe_manager_task, "failsafe_manager_task", 4096, this, 10,&_task_handle, 0);
     if (res != pdPASS) ESP_LOGE(TAG, "❌ 5.FailSafe Task is failed! code: %d", res);
-    else ESP_LOGI(TAG, "✓ 5.FailSafe Task is passed...");
+    else ESP_LOGI(TAG, "✓ FailSafe Task is passed. (Waiting for event...)");
     return res;
 }
 

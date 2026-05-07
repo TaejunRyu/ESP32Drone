@@ -4,10 +4,14 @@
 #include <esp_log.h>
 #include <esp_event.h>
 #include <esp_err.h>
+#include <nvs_flash.h>
+#include <nvs.h>
 #include "ryu_buzzer.h"
 #include "ryu_motor.h"
 #include "ryu_config.h"
 #include "ryu_led.h"
+#include "ryu_sensor_event.h"
+#include "ryu_failsafe.h"
 
 extern "C" {
 	void app_main(void);
@@ -20,6 +24,8 @@ void __attribute__((weak)) esp_panic_handler_reboot(void);
 
 static const char *TAG = "MAIN";
 
+
+
 // --- 메인 함수 ---
 void app_main(void) {
     ESP_LOGI(TAG, "=========================================");
@@ -28,27 +34,36 @@ void app_main(void) {
     //ESP_LOGI(TAG, "=========================================");
     
     check_system_health_on_boot();
-
     g_sys.system_status = SYS_STATE_BOOT;
    
-    //esp_log_level_set("*", ESP_LOG_NONE);   //(0): 로그 끔
-    //esp_log_level_set("*", ESP_LOG_ERROR);  //(1): 치명적 오류만 출력
-    //esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력
-    //esp_log_level_set("*", ESP_LOG_INFO);   //(3): 일반 정보까지 출력 (기본값)
-    //esp_log_level_set("*", ESP_LOG_DEBUG);  //(4): 디버그용 상세 정보
     esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
-    //esp_log_level_set("Mavlink", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     
     auto& led = Driver::Led::get_instance();
     led.initialize();
-    
+    led.on();
+ 
+   // 1. 기초 인프라 초기화 (가장 먼저)
+    esp_err_t ret = nvs_flash_init();
+    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        ret = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(ret);
+    // 2. 기본 시스템 이벤트 루프 생성 (이벤트 시스템 사용을 위해 필수)
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+
+    auto& failsafe      = Service::FailSafe::get_instance();
+    esp_err_t err = failsafe.initialize();
+    if (err != ESP_OK){
+        ESP_LOGI(TAG, "FailSafe Module Initialize Failed.");
+    }else{
+        failsafe.start_task();
+    }
 
     watch_dog_initialize();
 
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    
     auto& flight = Controller::Flight::get_instance();
-    esp_err_t err = flight.initialize();
+    err = flight.initialize();
     if (err != ESP_OK){
         ESP_LOGE(TAG, "Fligth Initialize Failed: %s", esp_err_to_name(err));
     }else{
@@ -56,7 +71,6 @@ void app_main(void) {
         if (ret != pdPASS){
             ESP_LOGE(TAG, "Fligth Task Staring... Failed.");
         }
-
     }
     check_memory_check();    
     while (true) {
@@ -65,6 +79,14 @@ void app_main(void) {
     }
 }
 
+//esp_log_level_set("*", ESP_LOG_NONE);   //(0): 로그 끔
+//esp_log_level_set("*", ESP_LOG_ERROR);  //(1): 치명적 오류만 출력
+//esp_log_level_set("*", ESP_LOG_WARN);   //(2): 경고까지 출력
+//esp_log_level_set("*", ESP_LOG_INFO);   //(3): 일반 정보까지 출력 (기본값)
+//esp_log_level_set("*", ESP_LOG_DEBUG);  //(4): 디버그용 상세 정보
+//esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
+//esp_log_level_set("Mavlink", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
+ 
 
 /**
  * @brief // 워치독 초기화 (5초 설정: 센서 재초기화 시간을 고려하여 넉넉히)

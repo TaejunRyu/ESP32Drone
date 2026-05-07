@@ -1,7 +1,17 @@
+/**
+ * @file ryu_sensor_event.h
+ * @author your name (you@domain.com)
+ * @brief 
+ * @version 0.1
+ * @date 2026-05-07
+ * 
+ * @copyright Copyright (c) 2026
+ * 
+ */
 #pragma once
 #include <esp_event.h>
 
-namespace Service {
+namespace Event {
     ESP_EVENT_DECLARE_BASE(SYS_FAULT_EVENT_BASE);
 
     enum {
@@ -27,4 +37,4 @@ namespace Service {
         esp_err_t reason;
     } fault_event_data_t;
     
-} // namespace Service
+} // namespace Event
