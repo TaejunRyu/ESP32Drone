@@ -56,98 +56,113 @@ esp_err_t Flysky::initialize()
 void Flysky::flysky_task(void *pvParameters)
 {
     auto flysky = static_cast< Flysky*>(pvParameters);
-
     uint32_t local_ppm[MAX_CHANNELS];
-    auto xLastWakeTime = xTaskGetTickCount();
-    const auto xFrequency = pdMS_TO_TICKS(50); // 1 loop에 50ms  x 20번 = 1000ms = 1 second
+
     while (true) {
-        // 1. 데이터 복사 (Critical Section 최소화)
-        {
+        uint32_t notificationValue = ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(100));
+
+        if (notificationValue > 0){
             portENTER_CRITICAL_SAFE(&flysky->_my_spinlock);
             memcpy(local_ppm, (const void*)flysky->_ppm_values, sizeof(local_ppm));
             portEXIT_CRITICAL_SAFE(&flysky->_my_spinlock);
-        }
 
-        // 2. 컴파일러 최적화 힌트 (C++23)
-        // 수신기 값이 정상 범위 내에 있다고 가정하여 분기 최적화 유도
-        [[assume(local_ppm[0] >= 800 && local_ppm[0] <= 2200)]];
-        
-        if(g_sys.is_armed){  // 신호 이상~~~~ 비상~~~~~~
-            if (local_ppm[0] < 800 || local_ppm[0] > 2200){
-                //auto& failsafe = Service::FailSafe::get_instance();
-                //xTaskNotify(failsafe._task_handle, Service::FailSafe::ERR_RC_LOST, eSetBits);                
+            Flysky::rc_data_t m_rc {};
+            m_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
+            
+            //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
+            m_rc.roll     = flysky->apply_deadzone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            m_rc.pitch    = flysky->apply_deadzone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            m_rc.yaw      = flysky->apply_deadzone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
+            
+            // 4. 스위치 처리 (간결한 삼항 연산자 구조)
+            m_rc.aux1 = (local_ppm[4] > 1500) ? 1 : 0;
+            m_rc.aux2 = (local_ppm[5] > 1500) ? 1 : 0;
+            
+            // SWC (3단 스위치)
+            const uint32_t swc = local_ppm[6];
+            m_rc.aux3 = (swc < 1300) ? 0 : (swc <= 1700) ? 1 : 2;
+            
+            m_rc.aux4 = (local_ppm[7] > 1500) ? 1 : 0;
+          
+            portENTER_CRITICAL(&flysky->_my_spinlock);
+            flysky->_rc_data = m_rc;
+            portEXIT_CRITICAL(&flysky->_my_spinlock);
+
+            if ( flysky->_rc_data.aux1 > 0){
+                g_sys.manual_hold_mode =true;
+            }else{
+                g_sys.manual_hold_mode =false;
+            }
+
+            // 시동(Arming) 로직
+            if (!g_sys.is_armed) {
+                if (flysky->is_arming_gesture(m_rc)) {
+                    g_sys.is_armed = true;
+                    esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);   
+                    Driver::Buzzer::get_instance().sound_connected();
+                }
+            } else {
+                if (flysky->is_disarming_gesture(m_rc)) {
+                    g_sys.is_armed = false;
+                    esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);   
+                    Driver::Buzzer::get_instance().sound_disconnected();
+                }
+            }
+
+        }else{
+            // 100ms 타임아웃 발생 (신호 유실)
+            if (g_sys.is_armed) {
+                portENTER_CRITICAL(&flysky->_my_spinlock);
+                flysky->_rc_data.throttle = 0;
+                flysky->_rc_data.roll = 0;
+                flysky->_rc_data.pitch = 0;
+                flysky->_rc_data.yaw = 0;
+                portEXIT_CRITICAL(&flysky->_my_spinlock);
+                // 필요하다면 시동을 강제로 끄는 로직 추가
+                // g_sys.is_armed = false;                 
+    
+                //ESP_LOGW(TAG, "RC LOST - Failsafe Active");
+
             }
         }
-
-        // 1. 스로틀: 1000~2000 -> 0~100% (범위 제한 필수)
-        g_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
-        
-        //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
-        g_rc.roll     = flysky->apply_deadzone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-        g_rc.pitch    = flysky->apply_deadzone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-        g_rc.yaw      = flysky->apply_deadzone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
-        
-        // 4. 스위치 처리 (간결한 삼항 연산자 구조)
-        g_rc.aux1 = (local_ppm[4] > 1500) ? 1 : 0;
-        g_rc.aux2 = (local_ppm[5] > 1500) ? 1 : 0;
-        
-        // SWC (3단 스위치)
-        const uint32_t swc = local_ppm[6];
-        g_rc.aux3 = (swc < 1300) ? 0 : (swc <= 1700) ? 1 : 2;
-        
-        g_rc.aux4 = (local_ppm[7] > 1500) ? 1 : 0;
-
-// 잡시 테스트를 위하여 막아놈......( flight.cpp에서 시동을 걸어놔서 시동 끄는 제스처가 먹히지 않음. )
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@        
-        // // 5. 시동(Arming) 로직
-        // if (!g_sys.is_armed) {
-        //     if (flysky->is_arming_gesture()) {
-        //         g_sys.is_armed = true;
-        //         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);   
-        //         Driver::Buzzer::get_instance().sound_connected();
-        //     }
-        // } else {
-        //     if (flysky->is_disarming_gesture()) {
-        //         g_sys.is_armed = false;
-        //         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);   
-        //         Driver::Buzzer::get_instance().sound_disconnected();
-        //     }
-        // }
-//@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-        
-        if ( g_rc.aux1 > 0){
-            g_sys.manual_hold_mode =true;
-        }else{
-            g_sys.manual_hold_mode =false;
-        }
-
-        vTaskDelayUntil(&xLastWakeTime, xFrequency);
     }
-
 }
 
-bool IRAM_ATTR Flysky::ppm_capture_callback(mcpwm_cap_channel_handle_t cap_chan, const mcpwm_capture_event_data_t *edata, void *user_data)
-{
-    auto flysky = static_cast< Flysky*>(user_data);
 
+bool IRAM_ATTR Flysky::ppm_capture_callback(mcpwm_cap_channel_handle_t cap_chan, const mcpwm_capture_event_data_t *edata, void *user_data) {
+    auto flysky = static_cast<Flysky*>(user_data);
     static uint32_t last_edge = 0;
+    static uint32_t temp_buffer[MAX_CHANNELS]; // 임시 버퍼
+    
     uint32_t current_edge = edata->cap_value;
-    uint32_t pulse_width = (current_edge - last_edge) / 80; // 80MHz 기준 us 단위 변환
+    uint32_t pulse_width = (current_edge - last_edge) / 80;
     last_edge = current_edge;
 
-    // PPM Sync 펄스 확인 (보통 3000us 이상이면 새로운 프레임 시작)
     if (pulse_width > 3000) {
+        // 모든 채널이 다 들어왔을 때만 복사 및 통지
+        if (flysky->_current_channel == MAX_CHANNELS) {
+            BaseType_t high_priority_task_woken = pdFALSE;
+            
+            portENTER_CRITICAL_SAFE(&flysky->_my_spinlock);
+            memcpy(flysky->_ppm_values, temp_buffer, sizeof(temp_buffer));
+            portEXIT_CRITICAL_SAFE(&flysky->_my_spinlock);
+
+            // Flysky 태스크에 데이터 도착 알림 전송
+            vTaskNotifyGiveFromISR(flysky->_task_handle, &high_priority_task_woken);
+            
+            if (high_priority_task_woken == pdTRUE) {
+                portYIELD_FROM_ISR();
+            }
+        }
         flysky->_current_channel = 0;
     } else {
         if (flysky->_current_channel < MAX_CHANNELS) {
-            portENTER_CRITICAL_SAFE(&flysky->_my_spinlock); 
-            flysky->_ppm_values[flysky->_current_channel] = pulse_width;
-            flysky->_current_channel++; 
-            portEXIT_CRITICAL_SAFE(&flysky->_my_spinlock);            
+            temp_buffer[flysky->_current_channel++] = pulse_width;
         }
     }
     return false;
 }
+
 
 float Flysky::apply_deadzone(float value, float zone)
 {
@@ -167,18 +182,16 @@ bool Flysky::check_gesture(bool condition, uint32_t &counter)
     return false;
 }
 
-bool Flysky::is_arming_gesture()
+bool Flysky::is_arming_gesture(const rc_data_t& rc)
 {
     static uint32_t arm_cnt = 0;
-    return check_gesture(g_rc.throttle < LOW_THROTTLE_THRESHOLD && 
-                         g_rc.yaw > YAW_ARM_THRESHOLD, arm_cnt);
+    return check_gesture(_rc_data.throttle < LOW_THROTTLE_THRESHOLD && _rc_data.yaw > YAW_ARM_THRESHOLD, arm_cnt);
 
 }
 
-bool Flysky::is_disarming_gesture() {
+bool Flysky::is_disarming_gesture(const rc_data_t& rc) {
     static uint32_t disarm_cnt = 0;
-    return check_gesture(g_rc.throttle < LOW_THROTTLE_THRESHOLD && 
-                         g_rc.yaw < -YAW_ARM_THRESHOLD, disarm_cnt);
+    return check_gesture(_rc_data.throttle < LOW_THROTTLE_THRESHOLD && _rc_data.yaw < -YAW_ARM_THRESHOLD, disarm_cnt);
 }
 
 BaseType_t Flysky::start_task()

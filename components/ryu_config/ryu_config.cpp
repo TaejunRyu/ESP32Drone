@@ -22,7 +22,7 @@ qgc_home_pos_t qgc_home_pos = {};
 qgc_roll_pid_t qgc_roll_pid = {};
 
 // RC 송수신기 데이터 초기화
-rc_data_t g_rc = {};
+//rc_data_t g_rc = {};
 
 // 고도 데이터 초기화
 altitude_data_t g_altitude = {};

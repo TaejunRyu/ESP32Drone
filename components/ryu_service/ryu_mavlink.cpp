@@ -57,11 +57,71 @@ void Mavlink::send_mav_command_ack(uint16_t command, uint8_t result, uint8_t pro
     send_mavlink_msg(&msg);
 }
 
+
+/**
+ * @brief QGC raw(1000 단위) -> 퍼센트(100 단위) -> i-BUS(1000~2000) 통합 변환
+ */
+uint16_t Mavlink::map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
+    float percent;
+    uint16_t ibus_val;
+
+    if (is_throttle) {
+        // 1. 0~1000 -> 0~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < 0) percent = 0;
+        if (percent > 100) percent = 100;
+
+        // 2. 0~100 -> 1000~2000 변환
+        ibus_val = (uint16_t)(percent * 10.0f) + 1000;
+    } else {
+        // 1. -1000~1000 -> -100~100 매핑
+        percent = raw_val / 10.0f;
+        if (percent < -100) percent = -100;
+        if (percent > 100) percent = 100;
+
+        // 2. -100~100 -> 1000~2000 변환 (0점 1500)
+        ibus_val = (uint16_t)(percent * 5.0f) + 1500;
+    }
+
+    return ibus_val;
+}
+
+
+
 void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
 {
     const mavlink_message_info_t *ret_msg= mavlink_get_message_info_by_id(msg->msgid);    
     
     switch (msg->msgid) {      
+
+        case MAVLINK_MSG_ID_MANUAL_CONTROL:{
+            // x, y, z, r 값은 이미 -1000 ~ 1000 (또는 z는 0~1000) 범위입니다.
+            float x = static_cast<float>(mavlink_msg_manual_control_get_x(msg)); // Roll
+            float y = static_cast<float>(mavlink_msg_manual_control_get_y(msg)); // Pitch
+            float z = static_cast<float>(mavlink_msg_manual_control_get_z(msg)); // Throttle
+            float r = static_cast<float>(mavlink_msg_manual_control_get_r(msg)); // Yaw
+
+            Flysky::rc_data_t m_rc;
+
+            // 1. Throttle (0~1000 -> 0~100)
+            m_rc.throttle = z * 0.1f; 
+
+            // 2. Roll/Pitch/Yaw (-1000~1000 -> -100~100)
+            m_rc.roll  = x * 0.1f;
+            m_rc.pitch = y * 0.1f;
+            m_rc.yaw   = r * 0.1f;
+
+            // 안전을 위한 범위 제한
+            m_rc.throttle = std::clamp(m_rc.throttle, 0.0f, 100.0f);
+            m_rc.roll     = std::clamp(m_rc.roll, -100.0f, 100.0f);
+            m_rc.pitch    = std::clamp(m_rc.pitch, -100.0f, 100.0f);
+            m_rc.yaw      = std::clamp(m_rc.yaw, -100.0f, 100.0f);
+
+            portENTER_CRITICAL(&_qgc_lock);
+            _qgc_rc_data = m_rc;
+            portEXIT_CRITICAL(&_qgc_lock);
+            break;
+        }
         case MAVLINK_MSG_ID_SYSTEM_TIME:{
             mavlink_message_t ret_msg;
             mavlink_msg_system_time_pack(SYSTEM_ID, COMPONENT_ID,&ret_msg,    // 보통 1 (Autopilot)                

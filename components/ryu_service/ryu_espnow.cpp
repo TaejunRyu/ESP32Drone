@@ -6,6 +6,7 @@
 #include "ryu_mavlink.h"
 #include "ryu_telemetry.h"
 
+
 namespace Service
 {   
 
@@ -86,53 +87,20 @@ if (len <= 0 || data == nullptr || recv_info == nullptr) return;
     auto& espnow = Service::EspNow::get_instance();
     // 실시간 정보를 구해서 bridge로 보낸다.
     espnow.current_rssi = recv_info->rx_ctrl->rssi;
-    espnow.noise_floor  = recv_info->rx_ctrl->noise_floor;
+    espnow.noise_floor  = recv_info->rx_ctrl->noise_floor;   
 
-    // 7,8,9번째 바이트가 메시지 ID(109)인지 확인 (Little Endian)
-    // [ 00000000 ] [ data[9] ] [ data[8] ] [ data[7] ] (총 32비트 중 24비트 사용)
-    uint32_t msgid =    (uint32_t)data[7]        | 
-                        ((uint32_t)data[8] << 8) | 
-                        ((uint32_t)data[9] << 16);
+    if (espnow.mavlink_rx_queue != NULL) {
+        Service::EspNow::esp_now_data_t pkt;
+        pkt.len = len;
+        // 실제 수신된 'data'를 pkt.data로 복사해야 함!
+        memcpy(pkt.buffer, data, len); 
 
-    // qgc에서 virtual joystik 운영시 packet을  어디로 보낼까?
-    if (msgid == MAVLINK_MSG_ID_MANUAL_CONTROL){
-        //  일단 보류 어떻게 할것인가는 추후 설정
-        int16_t roll        = data[10] | (data[11] << 8);
-        int16_t pitch       = data[12] | (data[13] << 8);
-        int16_t throttle    = data[14] | (data[15] << 8);
-        int16_t yaw         = data[16] | (data[17] << 8);
-        int16_t button      = data[18] | (data[19] << 8);
-        
-        //flysky의 ppm_values 에 데이터를 넣어  똑같은 진행으로 처리한다.
-
-        g_rc.roll       = espnow.map_qgc_to_ibus_final(roll,false);
-        g_rc.pitch      = espnow.map_qgc_to_ibus_final(pitch,false);
-        g_rc.throttle   = espnow.map_qgc_to_ibus_final(throttle,true);
-        g_rc.yaw        = espnow.map_qgc_to_ibus_final(yaw,false);
-        g_rc.aux1       = button; 
-    
-        //*********************************************************************************************************8 */
-        // printf("rc_data=> roll: %5.0f pitch: %5.0f throttle: %5.0f yaw: %5.0f button: %5.0f\n",
-        //                 g_rc.roll,
-        //                 g_rc.pitch,
-        //                 g_rc.throttle,
-        //                 g_rc.yaw,
-        //                 g_rc.aux1);
-
-    } else {
-        if (espnow.mavlink_rx_queue != NULL) {
-            Service::EspNow::esp_now_data_t pkt;
-            pkt.len = len;
-            // 실제 수신된 'data'를 pkt.data로 복사해야 함!
-            memcpy(pkt.buffer, data, len); 
-
-            // 큐에 넣기 (ISR이 아니므로 xQueueSend 사용 가능, 대기시간 0)
-            if (xQueueSend(espnow.mavlink_rx_queue, &pkt, 0) != pdTRUE) {
-                // 큐가 꽉 차서 버려지는 경우만 로그 출력
-                // ESP_LOGW("ESP_NOW", "RX Queue Full"); 
-            }
+        // 큐에 넣기 (ISR이 아니므로 xQueueSend 사용 가능, 대기시간 0)
+        if (xQueueSend(espnow.mavlink_rx_queue, &pkt, 0) != pdTRUE) {
+            // 큐가 꽉 차서 버려지는 경우만 로그 출력
+            // ESP_LOGW("ESP_NOW", "RX Queue Full"); 
         }
-    }    
+    }
 }
 
 void EspNow::on_esp_now_send(const wifi_tx_info_t *send_info, esp_now_send_status_t status)
@@ -230,34 +198,6 @@ std::array<uint8_t, 6> EspNow::get_my_mac_address(void)
     // std::array의 내부 배열 주소를 직접 넘겨줌 (.data() 사용)
     esp_read_mac(mac.data(), ESP_MAC_WIFI_STA);
     return mac;
-}
-
-/**
- * @brief QGC raw(1000 단위) -> 퍼센트(100 단위) -> i-BUS(1000~2000) 통합 변환
- */
-uint16_t EspNow::map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle) {
-    float percent;
-    uint16_t ibus_val;
-
-    if (is_throttle) {
-        // 1. 0~1000 -> 0~100 매핑
-        percent = raw_val / 10.0f;
-        if (percent < 0) percent = 0;
-        if (percent > 100) percent = 100;
-
-        // 2. 0~100 -> 1000~2000 변환
-        ibus_val = (uint16_t)(percent * 10.0f) + 1000;
-    } else {
-        // 1. -1000~1000 -> -100~100 매핑
-        percent = raw_val / 10.0f;
-        if (percent < -100) percent = -100;
-        if (percent > 100) percent = 100;
-
-        // 2. -100~100 -> 1000~2000 변환 (0점 1500)
-        ibus_val = (uint16_t)(percent * 5.0f) + 1500;
-    }
-
-    return ibus_val;
 }
 
 void EspNow::mavlink_tx_task(void *pvParameters)

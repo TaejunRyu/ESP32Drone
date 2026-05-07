@@ -1,7 +1,8 @@
 #include "ryu_motor.h"
 
+#include <cmath>
 #include <esp_log.h>
-
+#include "ryu_config.h"
 
 namespace Driver
 {
@@ -173,8 +174,13 @@ void Motor::set_drop_angle(int angle)
 
 void Motor::update_compare_value(std::array<float,4> values)
 {
-    for (size_t i = 0; auto comp : _comparators) {
-        mcpwm_comparator_set_compare_value(comp, static_cast<uint32_t>(values[i++]));
+     if (!g_sys.is_armed) {
+        stop_all_motors();
+        return;
+    }
+    for (size_t ii = 0; auto comp : _comparators) {
+        uint32_t val = static_cast<uint32_t>(std::round(values[ii++]));
+        mcpwm_comparator_set_compare_value(comp, val);
     }
 }
 

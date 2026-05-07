@@ -25,6 +25,7 @@
 #include "ryu_i2c.h"
 #include "ryu_magsensor.h"
 #include "ryu_icm20948.h"
+#include "ryu_mavlink.h"
 #include "ryu_businterface.h"
 
 namespace Controller
@@ -254,12 +255,13 @@ void Flight::flight_task(void *pvParameters)
     auto& pid           = Controller::PID::get_instance();
     auto& mahony        = Service::Mahony::get_instance();
     //auto& failsafe      = Service::FailSafe::get_instance();
-    
+    auto& flysky        = Service::Flysky::get_instance();
     // ist8310,ak09916을 한 class에 묶어서 내부에서 일기로직을 처리.
     auto& managed_mag  = Service::ManageMag::get_instance();
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
 
+    auto& mavlink       = Service::Mavlink::get_instance();
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
@@ -357,8 +359,6 @@ void Flight::flight_task(void *pvParameters)
         float declinationAngle = 7.7f * DEG_TO_RAD;
         actual_compass_heading += declinationAngle;
 
-// 변수 변화확인용
-//if (loop_cnt % 16 == 0) ESP_LOGI("MAIN", "yaw_rad: %8.3f", yaw_rad);
 
         // 3. 각도 범위 정규화 (-PI ~ +PI) -> PID 제어에 유리함
         // 3. 각도 범위 정규화 (-PI ~ +PI)
@@ -387,12 +387,33 @@ void Flight::flight_task(void *pvParameters)
             pid.reset_pid(&pid.pid_alt_pos);  
         }else{
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
-            // 감도를 높이려면 값을 키우면 된다.              
-            float tg_throttle = g_rc.throttle * 10.0f; 
-            float tg_roll     = g_rc.roll     * 0.3f; 
-            float tg_pitch    = g_rc.pitch    * 0.3f; 
-            float tg_yaw_rate = g_rc.yaw      * 1.5f; 
-            
+            // 감도를 높이려면 값을 키우면 된다.                         
+            float tg_throttle=0.0f, tg_roll=0.0f, tg_pitch=0.0f, tg_yaw_rate=0.0f;
+            // [개선안: 복사만 수행]
+            Service::Flysky::rc_data_t temp_rc;            
+            flysky.get_latest_rc(&temp_rc); 
+
+            Service::Flysky::rc_data_t flysky_rc, qgc_rc, final_rc;
+            Service::Flysky::get_instance().get_latest_rc(&flysky_rc);
+            Service::Mavlink::get_instance().get_qgc_rc(&qgc_rc);
+
+            // 조종기가 켜져 있으면(스로틀이 1000 이상이면) 조종기 우선, 아니면 QGC
+            if (flysky_rc.throttle > 5.0f) {
+                final_rc = flysky_rc;
+            } else {
+                final_rc = qgc_rc;
+            }
+
+            // 연산은 Lock 밖에서 수행
+            tg_throttle = final_rc.throttle * 10.0f;
+            tg_roll     = final_rc.roll     * 0.3f;
+            tg_pitch    = final_rc.pitch    * 0.3f;
+            tg_yaw_rate = final_rc.yaw      * 1.5f;
+
+// 변수 변화확인용
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throttle: %8.3f",  tg_roll,tg_pitch,tg_yaw_rate,tg_throttle);
+
+
             static float target_alt = 0.0f;
             static float alt_throttle_offset = 0.0f;   
             static bool last_alt_hold_state = false;
