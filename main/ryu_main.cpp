@@ -24,10 +24,9 @@ void __attribute__((weak)) esp_panic_handler_reboot(void);
 
 static const char *TAG = "MAIN";
 
-
-
 // --- 메인 함수 ---
 void app_main(void) {
+    esp_err_t err = ESP_OK;
     ESP_LOGI(TAG, "=========================================");
     ESP_LOGI(TAG, "RYU-Drone v2.0 starting...");
     ESP_LOGI(TAG, "ESP32 MCU");
@@ -39,30 +38,40 @@ void app_main(void) {
     esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     
     auto& led = Driver::Led::get_instance();
-    led.initialize();
+    err = led.initialize();
+    if (err != ESP_OK){
+        ESP_LOGE(TAG, "Driver Initialize Failed.");
+    }
     led.on();
  
    // 1. 기초 인프라 초기화 (가장 먼저)
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+    err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES || err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
+        err = nvs_flash_init();
     }
-    ESP_ERROR_CHECK(ret);
-    // 2. 기본 시스템 이벤트 루프 생성 (이벤트 시스템 사용을 위해 필수)
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-
-    auto& failsafe      = Service::FailSafe::get_instance();
-    esp_err_t err = failsafe.initialize();
     if (err != ESP_OK){
-        ESP_LOGI(TAG, "FailSafe Module Initialize Failed.");
+        ESP_LOGE(TAG, "nvs_flash Initialize Failed.");
+    }
+    
+    // 2. 기본 시스템 이벤트 루프 생성 (이벤트 시스템 사용을 위해 필수)
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK){
+        ESP_LOGE(TAG, "esp_event_loop Create Failed.");
+    }
+    auto& failsafe      = Service::FailSafe::get_instance();
+    err = failsafe.initialize();
+    if (err != ESP_OK){
+        ESP_LOGE(TAG, "FailSafe Initialize Failed.");
     }else{
         failsafe.start_task();
     }
 
     auto& manager = Service::FlightEventManager::get_instance();
-    manager.initialize();
-
+    err = manager.initialize();
+    if (err != ESP_OK){
+        ESP_LOGE(TAG, "FLight Event Manager Initialize Failed.");
+    }
     
     watch_dog_initialize();
 
@@ -73,7 +82,7 @@ void app_main(void) {
     }else{
         BaseType_t ret = flight.start_task();
         if (ret != pdPASS){
-            ESP_LOGE(TAG, "Fligth Task Staring... Failed.");
+            ESP_LOGE(TAG, "Flight Task Starting... Failed.");
         }
     }
     check_memory_check();    
