@@ -5,9 +5,9 @@
 #include "ryu_ak09916.h"
 #include "ryu_sensor_event.h"
 
-namespace Service{
+namespace Sensor{
     
-esp_err_t Service::ManageMag::initialize(){
+esp_err_t ManageMag::initialize(){
     if (_initialized) return ESP_OK;
     auto& ist8310 = Sensor::IST8310::get_instance();
     auto& ak09916 = Sensor::AK09916::get_instance();

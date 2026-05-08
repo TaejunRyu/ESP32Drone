@@ -7,6 +7,7 @@ idf_component_register(
         "ryu_gps.cpp"
         "ryu_icm20948.cpp"
         "ryu_ist8310.cpp"
+        "ryu_magsensor.cpp"
         
     INCLUDE_DIRS "."             # "현재 폴더(.)를 헤더 경로로 쓰겠다"는 뜻
     REQUIRES    

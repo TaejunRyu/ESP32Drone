@@ -257,7 +257,7 @@ void Flight::flight_task(void *pvParameters)
     //auto& failsafe      = Service::FailSafe::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
     // ist8310,ak09916을 한 class에 묶어서 내부에서 일기로직을 처리.
-    auto& managed_mag  = Service::ManageMag::get_instance();
+    auto& managed_mag  = Sensor::ManageMag::get_instance();
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
 

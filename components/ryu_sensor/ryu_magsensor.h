@@ -14,7 +14,7 @@ namespace Interface{
     enum class BusType;
 }
 
-namespace Service{
+namespace Sensor{
 
 class  ManageMag{
     private:
