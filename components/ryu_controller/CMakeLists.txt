@@ -3,7 +3,6 @@ file(GLOB SOURCES "*.cpp")
 idf_component_register(
      SRCS ${SOURCES}
     INCLUDE_DIRS  "."             # "현재 폴더(.)를 헤더 경로로 쓰겠다"는 뜻
-                  "../../main"  
                    
     REQUIRES    
         esp_driver_gpio 
