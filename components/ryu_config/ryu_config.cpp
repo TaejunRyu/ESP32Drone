@@ -15,6 +15,7 @@ sys_t g_sys = {
 };   
 
 attitude_data_t g_attitude = {};
+portMUX_TYPE g_attitude_mux = portMUX_INITIALIZER_UNLOCKED;
 
 // qgc에서 지도상의 위치에서 home지정해준 위치.
 qgc_home_pos_t qgc_home_pos = {};

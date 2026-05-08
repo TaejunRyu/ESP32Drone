@@ -101,8 +101,7 @@ struct attitude_data_t{
     float   yawspeed;
 };
 extern attitude_data_t g_attitude;
-
-
+extern portMUX_TYPE g_attitude_mux;
 
 
 // // --- RC 송수신기 데이터 ---

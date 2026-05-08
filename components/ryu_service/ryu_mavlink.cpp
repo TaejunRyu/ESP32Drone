@@ -119,9 +119,9 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             m_rc.yaw      = std::clamp(m_rc.yaw,        -100.0f, 100.0f);
 
             // 이하의 숫자는 0으로 처리.....
-            Utils::Apply_DeadZone(m_rc.roll ,2.0f);
-            Utils::Apply_DeadZone(m_rc.pitch,2.0f);
-            Utils::Apply_DeadZone(m_rc.yaw  ,3.0f);
+            // Utils::Apply_DeadZone(m_rc.roll ,2.0f);
+            // Utils::Apply_DeadZone(m_rc.pitch,2.0f);
+            // Utils::Apply_DeadZone(m_rc.yaw  ,3.0f);
 
             portENTER_CRITICAL(&_qgc_lock);
             _qgc_rc_data = m_rc;
@@ -590,18 +590,21 @@ void Mavlink::MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavl
 
 void Mavlink::on_timer_tick()
 {
-    //auto& mavlink = Service::Mavlink::get_instance();
+    attitude_data_t m_attitude;
+    portENTER_CRITICAL(&g_attitude_mux);
+    m_attitude = g_attitude;
+    portEXIT_CRITICAL(&g_attitude_mux);
 
     static uint8_t step = 0;
     mavlink_message_t msg;
     // 10hz로 구분하고 있으므로 매번 처리...
     mavlink_msg_attitude_pack(SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000, 
-                                                -g_attitude.roll   * DEG_TO_RAD, 
-                                                -g_attitude.pitch  * DEG_TO_RAD, 
-                                                g_attitude.yaw    * DEG_TO_RAD, 
-                                                g_attitude.rollspeed    * DEG_TO_RAD, 
-                                                g_attitude.pitchspeed   * DEG_TO_RAD, 
-                                                g_attitude.yawspeed     * DEG_TO_RAD );
+                                                -m_attitude.roll   * DEG_TO_RAD, 
+                                                -m_attitude.pitch  * DEG_TO_RAD, 
+                                                m_attitude.yaw    * DEG_TO_RAD, 
+                                                m_attitude.rollspeed    * DEG_TO_RAD, 
+                                                m_attitude.pitchspeed   * DEG_TO_RAD, 
+                                                m_attitude.yawspeed     * DEG_TO_RAD );
     send_mavlink_msg(&msg);
 
     static Sensor::Gps::gps_data_t m_gps={};
@@ -741,7 +744,7 @@ void Mavlink::on_timer_tick()
                         m_gps.vAcc,                                 // 수직 정확도 (mm)
                         m_gps.sAcc,                                 // 속도 정확도 (mm/s)
                         0,                                          // hdg_acc – [degE5] Heading / track uncertainty
-                        static_cast<uint16_t>(g_attitude.heading * 100.0f) // yaw (cdeg 단위로 변환)
+                        static_cast<uint16_t>(m_attitude.heading * 100.0f) // yaw (cdeg 단위로 변환)
                     );
                     send_mavlink_msg(&msg);
             }
@@ -764,7 +767,7 @@ void Mavlink::on_timer_tick()
                     static_cast<int16_t>(m_gps.velN),   // 단위(cm/s) gps에서 데이터를 받아 처리 VGT문장에서 받으면 된다.
                     static_cast<int16_t>(m_gps.velE),
                     static_cast<int16_t>(m_gps.velD),
-                    static_cast<int16_t>(g_attitude.heading * 100.0f));
+                    static_cast<int16_t>(m_attitude.heading * 100.0f));
                     send_mavlink_msg(&msg);
             }
             break;

@@ -71,10 +71,15 @@ void Flysky::flysky_task(void *pvParameters)
             m_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
             
             //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
-            m_rc.roll     = Utils::Apply_DeadZone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-            m_rc.pitch    = Utils::Apply_DeadZone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-            m_rc.yaw      = Utils::Apply_DeadZone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
-            
+            // m_rc.roll     = Utils::Apply_DeadZone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            // m_rc.pitch    = Utils::Apply_DeadZone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            // m_rc.yaw      = Utils::Apply_DeadZone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
+
+            m_rc.roll     = static_cast<float>(local_ppm[0]) - 1500.0f * ATT_SCALE;
+            m_rc.pitch    = static_cast<float>(local_ppm[1]) - 1500.0f * ATT_SCALE;
+            m_rc.yaw      = static_cast<float>(local_ppm[3]) - 1500.0f * ATT_SCALE;
+
+
             // 4. 스위치 처리 (간결한 삼항 연산자 구조)
             m_rc.aux1 = (local_ppm[4] > 1500) ? 1 : 0;
             m_rc.aux2 = (local_ppm[5] > 1500) ? 1 : 0;

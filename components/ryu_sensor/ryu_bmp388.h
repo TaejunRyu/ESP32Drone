@@ -45,7 +45,8 @@ class BMP388{
         esp_err_t deinitialize();
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();        
-        std::tuple<esp_err_t, float,float> Managed_get_relative_altitude();
+        //std::tuple<esp_err_t, float,float> Managed_get_relative_altitude();
+        esp_err_t Managed_get_relative_altitude(float *return_alt, float *return_rate);
         float get_climb_rate(){return _climb_rate;};
         esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
 
@@ -98,7 +99,7 @@ class BMP388{
 
         std::tuple<esp_err_t, float> get_pressure();
 
-
+        
         bool _initialized = false;
         std::string _name {};
         bool _isAlive = false;

@@ -283,7 +283,7 @@ std::tuple <esp_err_t,float> BMP388::get_pressure()
     }
 }
 
-std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
+esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return_rate ){
     static size_t active_index = 0;
     static size_t err_count = 0;        
     static size_t err_continue_count = 0;
@@ -307,7 +307,10 @@ std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
             
             ESP_LOGE(TAG, "Both Baro sensors failed. Event posted.");
         }
-        return {ESP_FAIL, baro_alt,clib_rate}; 
+        *return_alt  = baro_alt;
+        *return_rate = clib_rate;
+
+        return ESP_FAIL; 
     }
 
     // 센서 읽기 로직 (Main/Sub 스위칭)
@@ -332,7 +335,10 @@ std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
             esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             is_fault_posted = false;
         }
-        return {ESP_OK, alt, rate};
+        *return_alt  = baro_alt;
+        *return_rate = clib_rate;
+
+        return ESP_OK;
     } 
     else {
         // 실패 시 스위칭 로직
@@ -343,7 +349,10 @@ std::tuple<esp_err_t ,float,float> BMP388::Managed_get_relative_altitude(){
             err_count = 0;
             err_continue_count++;
         }
-        return {err, baro_alt,clib_rate};
+        *return_alt  = baro_alt;
+        *return_rate = clib_rate;
+
+        return err;
     }
 }
 
