@@ -75,9 +75,10 @@ public:
 
     // 데이터 읽기
     std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_raw_data();
-    std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();    
+    std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> read_with_offset();
+    esp_err_t Managed_read_with_offset(float *arg_acc, float *arg_gyro,size_t size);
     // 통합 관리 함수 (예: Main/Sub 데이터 동시 처리 등)
-    std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> Managed_read_with_offset();
+    //std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> Managed_read_with_offset();
     std::array<float, 3> get_mag() { return _mag_data; } // 지자계 데이터 접근자
 private:
     Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어

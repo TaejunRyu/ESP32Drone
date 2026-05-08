@@ -265,7 +265,7 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     return {ret,acc,gyro};
 }
 
-std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Managed_read_with_offset()
+esp_err_t ICM20948::Managed_read_with_offset(float* arg_acc ,float*arg_gyro,size_t size)
 {
     static size_t active_index = 0;
     static size_t err_count = 0;        
@@ -287,7 +287,13 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
             is_fault_posted = true; 
             ESP_LOGE(TAG, "Both IMU sensors failed. Event posted.");
         }
-        return {ESP_FAIL, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}}; 
+        memcpy(arg_acc,avr_acc,sizeof(float)*size);
+        memcpy(arg_gyro,avr_gyro,sizeof(float)*size);
+        
+        //arg_acc[0] = avr_acc[0];arg_acc[1] = avr_acc[1];arg_acc[2] = avr_acc[2];
+        //arg_gyro[0] = avr_gyro[0];arg_gyro[1] = avr_gyro[1];arg_gyro[2] = avr_gyro[2];
+        return ESP_FAIL;
+        //return {ESP_FAIL, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}}; 
     }
 
     // 센서 읽기 로직 (Main/Sub 스위칭)
@@ -310,7 +316,12 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
             esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             is_fault_posted = false;
         }
-        return {ESP_OK, acc, gyro};
+        memcpy(arg_acc,acc.data(),sizeof(float)*size);
+        memcpy(arg_gyro,gyro.data(),sizeof(float)*size);
+        //arg_acc = acc.data();
+        //arg_gyro = gyro.data();
+        return ESP_OK;
+        //return {ESP_OK, acc, gyro};
     } 
     else {
         // 실패 시 스위칭 로직
@@ -321,7 +332,14 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::Mana
             err_count = 0;
             err_continue_count++;
         }
-        return {err, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}};
+        memcpy(arg_acc,avr_acc,sizeof(float)*size);
+        memcpy(arg_gyro,avr_gyro,sizeof(float)*size);
+        
+        //arg_acc = avr_acc;
+        //arg_gyro = avr_gyro;
+
+        return err;
+        //return {err, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}};
     }
 }
 

@@ -104,19 +104,6 @@ extern attitude_data_t g_attitude;
 extern portMUX_TYPE g_attitude_mux;
 
 
-// // --- RC 송수신기 데이터 ---
-// struct rc_data_t {
-//     volatile float throttle;  // 스로틀 (0~100%)
-//     volatile float roll;      // 롤 (-100~100)
-//     volatile float pitch;     // 피치 (-100~100)
-//     volatile float yaw;       // 요 (-100~100)
-//     volatile float aux1;      // 보조 채널 1 (고도 유지)
-//     volatile float aux2;      // 보조 채널 2
-//     volatile float aux3;      // 보조 채널 3 (SWC 3단)
-//     volatile float aux4;      // 보조 채널 4
-// };
-// extern rc_data_t g_rc;  ///< 조종기 입력 데이터
-
  
 // --- 고도 데이터 ---
 struct altitude_data_t {

@@ -278,9 +278,7 @@ void Flight::flight_task(void *pvParameters)
         //Watch Dog에게 "나 살아 있어!"" 라고 알린다.  
         esp_task_wdt_reset(); 
         
-        // 연속적인 데이터 읽기 실패를 체크한다.
-        esp_err_t ret_code = ESP_FAIL;
- 
+        // 연속적인 데이터 읽기 실패를 체크한다. 
         static float    calculation_acc_x  = 0.0f,  
                         calculation_acc_y  = 0.0f,  
                         calculation_acc_z  = 0.0f;
@@ -288,8 +286,11 @@ void Flight::flight_task(void *pvParameters)
                         calculation_gyro_y = 0.0f,  
                         calculation_gyro_z = 0.0f;
 
-        auto [ret,macc,mgyro] = icm20948_main.Managed_read_with_offset();
-        if (ret == ESP_OK){
+
+
+        float macc[3]={},mgyro[3]={};
+        esp_err_t ret_code = icm20948_main.Managed_read_with_offset( macc, mgyro,sizeof(macc));
+        if (ret_code == ESP_OK){
             calculation_acc_x  = macc[0] ;
             calculation_acc_y  = macc[1] ;
             calculation_acc_z  = macc[2] ;
@@ -316,7 +317,7 @@ void Flight::flight_task(void *pvParameters)
                     calulation_mag_z=mag[2];
                 } 
                 //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calulation_mag_x,calulation_mag_y,calulation_mag_z);
-                ret_code = ret;
+                ret_code = ret_mag;
             }
         }
         mahony.MahonyAHRSupdate(   
