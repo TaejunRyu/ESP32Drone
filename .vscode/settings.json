@@ -1,11 +1,17 @@
 {
-    "idf.currentSetup": "/home/ryuwillow/.espressif/v6.0/esp-idf",
-    "idf.port": "/dev/ttyUSB0",
-    "idf.flashType": "UART",
-    "idf.customExtraVars": {
-        "IDF_TARGET": "esp32"
-    },
-    "idf.openOcdConfigs": [
-        "board/esp32-wrover-kit-3.3v.cfg"
-    ]    
+  "idf.currentSetup": "/home/ryuwillow/.espressif/v6.0/esp-idf",
+  "idf.port": "/dev/ttyUSB0",
+  "idf.flashType": "UART",
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32"
+  },
+  "idf.openOcdConfigs": [
+    "board/esp32-wrover-kit-3.3v.cfg"
+  ],
+  "clangd.path": "/home/ryuwillow/.espressif/tools/esp-clang/esp-20.1.1_20250829/esp-clang/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=/home/ryuwillow/Programming/esp32/ESP32Drone/build"
+  ]
 }
