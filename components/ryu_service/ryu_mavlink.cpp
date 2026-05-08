@@ -19,6 +19,7 @@
 #include "ryu_battery.h"
 #include "ryu_flight_task.h"
 #include "ryu_flight_event.h"
+#include "ryu_utils.h"
 
 namespace Service{
 
@@ -112,14 +113,19 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             m_rc.yaw   = r * 0.1f;
 
             // 안전을 위한 범위 제한
-            m_rc.throttle = std::clamp(m_rc.throttle, 0.0f, 100.0f);
-            m_rc.roll     = std::clamp(m_rc.roll, -100.0f, 100.0f);
-            m_rc.pitch    = std::clamp(m_rc.pitch, -100.0f, 100.0f);
-            m_rc.yaw      = std::clamp(m_rc.yaw, -100.0f, 100.0f);
+            m_rc.throttle = std::clamp(m_rc.throttle,      0.0f, 100.0f);
+            m_rc.roll     = std::clamp(m_rc.roll,       -100.0f, 100.0f);
+            m_rc.pitch    = std::clamp(m_rc.pitch,      -100.0f, 100.0f);
+            m_rc.yaw      = std::clamp(m_rc.yaw,        -100.0f, 100.0f);
+
+            // 이하의 숫자는 0으로 처리.....
+            Utils::Apply_DeadZone(m_rc.roll ,2.0f);
+            Utils::Apply_DeadZone(m_rc.pitch,2.0f);
+            Utils::Apply_DeadZone(m_rc.yaw  ,3.0f);
 
             portENTER_CRITICAL(&_qgc_lock);
             _qgc_rc_data = m_rc;
-            portEXIT_CRITICAL(&_qgc_lock);
+            portEXIT_CRITICAL(&_qgc_lock); 
             break;
         }
         case MAVLINK_MSG_ID_SYSTEM_TIME:{

@@ -4,6 +4,7 @@ idf_component_register(
      SRCS ${SOURCES}
     INCLUDE_DIRS 
         "."
+        "../../main"
     REQUIRES
         esp_timer
         esp_event
@@ -20,4 +21,6 @@ idf_component_register(
         ryu_driver 
         ryu_sensor
         ryu_event
+        ryu_utils
+
 )

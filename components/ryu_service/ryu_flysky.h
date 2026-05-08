@@ -66,7 +66,6 @@ class Flysky{
             *out_data = _rc_data; // 구조체 복사
             portEXIT_CRITICAL(&_my_spinlock);
         }
-        float apply_deadzone(float value, float zone);
         bool check_gesture(bool condition, uint32_t& counter);
         bool is_arming_gesture(const rc_data_t& rc);
         bool is_disarming_gesture(const rc_data_t& rc);
@@ -74,7 +73,7 @@ class Flysky{
         BaseType_t start_task();
 
     private:
-        rc_data_t _rc_data; // 내부 저장용
+        rc_data_t _rc_data = {}; // 내부 저장용
 
         TaskHandle_t    _task_handle = nullptr;
         int             _current_channel = 0;

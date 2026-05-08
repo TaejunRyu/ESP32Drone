@@ -10,33 +10,50 @@ namespace Controller
 esp_err_t PID::initialize()
 {
     if(_initialized) return ESP_OK;
-    // PID 구조체 초기화 (기본값 0)
-    // 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
-    // Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
-    // Alt Rate         (Inner)	    상승/하강 속도 제어	50.0 ~ 100.0	 10.0 ~ 20.0	 0.05	        단위: (m/s) -> PWM 변량
-    pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_alt_rate    = { .kp = 50.0f, .ki = 10.0f,  .kd = 0.5f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // // PID 구조체 초기화 (기본값 0)
+    // // 제어기 명칭	       역할	    P (Proportional)	                I (Integral)	D (Derivative)	비고
+    // // Alt Position     (Outer)	    목표 고도 유지	1.0 ~ 2.0	        0.0	            0.0	단위:       (m) -> (m/s) 변환
+    // // Alt Rate         (Inner)	    상승/하강 속도 제어	50.0 ~ 100.0	 10.0 ~ 20.0	 0.05	        단위: (m/s) -> PWM 변량
+    // pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_alt_rate    = { .kp = 50.0f, .ki = 10.0f,  .kd = 0.5f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
-    // 1. 각도 제어용 (Outer Loop) - P값 위주
-    // PID 구조체 초기값 (추천 가이드)
-    // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
-    // Angle (Outer)	    각도 유지	    4.5	                0.0	            0.0	            오직 P값만 사용해도
-    pid_roll_angle  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_pitch_angle = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_yaw_angle   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
+    // // 1. 각도 제어용 (Outer Loop) - P값 위주
+    // // PID 구조체 초기값 (추천 가이드)
+    // // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
+    // // Angle (Outer)	    각도 유지	    4.5	                0.0	            0.0	            오직 P값만 사용해도
+    // pid_roll_angle  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_pitch_angle = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_yaw_angle   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
 
-    // 2. 각속도 제어용 (Inner Loop) - 실제 기체 반응 결정
-    // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
-    // Rate (Inner)	        진동/회전 제어	0.15	            0.1	            0.003	        가장 정밀하게 튜닝 필요
-    // Yaw Rate	회전        속도 제어	    0.20	            0.05	        0.0	            값은 거의 사용 안 함
+    // // 2. 각속도 제어용 (Inner Loop) - 실제 기체 반응 결정
+    // // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
+    // // Rate (Inner)	        진동/회전 제어	0.15	            0.1	            0.003	        가장 정밀하게 튜닝 필요
+    // // Yaw Rate	회전        속도 제어	    0.20	            0.05	        0.0	            값은 거의 사용 안 함
 
-    pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_roll_rate   = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_pitch_rate  = { .kp = 0.15f, .ki = 0.1f,  .kd = 0.003f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_yaw_rate    = { .kp = 0.25f, .ki = 0.05f, .kd = 0.0f  ,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+
+
+    // 450급 드론용 추천 파라미터 세팅( AI 추천 셋팅)
+    pid_roll_angle  = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f };
+    pid_pitch_angle = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f };
+    pid_yaw_angle   = { .kp = 2.5f, .ki = 0.0f,  .kd = 0.0f };
+
+    pid_roll_rate   = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f };
+    pid_pitch_rate  = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f };
+    pid_yaw_rate    = { .kp = 0.25f, .ki = 0.08f, .kd = 0.0f };
+
+    pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f };
+    pid_alt_rate    = { .kp = 50.0f, .ki = 15.0f,  .kd = 0.5f };
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
     return ESP_OK;
+}
+
+void PID::reset_pid_iterm(drone_pid_t *p) {
+    p->integral = 0.0f;
 }
 
 void PID::reset_pid(drone_pid_t *p)

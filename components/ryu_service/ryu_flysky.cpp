@@ -9,6 +9,7 @@
 #include "ryu_failsafe.h"
 #include "ryu_flight_event.h"
 #include "ryu_buzzer.h"
+#include "ryu_utils.h"
 
 
 namespace Service
@@ -70,9 +71,9 @@ void Flysky::flysky_task(void *pvParameters)
             m_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
             
             //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
-            m_rc.roll     = flysky->apply_deadzone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-            m_rc.pitch    = flysky->apply_deadzone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
-            m_rc.yaw      = flysky->apply_deadzone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
+            m_rc.roll     = Utils::Apply_DeadZone((static_cast<float>(local_ppm[0]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            m_rc.pitch    = Utils::Apply_DeadZone((static_cast<float>(local_ppm[1]) - 1500.0f) * ATT_SCALE, DEADZONE_RP);
+            m_rc.yaw      = Utils::Apply_DeadZone((static_cast<float>(local_ppm[3]) - 1500.0f) * ATT_SCALE, DEADZONE_YAW);
             
             // 4. 스위치 처리 (간결한 삼항 연산자 구조)
             m_rc.aux1 = (local_ppm[4] > 1500) ? 1 : 0;
@@ -164,10 +165,7 @@ bool IRAM_ATTR Flysky::ppm_capture_callback(mcpwm_cap_channel_handle_t cap_chan,
 }
 
 
-float Flysky::apply_deadzone(float value, float zone)
-{
-    return (std::abs(value) < zone) ? 0.0f : value;
-}
+
 
 bool Flysky::check_gesture(bool condition, uint32_t &counter)
 {

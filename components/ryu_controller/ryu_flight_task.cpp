@@ -261,7 +261,7 @@ void Flight::flight_task(void *pvParameters)
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
 
-    auto& mavlink       = Service::Mavlink::get_instance();
+    //auto& mavlink       = Service::Mavlink::get_instance();
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
@@ -354,6 +354,14 @@ void Flight::flight_task(void *pvParameters)
         g_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
         actual_compass_heading   = atan2f(2.0f * (mahony.q1 * mahony.q2 + mahony.q0 * mahony.q3), q0q0 + q1q1 - q2q2 - q3q3);
 
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "g_att roll: %8.3f g_att pit: %8.3f compass heading: %8.3f",  
+//                                     g_attitude.roll ,
+//                                     g_attitude.pitch,
+//                                     actual_compass_heading);
+
+
+
+
         // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
         float declinationAngle = 7.7f * DEG_TO_RAD;
@@ -388,30 +396,42 @@ void Flight::flight_task(void *pvParameters)
         }else{
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
             // 감도를 높이려면 값을 키우면 된다.                         
-            float tg_throttle=0.0f, tg_roll=0.0f, tg_pitch=0.0f, tg_yaw_rate=0.0f;
             // [개선안: 복사만 수행]
             Service::Flysky::rc_data_t temp_rc;            
-            flysky.get_latest_rc(&temp_rc); 
+            flysky.get_latest_rc(&temp_rc);  
 
             Service::Flysky::rc_data_t flysky_rc, qgc_rc, final_rc;
             Service::Flysky::get_instance().get_latest_rc(&flysky_rc);
-            Service::Mavlink::get_instance().get_qgc_rc(&qgc_rc);
-
+  
             // 조종기가 켜져 있으면(스로틀이 1000 이상이면) 조종기 우선, 아니면 QGC
             if (flysky_rc.throttle > 5.0f) {
                 final_rc = flysky_rc;
             } else {
+                // 25hz로 qgc에서 rc데이터를 보낸다.
+                Service::Mavlink::get_instance().get_qgc_rc(&qgc_rc);
                 final_rc = qgc_rc;
             }
-
-            // 연산은 Lock 밖에서 수행
-            tg_throttle = final_rc.throttle * 10.0f;
-            tg_roll     = final_rc.roll     * 0.3f;
-            tg_pitch    = final_rc.pitch    * 0.3f;
-            tg_yaw_rate = final_rc.yaw      * 1.5f;
-
 // 변수 변화확인용
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throttle: %8.3f",  tg_roll,tg_pitch,tg_yaw_rate,tg_throttle);
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throttle: %8.3f", 
+//                                                         final_rc.roll,
+//                                                         final_rc.pitch,
+//                                                         final_rc.yaw,
+//                                                         final_rc.throttle
+//                                                     );
+
+
+            //                                          민감도    
+            float tg_roll     = final_rc.roll     ;  //* 0.3f;
+            float tg_pitch    = final_rc.pitch    ;  //* 0.3f;
+            float tg_yaw_rate = final_rc.yaw      ;  //* 1.5f;
+            float tg_throttle = final_rc.throttle * 10.0f;
+
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throttle: %8.3f", 
+//                                                     tg_roll,
+//                                                     tg_pitch,
+//                                                     tg_yaw_rate,
+//                                                     tg_throttle
+//                                                     );
 
 
             static float target_alt = 0.0f;
@@ -468,6 +488,18 @@ if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throt
                 }
             }
             
+            //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
+            // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
+            if (tg_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
+                pid.reset_pid_iterm(&pid.pid_roll_angle);
+                pid.reset_pid_iterm(&pid.pid_pitch_angle);
+                pid.reset_pid_iterm(&pid.pid_yaw_angle);
+                
+                pid.reset_pid_iterm(&pid.pid_roll_rate);
+                pid.reset_pid_iterm(&pid.pid_pitch_rate);
+                pid.reset_pid_iterm(&pid.pid_yaw_rate);
+            }
+
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
             float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  g_attitude.roll,  dt, false);
@@ -476,19 +508,26 @@ if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throt
 
             // Yaw는 사용자의 스틱 입력(tg_yaw_rate)을 목표 각속도로 직접 사용하거나, 
             // 현재처럼 Heading Hold를 원하시면 아래처럼 목표 각도를 유지하게 합니다.
-            static float target_yaw_angle = 0.0f;
-            target_yaw_angle += tg_yaw_rate * dt; 
-            if (target_yaw_angle > 180.0f) target_yaw_angle -= 360.0f;
-            if (target_yaw_angle < -180.0f) target_yaw_angle += 360.0f;
-
-            float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
+            // static float target_yaw_angle = 0.0f;
+            // target_yaw_angle += tg_yaw_rate * dt; 
+            // if (target_yaw_angle > 180.0f) target_yaw_angle -= 360.0f;
+            // if (target_yaw_angle < -180.0f) target_yaw_angle += 360.0f;
+            // float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, g_attitude.yaw, dt, true);
 
             // --- [2단계: Inner Loop - 각속도 제어] ---
             // 목표 각속도 -> 현재 자이로 값(g_imu.gyro)과 비교 -> 최종 모터 출력(PWM 변위)
             // g_imu.gyro[0]: Roll속도, [1]: Pitch속도, [2]: Yaw속도
+            
+
+            // Yaw 제어 방식 변경: 조종기 스틱 값을 '목표 각도'가 아니라 '목표 각속도'로 직접 사용해 보세요.
+            // Outer Loop를 건너뛰고 스틱 값을 바로 Inner Loop의 목표로 전달(throttle이 )
+            float target_rate_yaw  = tg_yaw_rate; 
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calculation_gyro_x, dt);
             float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, calculation_gyro_y, dt);
             float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   calculation_gyro_z, dt);
+
+//if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "out_roll: %8.3f out_pitch: %8.3f out_yaw: %8.3f", out_roll,out_pitch,out_yaw);
+
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
@@ -502,19 +541,43 @@ if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll: %8.3f pitch: %8.3f yaw: %8.3f throt
             if (fabsf(out_yaw) < 1.0f) {
                 out_yaw = 0.0f;
             }
-
-            //QGC 캘리브레이션 테스트 목적=====================================================
-            // qgc_roll_pid.current    = g_attitude.roll;
-            // qgc_roll_pid.target     = tg_roll;
-            // qgc_roll_pid.output     = out_roll;
-            //===============================================================================
             float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
-            float motor_v[4];
-            motor_v[0] = std::clamp(base_pwm - out_pitch - out_roll - out_yaw, 1050.0f, 2000.0f);
-            motor_v[1] = std::clamp(base_pwm - out_pitch + out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor_v[2] = std::clamp(base_pwm + out_pitch - out_roll + out_yaw, 1050.0f, 2000.0f);
-            motor_v[3] = std::clamp(base_pwm + out_pitch + out_roll - out_yaw, 1050.0f, 2000.0f);
-            motor.update_compare_value({motor_v[0],motor_v[1],motor_v[2],motor_v[3]});
+
+            // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
+            float m0 = base_pwm + out_roll - out_pitch + out_yaw;
+            float m1 = base_pwm - out_roll - out_pitch - out_yaw;
+            float m2 = base_pwm + out_roll + out_pitch - out_yaw;
+            float m3 = base_pwm - out_roll + out_pitch + out_yaw;
+
+            // 2. 가장 많이 튀어나온(최대값) 모터 찾기
+            float max_motor = m0;
+            if (m1 > max_motor) max_motor = m1;
+            if (m2 > max_motor) max_motor = m2;
+            if (m3 > max_motor) max_motor = m3;
+
+            // 3. 만약 최대값이 2000을 넘는다면, 넘는 만큼 모든 모터에서 공통으로 차감
+            if (max_motor > 2000.0f) {
+                float diff = max_motor - 2000.0f;
+                m0 -= diff;
+                m1 -= diff;
+                m2 -= diff;
+                m3 -= diff;
+            }
+
+            //m0 : FL (CW) ,m1 : FR(CCW), m3 : RL (CCW) ,m4 : RR (CW) 
+            //float motor_v[4];
+            m0 = std::clamp(m0, 1050.0f, 2000.0f);
+            m1 = std::clamp(m1, 1050.0f, 2000.0f);
+            m2 = std::clamp(m2, 1050.0f, 2000.0f);
+            m3 = std::clamp(m3, 1050.0f, 2000.0f);
+// 변수 변화확인용
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "tg_throttle : %8.3f  m1: %8.3f m2: %8.3f m3: %8.3f m4: %8.3f",
+                                                tg_throttle,
+                                                m0,
+                                                m1,
+                                                m2,
+                                                m3);
+            motor.update_compare_value({m0,m1,m2,m3});
         }           
         // loop check 
         flight->loop_check();

@@ -1,4 +1,8 @@
+#pragma once
+
 #include <chrono>
+
+namespace Utils{
 
 class PerfMonitor {
     using clock = std::chrono::high_resolution_clock;
@@ -14,3 +18,12 @@ public:
         return std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
     }
 };
+
+
+extern float Apply_DeadZone(float value, float zone);
+
+
+
+
+
+}
