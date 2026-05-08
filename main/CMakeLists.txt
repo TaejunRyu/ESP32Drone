@@ -5,26 +5,17 @@
 
 idf_component_register(
     SRCS #${app_sources}
-        "ryu_nvs.cpp"
-        "ryu_FlightEventManager.cpp"
-        "ryu_main.cpp"
+        "main.cpp"
     INCLUDE_DIRS 
         "." 
 
     REQUIRES                   
-                esp_adc             esp_wifi            nvs_flash 
-                esp_driver_uart     esp_driver_gpio     esp_driver_mcpwm 
-                esp_driver_i2c      esp_driver_ledc     esp_timer 
-                esp_driver_spi
-                bootloader_support  esp_pm              freertos
-                esp_system          lwip                mavlink
-                esp_event
-                ryu_sensor          ryu_config          ryu_driver
-                ryu_controller      ryu_service         ryu_interface
-                
-    PRIV_REQUIRES espressif__mavlink       # 이 부분을 반드시 확인하세요!
+            ryu_driver          
+            ryu_config
+            ryu_controller      
+            ryu_service     
 )
-
+ 
 # 3. 컴파일 옵션 설정
 # 모든 옵션을 target_compile_options 내부에 포함시켜야 합니다.
 target_compile_options(${COMPONENT_LIB} PRIVATE 

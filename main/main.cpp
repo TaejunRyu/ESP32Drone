@@ -15,7 +15,7 @@
 #include "ryu_FlightEventManager.h"
 extern "C" {
 	void app_main(void);
-}
+} 
 
 void watch_dog_initialize();
 void check_memory_check();
