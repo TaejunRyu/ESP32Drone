@@ -37,8 +37,8 @@ esp_err_t FlightEventManager::initialize() {
 
 void FlightEventManager::event_handler(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
-    auto* obj = static_cast<FlightEventManager*>(arg);
-    auto* fault = static_cast<Event::mode_change_event_t*>(data);
+    //auto* obj = static_cast<FlightEventManager*>(arg);
+    //auto* fault = static_cast<Event::mode_change_event_t*>(data);
 
     switch(id){
         case Event::MODE_ARM:{

@@ -13,13 +13,16 @@ idf_component_register(
             ryu_service     
 )
  
+# 프로젝트 전체(모든 컴포넌트)에 적용
+
+
 # 3. 컴파일 옵션 설정
 # 모든 옵션을 target_compile_options 내부에 포함시켜야 합니다.
-target_compile_options(${COMPONENT_LIB} PRIVATE 
-    -Wno-deprecated-declarations
-    -Wno-address-of-packed-member
-    -O3
-    -ffast-math
-    -fno-finite-math-only
-    -std=gnu++26
-)
+#target_compile_options(${COMPONENT_LIB} PRIVATE 
+#    -Wno-deprecated-declarations
+#    -Wno-address-of-packed-member
+#    -O3
+#    -ffast-math
+#    -fno-finite-math-only
+#    -std=gnu++26
+#)

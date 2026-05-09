@@ -36,16 +36,16 @@ esp_err_t PID::initialize()
 
 
     // 450급 드론용 추천 파라미터 세팅( AI 추천 셋팅)
-    pid_roll_angle  = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f };
-    pid_pitch_angle = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f };
-    pid_yaw_angle   = { .kp = 2.5f, .ki = 0.0f,  .kd = 0.0f };
+    pid_roll_angle  = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_pitch_angle = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_yaw_angle   = { .kp = 2.5f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
-    pid_roll_rate   = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f };
-    pid_pitch_rate  = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f };
-    pid_yaw_rate    = { .kp = 0.25f, .ki = 0.08f, .kd = 0.0f };
+    pid_roll_rate   = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_pitch_rate  = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_yaw_rate    = { .kp = 0.25f, .ki = 0.08f, .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
-    pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f };
-    pid_alt_rate    = { .kp = 50.0f, .ki = 15.0f,  .kd = 0.5f };
+    pid_alt_pos     = { .kp = 1.0f,  .ki = 0.0f,   .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_alt_rate    = { .kp = 50.0f, .ki = 15.0f,  .kd = 0.5f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
