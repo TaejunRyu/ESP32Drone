@@ -345,49 +345,41 @@ void Flight::flight_task(void *pvParameters)
         //                     dt
         //                 );
         
-        attitude_data_t m_attitude ={};               
-        sys_t m_sys = g_sys;
-
-        { // qgc로 보내는 데이터
-            m_attitude.rollspeed    = calculation_gyro_x ;
-            m_attitude.pitchspeed   = calculation_gyro_y ;
-            m_attitude.yawspeed     = calculation_gyro_z ;
-        }
  
         float roll_deg, pitch_deg, yaw_deg;
         //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
         kalman.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
         
-        m_attitude.roll  = roll_deg;
-        m_attitude.pitch = pitch_deg;
-
         float actual_compass_heading = yaw_deg * DEG_TO_RAD;
-        // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
         float declinationAngle = 7.7f * DEG_TO_RAD;
         actual_compass_heading += declinationAngle;
 
         // 3. 각도 범위 정규화 (-PI ~ +PI) -> PID 제어에 유리함
-        // 3. 각도 범위 정규화 (-PI ~ +PI)
-        if (actual_compass_heading >  M_PI)         
-            actual_compass_heading -= 2.0f * M_PI;
-        else if (actual_compass_heading < -M_PI)    
-            actual_compass_heading += 2.0f * M_PI;
+        if (actual_compass_heading >  M_PI)      actual_compass_heading -= 2.0f * M_PI;
+        else if (actual_compass_heading < -M_PI) actual_compass_heading += 2.0f * M_PI;
 
-        // 4. 이 yaw_rad를 기반으로 최종 yaw(degree)와 heading_deg 생성
-        m_attitude.yaw = actual_compass_heading * RAD_TO_DEG; // 이제 이 yaw는 '진북' 기준입니다.
+        float heading_deg = actual_compass_heading * RAD_TO_DEG;
 
-        // 5. QGC 나침반용 (0 ~ 360도)
-        float heading_deg = m_attitude.yaw;
         while (heading_deg < 0)    heading_deg += 360.0f;
         while (heading_deg >= 360) heading_deg -= 360.0f;
-
-        m_attitude.heading = heading_deg;
+        
+        attitude_data_t m_attitude ={};               
+        m_attitude.rollspeed    = calculation_gyro_x ;
+        m_attitude.pitchspeed   = calculation_gyro_y ;
+        m_attitude.yawspeed     = calculation_gyro_z ;
+        m_attitude.roll         = roll_deg;
+        m_attitude.pitch        = pitch_deg;        
+        m_attitude.yaw          = heading_deg;
+        m_attitude.heading      = heading_deg;
 
         //m_attitide에저장되어진 정보를 g_attitude에 넘긴다.
         portENTER_CRITICAL(&g_attitude_mux);
         g_attitude = m_attitude;
         portEXIT_CRITICAL(&g_attitude_mux);
+        
+        // 일시에 g_sys를 ㅈ가져온다.
+        sys_t m_sys = g_sys;
 
         if(m_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
