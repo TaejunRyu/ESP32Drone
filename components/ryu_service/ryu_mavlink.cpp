@@ -102,7 +102,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             float z = static_cast<float>(mavlink_msg_manual_control_get_z(msg)); // Throttle
             float r = static_cast<float>(mavlink_msg_manual_control_get_r(msg)); // Yaw
 
-            Flysky::rc_data_t m_rc;
+            rc_data_t m_rc;
 
             // 1. Throttle (0~1000 -> 0~100)
             m_rc.throttle = z * 0.1f; 
@@ -117,7 +117,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             m_rc.roll     = std::clamp(m_rc.roll,       -100.0f, 100.0f);
             m_rc.pitch    = std::clamp(m_rc.pitch,      -100.0f, 100.0f);
             m_rc.yaw      = std::clamp(m_rc.yaw,        -100.0f, 100.0f);
-
+            m_rc.type     = Service::RC_QGC;
             // 이하의 숫자는 0으로 처리.....
             // Utils::Apply_DeadZone(m_rc.roll ,2.0f);
             // Utils::Apply_DeadZone(m_rc.pitch,2.0f);
@@ -787,6 +787,7 @@ esp_err_t Mavlink::initialize()
     // timer의 callback과 연결하여 on_timer_tick를 타이머에의해서 실행함.
     auto& timer = Service::Timer::get_instance();
     timer.set_timer_callback([this](){on_timer_tick();});
+    _qgc_rc_data.type = Service::RC_NONE;
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
     return ESP_OK;

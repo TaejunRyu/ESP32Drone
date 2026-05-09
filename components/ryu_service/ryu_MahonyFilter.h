@@ -27,7 +27,7 @@ class Mahony{
         void MahonyAHRSupdate(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float dt);
         void calibrate_mahony_initial_attitude(float ax, float ay, float az, float mx, float my, float mz);
         void reset_mahony_integral(void);
-
+        void get_euler(float* roll, float* pitch, float* yaw);
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};
 

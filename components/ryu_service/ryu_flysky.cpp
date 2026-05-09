@@ -49,6 +49,8 @@ esp_err_t Flysky::initialize()
     ESP_ERROR_CHECK(mcpwm_capture_timer_enable(_cap_timer));
     ESP_ERROR_CHECK(mcpwm_capture_timer_start(_cap_timer));
 
+    _rc_data.type = RC_NONE;
+
     _initialized = true;
     ESP_LOGI(TAG,"Initialized successfully.");
     return ESP_OK;
@@ -67,7 +69,7 @@ void Flysky::flysky_task(void *pvParameters)
             memcpy(local_ppm, (const void*)flysky->_ppm_values, sizeof(local_ppm));
             portEXIT_CRITICAL_SAFE(&flysky->_my_spinlock);
 
-            Flysky::rc_data_t m_rc {};
+            Service::rc_data_t m_rc {};
             m_rc.throttle = std::clamp((static_cast<float>(local_ppm[2]) - 1000.0f) * THR_SCALE, 0.0f, 100.0f);
             
             //롤/피치: -100 ~ 100 변환 및 Deadzone 적용
@@ -90,6 +92,7 @@ void Flysky::flysky_task(void *pvParameters)
             
             m_rc.aux4 = (local_ppm[7] > 1500) ? 1 : 0;
           
+            m_rc.type  = Service::RC_FLYSKY;
             portENTER_CRITICAL(&flysky->_my_spinlock);
             flysky->_rc_data = m_rc;
             portEXIT_CRITICAL(&flysky->_my_spinlock);

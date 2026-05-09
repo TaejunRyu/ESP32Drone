@@ -16,6 +16,26 @@ ppm_values[5]: Aux 2 (스위치 또는 다이얼)
 namespace Service
 {
 
+    
+enum enum_rc_type{
+    RC_NONE,
+    RC_FLYSKY,
+    RC_QGC
+};
+
+struct rc_data_t {
+    float throttle;  // 스로틀 (0~100%)
+    float roll;      // 롤 (-100~100)
+    float pitch;     // 피치 (-100~100)
+    float yaw;       // 요 (-100~100)
+    float aux1;      // 보조 채널 1 (고도 유지)
+    float aux2;      // 보조 채널 2
+    float aux3;      // 보조 채널 3 (SWC 3단)
+    float aux4;      // 보조 채널 4
+    enum_rc_type type;
+};
+
+
 class Flysky{
     private:
         Flysky() = default; 
@@ -43,16 +63,6 @@ class Flysky{
         static inline constexpr float     DEADZONE_RP = 2.0f;
         static inline constexpr float     DEADZONE_YAW = 3.0f;
 
-        struct rc_data_t {
-            float throttle;  // 스로틀 (0~100%)
-            float roll;      // 롤 (-100~100)
-            float pitch;     // 피치 (-100~100)
-            float yaw;       // 요 (-100~100)
-            float aux1;      // 보조 채널 1 (고도 유지)
-            float aux2;      // 보조 채널 2
-            float aux3;      // 보조 채널 3 (SWC 3단)
-            float aux4;      // 보조 채널 4
-        };
                 
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};

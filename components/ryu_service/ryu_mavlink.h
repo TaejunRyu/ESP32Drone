@@ -37,7 +37,7 @@ class Mavlink{
         void MAV_CMD_SET_MESSAGE_INTERVAL_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
         void MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
         // 외부(PID Task)에서 데이터를 안전하게 읽어갈 때 사용
-        void get_qgc_rc(Flysky::rc_data_t* out_data) {
+        void get_qgc_rc(rc_data_t* out_data) {
             portENTER_CRITICAL(&_qgc_lock);
             *out_data = _qgc_rc_data; // 구조체 복사
             portEXIT_CRITICAL(&_qgc_lock);
@@ -50,7 +50,7 @@ class Mavlink{
 
 
     private:
-        Flysky::rc_data_t _qgc_rc_data; 
+        rc_data_t _qgc_rc_data; 
         portMUX_TYPE _qgc_lock = portMUX_INITIALIZER_UNLOCKED;
         bool _initialized = false;
 };

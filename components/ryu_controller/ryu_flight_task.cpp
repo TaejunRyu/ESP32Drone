@@ -27,6 +27,7 @@
 #include "ryu_icm20948.h"
 #include "ryu_mavlink.h"
 #include "ryu_businterface.h"
+#include "ryu_KalmanFilter.h"
 
 namespace Controller
 {
@@ -43,6 +44,10 @@ esp_err_t Flight::initialize()
     }
     
     esp_err_t err;
+
+    auto& kalman = Controller::KalmanFilter::get_instance();
+    kalman.reset(); // 공분산 및 상태 초기화
+
     auto& buzzer        = Driver::Buzzer::get_instance();
         err = buzzer.initialize();
         if (err != ESP_OK){
@@ -244,34 +249,29 @@ esp_err_t Flight::initialize()
  */
 void Flight::flight_task(void *pvParameters)
 {
-    auto flight = static_cast<Flight*>(pvParameters);
+    Flight& flight = Flight::get_instance(); 
+
     auto& motor         = Driver::Motor::get_instance();
     auto& icm20948_main = Sensor::ICM20948::Main();
-    //auto& cicm20948_sub  = Sensor::ICM20948::Sub();
-    //auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
-    //auto& bmp388_sub    = Sensor::BMP388::Sub();
-    //auto& ist8310       = Sensor::IST8310::get_instance();
     auto& pid           = Controller::PID::get_instance();
     auto& mahony        = Service::Mahony::get_instance();
-    //auto& failsafe      = Service::FailSafe::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
-    // ist8310,ak09916을 한 class에 묶어서 내부에서 일기로직을 처리.
     auto& managed_mag  = Sensor::ManageMag::get_instance();
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
 
-    //auto& mavlink       = Service::Mavlink::get_instance();
+    auto& kalman = Controller::KalmanFilter::get_instance();
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
 
     //Watch Dog 등록.  
-    esp_task_wdt_add(flight->_task_handle);     
+    esp_task_wdt_add(flight._task_handle);     
      
     while(true) {
         int64_t now = esp_timer_get_time();
-        flight->calculated_dt = (now- last_time);
+        flight.calculated_dt = (now- last_time);
         last_time = now; 
         if (++loop_cnt >= 400) loop_cnt = 0; // 1초 주기로 초기화
  
@@ -285,8 +285,6 @@ void Flight::flight_task(void *pvParameters)
         static float    calculation_gyro_x = 0.0f,  
                         calculation_gyro_y = 0.0f,  
                         calculation_gyro_z = 0.0f;
-
-
 
         float macc[3]={},mgyro[3]={};
         esp_err_t ret_code = icm20948_main.Managed_read_with_offset( macc, mgyro,sizeof(macc));
@@ -320,22 +318,35 @@ void Flight::flight_task(void *pvParameters)
                 ret_code = ret_mag;
             }
         }
-        mahony.MahonyAHRSupdate(   
-                            calculation_gyro_x * DEG_TO_RAD,
-                            calculation_gyro_y * DEG_TO_RAD, 
-                            calculation_gyro_z * DEG_TO_RAD, 
-                            calculation_acc_x, 
-                            calculation_acc_y, 
-                            calculation_acc_z, 
-                            calulation_mag_x,
-                            calulation_mag_y,
-                            calulation_mag_z,
-                            dt
+
+        kalman.update(
+                        calculation_gyro_x * DEG_TO_RAD,
+                        calculation_gyro_y * DEG_TO_RAD, 
+                        calculation_gyro_z * DEG_TO_RAD, 
+                        calculation_acc_x, 
+                        calculation_acc_y, 
+                        calculation_acc_z, 
+                        calulation_mag_x,
+                        calulation_mag_y,
+                        calulation_mag_z,
+                        dt
                         );
+              
+        // mahony.MahonyAHRSupdate(   
+        //                     calculation_gyro_x * DEG_TO_RAD,
+        //                     calculation_gyro_y * DEG_TO_RAD, 
+        //                     calculation_gyro_z * DEG_TO_RAD, 
+        //                     calculation_acc_x, 
+        //                     calculation_acc_y, 
+        //                     calculation_acc_z, 
+        //                     calulation_mag_x,
+        //                     calulation_mag_y,
+        //                     calulation_mag_z,
+        //                     dt
+        //                 );
         
         attitude_data_t m_attitude ={};               
         sys_t m_sys = g_sys;
-
 
         { // qgc로 보내는 데이터
             m_attitude.rollspeed    = calculation_gyro_x ;
@@ -343,40 +354,25 @@ void Flight::flight_task(void *pvParameters)
             m_attitude.yawspeed     = calculation_gyro_z ;
         }
  
-        // 각도 추출 ( 단위 DEG)
-        // QGroundControl에 보내기 위하여 (-)부호를 처리해야하는데 
-        // telemetry의  mavlink_msg_attitude_pack에서 (-) 부호 처리하여 보낸다.
-        // 수정사항 qgc에 보낼정보는 따로 담아서 보관하도록 해야할것 같다. roll정보를 pid에서 사용하기때문에 변하면 안되다.
-        float sinP =0.0f,actual_compass_heading=0.0f;
+        float roll_deg, pitch_deg, yaw_deg;
+        //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
+        kalman.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
+        
+        m_attitude.roll  = roll_deg;
+        m_attitude.pitch = pitch_deg;
 
-        const float q0q0 = mahony.q0 * mahony.q0;
-        const float q1q1 = mahony.q1 * mahony.q1;
-        const float q2q2 = mahony.q2 * mahony.q2;
-        const float q3q3 = mahony.q3 * mahony.q3;             
-
-        m_attitude.roll = atan2f(2.0f * (mahony.q0 * mahony.q1 + mahony.q2 * mahony.q3), q0q0 - q1q1 - q2q2 + q3q3) * RAD_TO_DEG;
-        sinP      = std::clamp(2.0f * (mahony.q0 * mahony.q2 - mahony.q1 * mahony.q3), -1.0f, 1.0f);
-        m_attitude.pitch= asinf(sinP) * RAD_TO_DEG;    
-        actual_compass_heading   = atan2f(2.0f * (mahony.q1 * mahony.q2 + mahony.q0 * mahony.q3), q0q0 + q1q1 - q2q2 - q3q3);
-
-// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "g_att roll: %8.3f g_att pit: %8.3f compass heading: %8.3f",  
-//                                     m_attitude.roll ,
-//                                     m_attitude.pitch,
-//                                     actual_compass_heading);
-
-
-
-
+        float actual_compass_heading = yaw_deg * DEG_TO_RAD;
         // 2. 편각 보정 (-7.7도 적용) 하여 '진북' 기준으로 업데이트
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
         float declinationAngle = 7.7f * DEG_TO_RAD;
         actual_compass_heading += declinationAngle;
 
-
         // 3. 각도 범위 정규화 (-PI ~ +PI) -> PID 제어에 유리함
         // 3. 각도 범위 정규화 (-PI ~ +PI)
-        if (actual_compass_heading >  M_PI)         actual_compass_heading -= 2.0f * M_PI;
-        else if (actual_compass_heading < -M_PI)    actual_compass_heading += 2.0f * M_PI;
+        if (actual_compass_heading >  M_PI)         
+            actual_compass_heading -= 2.0f * M_PI;
+        else if (actual_compass_heading < -M_PI)    
+            actual_compass_heading += 2.0f * M_PI;
 
         // 4. 이 yaw_rad를 기반으로 최종 yaw(degree)와 heading_deg 생성
         m_attitude.yaw = actual_compass_heading * RAD_TO_DEG; // 이제 이 yaw는 '진북' 기준입니다.
@@ -385,13 +381,13 @@ void Flight::flight_task(void *pvParameters)
         float heading_deg = m_attitude.yaw;
         while (heading_deg < 0)    heading_deg += 360.0f;
         while (heading_deg >= 360) heading_deg -= 360.0f;
+
         m_attitude.heading = heading_deg;
 
         //m_attitide에저장되어진 정보를 g_attitude에 넘긴다.
         portENTER_CRITICAL(&g_attitude_mux);
         g_attitude = m_attitude;
         portEXIT_CRITICAL(&g_attitude_mux);
-
 
         if(m_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
@@ -407,19 +403,15 @@ void Flight::flight_task(void *pvParameters)
         }else{
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
             // 감도를 높이려면 값을 키우면 된다.                         
-            // [개선안: 복사만 수행]
-            Service::Flysky::rc_data_t temp_rc;            
-            flysky.get_latest_rc(&temp_rc);  
 
-            Service::Flysky::rc_data_t flysky_rc, qgc_rc, final_rc;
+            Service::rc_data_t flysky_rc, qgc_rc, final_rc;
             Service::Flysky::get_instance().get_latest_rc(&flysky_rc);
+            Service::Mavlink::get_instance().get_qgc_rc(&qgc_rc);
   
             // 조종기가 켜져 있으면(스로틀이 1000 이상이면) 조종기 우선, 아니면 QGC
-            if (flysky_rc.throttle > 5.0f) {
+            if (flysky_rc.type == Service::RC_FLYSKY && flysky_rc.throttle > 5.0f) {
                 final_rc = flysky_rc;
-            } else {
-                // qgc에서 rc데이터를 보낸다.
-                Service::Mavlink::get_instance().get_qgc_rc(&qgc_rc);
+            } else if (qgc_rc.type == Service::RC_QGC && qgc_rc.throttle > 5.0f) {
                 final_rc = qgc_rc;
             }
             //                                          민감도    
@@ -578,20 +570,18 @@ void Flight::flight_task(void *pvParameters)
             m2 = std::clamp(m2, 1050.0f, 2000.0f);
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
 // 변수 변화확인용
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "tg_throttle : %8.3f  m1: %8.3f m2: %8.3f m3: %8.3f m4: %8.3f",
-                                                tg_throttle,
-                                                m0,
-                                                m1,
-                                                m2,
-                                                m3);
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "tg_throttle : %8.3f  m1: %8.3f m2: %8.3f m3: %8.3f m4: %8.3f",
+//                                                 tg_throttle,
+//                                                 m0,
+//                                                 m1,
+//                                                 m2,
+//                                                 m3);
             motor.update_compare_value({m0,m1,m2,m3});
         }           
 
-
-
         // loop check 
-        flight->loop_check();
-        flight->total_us = esp_timer_get_time() - last_time;
+        flight.loop_check();
+        flight.total_us = esp_timer_get_time() - last_time;
         int64_t current_time;
         while ((current_time = esp_timer_get_time()) - last_time < INTERVAL_US) {
             if (INTERVAL_US - (current_time - last_time) > 1200) {
