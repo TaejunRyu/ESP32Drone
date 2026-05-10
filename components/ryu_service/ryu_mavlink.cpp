@@ -244,7 +244,13 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             }
             switch (cmd.command){
                 case MAV_CMD_COMPONENT_ARM_DISARM:{ //400
-                    MAV_CMD_COMPONENT_ARM_DISARM_func(msg,cmd);
+                    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);     
+                    if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
+                        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);    
+                    } else if (cmd.param1 < 0.5f) {
+                        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);    
+                    }
+                    ESP_LOGI(TAG,"MAV_CMD_COMPONENT_ARM_DISARM_func Param1: %8.5f",cmd.param1);
                     break;
                 }
                 case MAV_CMD_NAV_TAKEOFF:{ //22
@@ -393,18 +399,6 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
 }
 
 
-
-// telemetry_task에서 시동 상태에 따라 시스템 상태를 관리하는 로직이 이미 구현되어 있기 때문에, 
-// 여기서는 시동 상태만 업데이트하고 ACK만 보내도록 수정합니다.
-void Mavlink::MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);     
-    if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
-        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);    
-    } else if (cmd.param1 < 0.5f) {
-        esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);    
-    }
-    ESP_LOGI(TAG,"MAV_CMD_COMPONENT_ARM_DISARM_func Param1: %8.5f",cmd.param1);
-}
 
 // 파라미터	명칭	설명
 // Param 1	Pitch	이륙 시 유지할 최소 피치 각도 (단위: 도, Degree). 기체가 상승하며 앞/뒤로 기울어지는 정도를 제어합니다.

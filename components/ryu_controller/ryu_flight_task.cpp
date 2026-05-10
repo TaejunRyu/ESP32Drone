@@ -381,15 +381,15 @@ void Flight::flight_task(void *pvParameters)
         m_attitude.pitch        = pitch_deg;        
         m_attitude.yaw          = actual_compass_heading;
 
-        //m_attitide에저장되어진 정보를 g_attitude에 넘긴다.
+        //m_attitide에 저장되어진 정보를 g_attitude에 넘긴다.
         portENTER_CRITICAL(&g_attitude_mux);
         g_attitude = m_attitude;
         portEXIT_CRITICAL(&g_attitude_mux);
         
         // 일시에 g_sys를 가져온다.
-        sys_t m_sys = g_sys;
+        //sys_t m_sys = g_sys;
 
-        if(m_sys.is_armed) [[unlikely]]{                
+        if(!g_sys.is_armed) [[unlikely]]{                
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
             motor.stop_all_motors();
             // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
@@ -442,7 +442,7 @@ void Flight::flight_task(void *pvParameters)
                 }
 
                 // 3. 고도 유지 모드 스위치 처리                               
-                if (m_sys.manual_hold_mode){
+                if (g_sys.manual_hold_mode){
                     if(!last_alt_hold_state){
                         target_alt = filtered_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
                         alt_throttle_offset = 0.0f;     // PID 보정값 초기화
@@ -450,7 +450,7 @@ void Flight::flight_task(void *pvParameters)
                         pid.reset_pid(&pid.pid_alt_rate);
                     }
                 }                 
-                last_alt_hold_state = m_sys.manual_hold_mode ;
+                last_alt_hold_state = g_sys.manual_hold_mode ;
 
                 { // 비정상적인 요인 제한
                     if (filtered_alt > 500.0f) filtered_alt = 0.0f;                     // 비정상적인 고도 차단
@@ -459,12 +459,12 @@ void Flight::flight_task(void *pvParameters)
                 }
 
                 // 에러발생으로 인한 hold mode
-                if (m_sys.error_hold_mode) {
+                if (g_sys.error_hold_mode) {
                     filtered_climb_rate = 0.0f;                     // 상승률은 0으로 고정
                 }
 
                 // 사용자 지정 hold mode 
-                if(m_sys.manual_hold_mode) {
+                if(g_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
                     float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
@@ -475,14 +475,13 @@ void Flight::flight_task(void *pvParameters)
                 }
 
                 // 정상모드
-                if(!m_sys.error_hold_mode && !m_sys.manual_hold_mode ){
+                if(!g_sys.error_hold_mode && !g_sys.manual_hold_mode ){
                     alt_throttle_offset = 0.0f;
                     pid.reset_pid(&pid.pid_alt_pos);
                     pid.reset_pid(&pid.pid_alt_rate);
                 }
             }
             
-
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
             if (tg_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
@@ -515,13 +514,11 @@ void Flight::flight_task(void *pvParameters)
             // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
             float target_rate_yaw = -pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
 
-
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calc_gyro_x, dt);
             float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, calc_gyro_y, dt);
             float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   calc_gyro_z, dt);
 
 //if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "out_roll: %8.3f out_pitch: %8.3f out_yaw: %8.3f", out_roll,out_pitch,out_yaw);
-
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
@@ -564,8 +561,8 @@ void Flight::flight_task(void *pvParameters)
             m1 = std::clamp(m1, 1050.0f, 2000.0f);
             m2 = std::clamp(m2, 1050.0f, 2000.0f);
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", m0, m1, m2, m3);
 
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", m0, m1, m2, m3);
 
             motor.update_compare_value({m0,m1,m2,m3});
         }           
@@ -595,7 +592,7 @@ BaseType_t Flight::start_task()
     auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& bmp388_sub    = Sensor::BMP388::Sub();
-    auto& mahony        = Filter::Mahony::get_instance();
+    //auto& mahony        = Filter::Mahony::get_instance();
     auto& motor         = Driver::Motor::get_instance();
     auto& gps           = Sensor::Gps::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
@@ -616,29 +613,29 @@ BaseType_t Flight::start_task()
     icm20948_sub.calibrate();		
 
     auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
+    g_baro.ground_pressure = mgp;
     vTaskDelay(pdMS_TO_TICKS(50));
-    auto [ret_bmp1,sgp] = bmp388_sub.calibrate_ground_pressure();
-    g_baro.ground_pressure = (mgp+sgp) * 0.5;
+    bmp388_sub.calibrate_ground_pressure();
+    //g_baro.ground_pressure = (mgp+sgp) * 0.5;
 
+    // {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
+	// 	auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
+	// 	acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
+    //     gyro[0]   *=  -1.0f;
 
-    {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
-		auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
-		acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-        gyro[0]   *=  -1.0f;
+    //     // 지자계 데이터를 읽는다. 		
+    //     auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
+	// 	auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
 
-        // 지자계 데이터를 읽는다. 		
-        auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
-		auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
+    //     auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
+    //     auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
+    //     auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
 
-        auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
-        auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
-        auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
-
-		// 융합된 데이터를 적용처리.
-        mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
-		ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
-		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
-	}
+	// 	// 융합된 데이터를 적용처리.
+    //     mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
+	// 	ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
+	// 	// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
+	// }
 
     bool is_all_ok = true;
     // // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========

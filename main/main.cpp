@@ -35,7 +35,7 @@ void app_main(void) {
     //ESP_LOGI(TAG, "=========================================");
     
     check_system_health_on_boot();
-    g_sys.system_status = SYS_STATE_BOOT;
+    //g_sys.system_status = SYS_STATE_BOOT;
    
     esp_log_level_set("*", ESP_LOG_VERBOSE);//(5): 모든 데이터 출력 (매우 상세)
     

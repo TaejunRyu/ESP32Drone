@@ -28,7 +28,6 @@ class Mavlink{
         uint16_t map_qgc_to_ibus_final(int16_t raw_val, bool is_throttle);
         void handle_mavlink_message(mavlink_message_t *msg);
 
-        void MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
         void MAV_CMD_NAV_TAKEOFF_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
         void MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_long_t cmd);
         void MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg, mavlink_command_long_t cmd);

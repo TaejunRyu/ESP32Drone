@@ -29,19 +29,18 @@ void Telemetry::telemetry_task(void *pv)
             for (int i = 0; i < pkt.len; ++i) {
                 if (mavlink_parse_char(MAVLINK_COMM_2, pkt.buffer[i], &msg, &status)) {
                     mavlink.handle_mavlink_message(&msg);
-
                     // QGC 명령에 따른 상태 업데이트 로직
                     static bool previous_armed_state = false;
                     if (previous_armed_state != g_sys.is_armed) {
                         if (g_sys.is_armed) {
-                            ESP_LOGD(TAG,"시동으로 프래그 변환(시동)");
-                            g_heartbeat.base_mode |= MAV_MODE_FLAG_SAFETY_ARMED;
-                            g_sys.system_status = MAV_STATE_ACTIVE;
+                            g_heartbeat.base_mode   |= MAV_MODE_FLAG_SAFETY_ARMED;
+                            g_sys.system_status      = MAV_STATE_ACTIVE;
                             // calibrate_ground_pressure(); // 주석 처리 유지: 통신 두절 방지
+                            ESP_LOGD(TAG,"시동으로 프래그 변환(시동)");
                         } else {
+                            g_heartbeat.base_mode   &= ~MAV_MODE_FLAG_SAFETY_ARMED;
+                            g_sys.system_status      = MAV_STATE_STANDBY;
                             ESP_LOGD(TAG,"시동으로 프래그 변환(시동 꺼짐)");
-                            g_heartbeat.base_mode &= ~MAV_MODE_FLAG_SAFETY_ARMED;
-                            g_sys.system_status = MAV_STATE_STANDBY;
                         }
                         previous_armed_state = g_sys.is_armed; // 중복 코드 제거
                     }
@@ -60,11 +59,6 @@ BaseType_t Telemetry::start_task()
 }
 
 } // namespace TELEM
-
-
-
-
-
 
 
 // pid calibration이 필요한 명령이 왔는지 확인하여 플래그 설정
