@@ -37,15 +37,8 @@ class FlightEventManager{
 
     private:
         
-        Event::e_flight_mode   _flight_mode;     // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
-        uint8_t         _system_status;      // standby(3), active(4), critical 등
-        uint32_t        _system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
-        bool            _is_armed;           // 시동 상태
-        bool            _manual_hold_mode;   // flysky controller에서 hold mode 지정
-        bool            _error_hold_mode;    // 센서의 오류로 인한 고정 비행
-        bool            _gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
-        bool _initialized = false;
 
+        bool _initialized = false;
 };
 
 }//namespace Service

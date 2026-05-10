@@ -24,9 +24,6 @@ class  Telemetry{
         }
         Telemetry(const Telemetry&) = delete;
         Telemetry& operator=(const Telemetry&) = delete;
-        Telemetry(Telemetry&&) = delete;
-        Telemetry& operator=(Telemetry&&) = delete;
-
         
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};

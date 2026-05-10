@@ -48,8 +48,7 @@ class Flysky{
         }
         Flysky(const Flysky&) = delete;
         Flysky& operator=(const Flysky&) = delete;
-        Flysky(Flysky&&) = delete;
-        Flysky& operator=(Flysky&&) = delete;
+
         // PPM으로 데이터를 보낼때
         static inline constexpr gpio_num_t FLYSKY_PPM_PIN = GPIO_NUM_4; 
         static inline constexpr uint8_t    MAX_CHANNELS  = 8;

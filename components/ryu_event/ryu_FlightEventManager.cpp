@@ -43,13 +43,13 @@ void FlightEventManager::event_handler(void *arg, esp_event_base_t base, int32_t
         case Event::MODE_ARM:{
             g_sys.is_armed = true;
             Service::Mavlink::get_instance().send_status_text("Armming state");
-            ESP_LOGI(TAG,"ARMING.................");
+            //ESP_LOGI(TAG,"ARMING.................");
             break;
         }
         case Event::MODE_DISARM:{
             g_sys.is_armed = false;
             Service::Mavlink::get_instance().send_status_text("DisArmming state");
-            ESP_LOGI(TAG,"DISARMING.................");
+            //ESP_LOGI(TAG,"DISARMING.................");
             break;
         }
     } // switch(id)
