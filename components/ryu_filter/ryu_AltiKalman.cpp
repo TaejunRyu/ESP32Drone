@@ -1,6 +1,6 @@
 #include "ryu_AltiKalman.h"
 
-namespace Service {
+namespace Filter {
 
 AltiKalman::AltiKalman() {
     reset(0.0f);

@@ -5,7 +5,7 @@
 #include <esp_log.h>
 #include <esp_timer.h>
 
-namespace Controller {
+namespace Filter {
 
 class KalmanFilter {
 private:

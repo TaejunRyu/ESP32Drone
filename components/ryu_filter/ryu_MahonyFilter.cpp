@@ -5,7 +5,7 @@
 #include "ryu_config.h"
 
 
-namespace Service{
+namespace Filter{
 
 // ========== PID 파라미터 (현재 드론 튜닝값) ==========
 // Kp: P 게인 - 반응 속도 결정 (높으면 빠르나 진동 증가)

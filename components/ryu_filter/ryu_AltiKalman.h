@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace Service {
+namespace Filter {
 
 class AltiKalman {
 private:

@@ -1,6 +1,6 @@
 #include "ryu_KalmanFilter.h"
 
-namespace Controller {
+namespace Filter {
 
 KalmanFilter::KalmanFilter() {
     reset();

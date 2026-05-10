@@ -2,7 +2,7 @@
 #include <math.h>
 #include <algorithm>
 #include <esp_err.h>
-namespace Service{
+namespace Filter{
 
 class Mahony{
  private:

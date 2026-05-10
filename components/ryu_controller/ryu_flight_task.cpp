@@ -45,7 +45,7 @@ esp_err_t Flight::initialize()
     
     esp_err_t err;
 
-    auto& kalman = Controller::KalmanFilter::get_instance();
+    auto& kalman = Filter::KalmanFilter::get_instance();
     kalman.reset(); // 공분산 및 상태 초기화
 
     auto& buzzer        = Driver::Buzzer::get_instance();
@@ -171,7 +171,7 @@ esp_err_t Flight::initialize()
             return err;
         }
         vTaskDelay(pdMS_TO_TICKS(10));
-    auto& mahony        = Service::Mahony::get_instance();
+    auto& mahony        = Filter::Mahony::get_instance();
         err = mahony.initialize();
         if (err != ESP_OK){
             ESP_LOGI(TAG, "Mahony Module Initialize Failed.");
@@ -261,7 +261,7 @@ void Flight::flight_task(void *pvParameters)
     if(!managed_mag.is_initialized())
         managed_mag.initialize();
 
-    auto& kalman = Controller::KalmanFilter::get_instance();
+    auto& kalman = Filter::KalmanFilter::get_instance();
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
@@ -575,14 +575,14 @@ BaseType_t Flight::start_task()
     auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& bmp388_sub    = Sensor::BMP388::Sub();
-    auto& mahony        = Service::Mahony::get_instance();
+    auto& mahony        = Filter::Mahony::get_instance();
     auto& motor         = Driver::Motor::get_instance();
     auto& gps           = Sensor::Gps::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
     auto& buzzer        = Driver::Buzzer::get_instance();
     //auto& mavlink       = Service::Mavlink::get_instance();
     auto& telemetry     = Service::Telemetry::get_instance();
-    //auto& pid           = Controller::PID::get_instance();
+    //auto& pid           = Filetr::PID::get_instance();
     //auto& failsafe      = Service::FailSafe::get_instance();
     auto& timer         = Service::Timer::get_instance();
     
