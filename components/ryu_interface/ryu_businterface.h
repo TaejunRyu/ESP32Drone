@@ -1,5 +1,4 @@
 #pragma once
-
 #include <esp_err.h>
 #include <freertos/FreeRTOS.h>
 #include <driver/spi_master.h>
@@ -7,80 +6,93 @@
 
 namespace Interface {
 
-enum class BusType { I2C, SPI }; // 통신 타입 정의
+enum class BusType { I2C, SPI };
 
-/**
- * 1. 통신 인터페이스 (부모)
- */
+// 1. 최상위 인터페이스
 class BusInterface {
 public:
     virtual ~BusInterface() = default;
-    virtual BusType get_type() const = 0;      // 특이한 사항이 있을경우 _bus의 type을 알아서 대처한다. 
+    virtual BusType get_type() const = 0;
     virtual esp_err_t write(uint8_t reg, uint8_t data) = 0;
     virtual esp_err_t read(uint8_t reg, uint8_t* data, size_t len) = 0;
-}; // 네임스페이스 안에서 인터페이스 정의 완료
+};
 
-
-/**
- * 2. SPI 통신 구현체
- */
+// 2. SPI 구현체
 class SPIBus : public BusInterface {
 private:
     spi_device_handle_t _handle;
-
 public:
     SPIBus(spi_device_handle_t handle) : _handle(handle) {}
-
-    Interface::BusType get_type() const override { return Interface::BusType::SPI; }
+    ~SPIBus() override { if (_handle) spi_bus_remove_device(_handle); } // 리소스 해제 추가
+    BusType get_type() const override { return BusType::SPI; }
     
-    esp_err_t write(uint8_t reg, uint8_t data) override {
+    inline esp_err_t write(uint8_t reg, uint8_t data) override {
         spi_transaction_t t = {};
-        t.flags = SPI_TRANS_USE_TXDATA; // 4바이트 이하 전송 시 성능 최적화
-        t.addr = reg & 0x7F;           // SPI Write: MSB 0
-        t.length = 8;                  // 데이터 8비트(1바이트)
-        t.tx_data[0] = data;           // tx_data 배열의 첫 번째에 데이터 저장
+        t.flags = SPI_TRANS_USE_TXDATA;
+        t.addr = reg & 0x7F;
+        t.length = 8;
+        t.tx_data[0] = data;
         return spi_device_polling_transmit(_handle, &t);
     }
 
-    esp_err_t read(uint8_t reg, uint8_t* data, size_t len) override {
+    inline esp_err_t read(uint8_t reg, uint8_t* data, size_t len) override {
         if (len == 0) return ESP_OK;
-        
         spi_transaction_t t = {};
-        t.addr = reg | 0x80;           // SPI Read: MSB 1 (핵심!)
-        t.length = 8 * len;            // 읽을 전체 비트 수
-        t.rxlength = 8 * len;          // 받을 전체 비트 수
-        t.rx_buffer = data;            // 데이터를 저장할 버퍼 주소
+        t.addr = reg | 0x80;
+        t.length = 8 * len;
+        t.rxlength = 8 * len;
+        t.rx_buffer = data;
         return spi_device_polling_transmit(_handle, &t);
     }
 };
 
-
-/**
- * 3. I2C 통신 구현체
- */
+// 3. I2C 구현체
 class I2CBus : public BusInterface {
-private:
-    i2c_master_dev_handle_t _handle;
-    static constexpr uint32_t I2C_TIMEOUT_MS = 2;
+    private:
+        i2c_master_dev_handle_t _handle;
+    public:
+        I2CBus(i2c_master_dev_handle_t handle) : _handle(handle) {}
+        ~I2CBus() override { if (_handle) i2c_master_bus_rm_device(_handle); }
+        BusType get_type() const override { return BusType::I2C; }
 
-public:
-    I2CBus(i2c_master_dev_handle_t handle) : _handle(handle) {}
-    ~I2CBus() override {
-        if (_handle) i2c_master_bus_rm_device(_handle);
-    }
-    
-    Interface::BusType get_type() const override { return Interface::BusType::I2C; }
+        inline esp_err_t write(uint8_t reg, uint8_t data) override {
+            uint8_t buf[2] = {reg, data};
+            return i2c_master_transmit(_handle, buf, 2, pdMS_TO_TICKS(2));
+        }
 
-    esp_err_t write(uint8_t reg, uint8_t data) override {
-        uint8_t write_buf[2] = {reg, data};
-        return i2c_master_transmit(_handle, write_buf, sizeof(write_buf), pdMS_TO_TICKS(I2C_TIMEOUT_MS));
-    }
-
-    esp_err_t read(uint8_t reg, uint8_t* data, size_t len) override {
-        // I2C는 주소 쓰기 후 데이터 읽기 (Transmit + Receive)
-        return i2c_master_transmit_receive(_handle, &reg, 1, data, len, pdMS_TO_TICKS(I2C_TIMEOUT_MS));
-    }
+        inline esp_err_t read(uint8_t reg, uint8_t* data, size_t len) override {
+            return i2c_master_transmit_receive(_handle, &reg, 1, data, len, pdMS_TO_TICKS(2));
+        }
 };
 
+// 4. 팩토리 함수 (클래스 정의가 모두 끝난 후 선언)
+// 이제 I2CBus와 SPIBus가 무엇인지 알기 때문에 에러가 발생하지 않습니다.
+inline BusInterface* createI2C(i2c_master_bus_handle_t bus_handle, uint16_t addr) {
+    i2c_master_dev_handle_t dev_h;
+    i2c_device_config_t dev_cfg = {}; // 0으로 전체 초기화
+    dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
+    dev_cfg.device_address = addr;
+    dev_cfg.scl_speed_hz = 400000;
 
-} // namespace Driver 끝
+    if (i2c_master_bus_add_device(bus_handle, &dev_cfg, &dev_h) == ESP_OK) {
+        return new I2CBus(dev_h);
+    }
+    return nullptr;
+}
+
+inline BusInterface* createSPI(spi_host_device_t host, int cs_io) {
+    spi_device_handle_t dev_h;
+    spi_device_interface_config_t dev_cfg = {}; // 0으로 전체 초기화
+    dev_cfg.mode = 3;
+    dev_cfg.clock_speed_hz = 7 * 1000 * 1000;
+    dev_cfg.spics_io_num = cs_io;
+    dev_cfg.queue_size = 7;
+
+    if (spi_bus_add_device(host, &dev_cfg, &dev_h) == ESP_OK) {
+        return new SPIBus(dev_h);
+    }
+    return nullptr;
+}
+
+} // namespace Interface
+

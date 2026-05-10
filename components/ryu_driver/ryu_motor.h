@@ -21,7 +21,7 @@ namespace Driver
 { 
 
 class Motor{
- private:
+    private:
         Motor() = default; 
         ~Motor() = default;
         static constexpr const char* TAG = "Motor";
@@ -32,8 +32,6 @@ class Motor{
         }
         Motor(const Motor&) = delete;
         Motor& operator=(const Motor&) = delete;
-        Motor(Motor&&) = delete;
-        Motor& operator=(Motor&&) = delete;
 
         // FC가 공중 운반물이 있을경우 떨어뜨리는 SERVO MOTOR 
         static inline constexpr  gpio_num_t    SERVO_MOTOR_PIN  = GPIO_NUM_25;

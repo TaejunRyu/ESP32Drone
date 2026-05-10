@@ -5,6 +5,7 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <driver/i2c_master.h>
+#include <driver/spi_master.h>
  
 // 인터페이스 전방 선언
 namespace Interface {
@@ -65,7 +66,8 @@ public:
     static inline constexpr uint8_t B0_EXT_SLV_SENS_DATA_00 = 0x3B; // SPI 모드에서 지자계 데이터가 들어오는 시작점
 
 
-    esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
+    //esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
+    esp_err_t init_bus(Interface::BusInterface *bus);
     // 주요 기능 함수
     void icm20948_select_bank(uint8_t bank);
     esp_err_t enable_mag_bypass();

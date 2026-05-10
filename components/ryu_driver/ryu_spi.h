@@ -21,8 +21,6 @@ public:
     // 싱글톤 패턴: 복사 및 이동 방지
     SPI(const SPI&) = delete;
     SPI& operator=(const SPI&) = delete;
-    SPI(SPI&&) = delete;
-    SPI& operator=(SPI&&) = delete;
 
     // ESP32-S3 기본 SPI 핀 설정 (원하는 핀으로 변경 가능)
     static inline constexpr spi_host_device_t   SPI_HOST = SPI2_HOST; // FSPI

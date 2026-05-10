@@ -154,9 +154,9 @@ esp_err_t FailSafe::reinit_all_sensors()
 
     Driver::I2C::get_instance().initialize();
     // 기존의 offset은 가지고 있으므로 그대로 사용한다.
-    Sensor::ICM20948::Main().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_VCC);
+    Sensor::ICM20948::Main().init_bus(Interface::createI2C(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_VCC));
     Sensor::ICM20948::Main().initialize();
-    Sensor::ICM20948::Sub().setup_i2c_interface(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_GND);
+    Sensor::ICM20948::Sub().init_bus(Interface::createI2C(Driver::I2C::get_instance().get_bus_handle(),Sensor::ICM20948::ADDR_GND));
     Sensor::ICM20948::Sub().initialize();
 
     if (Sensor::ICM20948::Main().is_initialized()){

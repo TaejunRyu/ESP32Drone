@@ -40,7 +40,7 @@ class IST8310{
         bool is_initialized(){return _initialized;};
 
         void calibrate_hard_iron();
-        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
+        esp_err_t init_bus(Interface::BusInterface *bus);
         std::tuple<esp_err_t, std::array<float, 3>> read_raw_data();
         std::tuple<esp_err_t, std::array<float, 3>> read_with_offset();
 

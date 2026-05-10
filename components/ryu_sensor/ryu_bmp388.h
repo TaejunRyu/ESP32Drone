@@ -48,7 +48,7 @@ class BMP388{
         //std::tuple<esp_err_t, float,float> Managed_get_relative_altitude();
         esp_err_t Managed_get_relative_altitude(float *return_alt, float *return_rate);
         float get_climb_rate(){return _climb_rate;};
-        esp_err_t setup_i2c_interface(i2c_master_bus_handle_t bus_handle, uint16_t addr);
+        esp_err_t init_bus(Interface::BusInterface *bus);
 
     private:
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
@@ -97,6 +97,7 @@ class BMP388{
         void init_coefficients();
         std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388();
 
+        
         std::tuple<esp_err_t, float> get_pressure();
 
         

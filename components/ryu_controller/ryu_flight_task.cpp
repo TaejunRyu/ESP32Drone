@@ -70,7 +70,7 @@ esp_err_t Flight::initialize()
 
     { //ICM20948의 main 초기화
         // 1. Main IMU 설정 (주소 전달 -> 내부에서 장치추가/Bus객체생성/set_bus/init까지 한방에)
-        err = Sensor::ICM20948::Main().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_VCC);
+        err = Sensor::ICM20948::Main().init_bus(Interface::createI2C(bus_handle, Sensor::ICM20948::ADDR_VCC));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "ICM20948 Main Module Setup Failed.");
             return err;
@@ -88,7 +88,7 @@ esp_err_t Flight::initialize()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     {// 2. Sub IMU 설정
-        err = Sensor::ICM20948::Sub().setup_i2c_interface(bus_handle, Sensor::ICM20948::ADDR_GND);
+        err = Sensor::ICM20948::Sub().init_bus(Interface::createI2C(bus_handle, Sensor::ICM20948::ADDR_GND));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "ICM20948 Sub Module Setup Failed.");
             return err;
@@ -102,7 +102,7 @@ esp_err_t Flight::initialize()
     }
 
     { //AK09916 INITIALIZE
-        err = Sensor::AK09916::get_instance().setup_i2c_interface(bus_handle,Sensor::AK09916::ADDR);
+        err = Sensor::AK09916::get_instance().init_bus(Interface::createI2C(bus_handle,Sensor::AK09916::ADDR));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "AK09916 Module Setup Failed.");
             return err;
@@ -116,7 +116,7 @@ esp_err_t Flight::initialize()
     }
 
     {
-        err = Sensor::IST8310::get_instance().setup_i2c_interface(bus_handle,Sensor::IST8310::ADDR);
+        err = Sensor::IST8310::get_instance().init_bus(Interface::createI2C(bus_handle,Sensor::IST8310::ADDR));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "IST8310 Module Setup Failed.");
             return err;
@@ -130,7 +130,7 @@ esp_err_t Flight::initialize()
     }
 
     {    
-        Sensor::BMP388::Main().setup_i2c_interface(bus_handle,Sensor::BMP388::ADDR_VCC);
+        Sensor::BMP388::Main().init_bus(Interface::createI2C(bus_handle,Sensor::BMP388::ADDR_VCC));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "BMP338 Main Module setup Failed.");
             return err;
@@ -144,7 +144,7 @@ esp_err_t Flight::initialize()
     }
 
     {
-        Sensor::BMP388::Sub().setup_i2c_interface(bus_handle,Sensor::BMP388::ADDR_GND);
+        Sensor::BMP388::Sub().init_bus(Interface::createI2C(bus_handle,Sensor::BMP388::ADDR_GND));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "BMP338 Sub Module Setup Failed.");
             return err;
