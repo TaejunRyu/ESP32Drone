@@ -37,7 +37,6 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
     auto& ak09916 = Sensor::AK09916::get_instance();
 
 
-
     esp_err_t err = ESP_OK;
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
     if (this->_err_continue_count > 6) {
