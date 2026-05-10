@@ -36,9 +36,11 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
     auto& ist8310 = Sensor::IST8310::get_instance();
     auto& ak09916 = Sensor::AK09916::get_instance();
 
+
+
     esp_err_t err = ESP_OK;
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
-    if (this->err_continue_count > 6) {
+    if (this->_err_continue_count > 6) {
         if (!this->is_fault_posted) {
             Event::fault_event_data_t data = { 
                 .id = Event::FAULT_ID_MAG, 
@@ -46,36 +48,42 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
                 .reason = ESP_ERR_TIMEOUT 
             };
             // Failsafe 모듈에게 "MAG 둘 다 먹통임"을 알림
-            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, &data, sizeof(data), 0);
-            
-            // 바로 풀어버리면 될까 ???????????????????????????????
-            this->is_fault_posted = true; 
+            esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, &data, sizeof(data), 0);            
             ESP_LOGE(TAG, "Both MAG sensors failed. Event posted.");
         }
-        return {ESP_FAIL, {this->avr_mag[0], this->avr_mag[1], this->avr_mag[2]}}; 
+        // 먹통 이벤트를 보내고 20 번 읽는 타임을 고정으로 기존의 데이터를 보내고 복구처리함.
+        if (_waiting_count > 20){
+            this->is_fault_posted = true; 
+            _err_continue_count = 0;
+            _waiting_count = 0;
+            _active_index = 0;
+        }
+        _waiting_count++;
+        
+        return {ESP_FAIL, {this->_avr_mag[0], this->_avr_mag[1], this->_avr_mag[2]}}; 
     }
 
     // 센서 읽기 로직 (Main/Sub 스위칭)
-    if (this->active_index == 0){
+    if (this->_active_index == 0){
         auto [err_temp,mag] =  ist8310.read_with_offset();
         if (err_temp == ESP_OK)
-            for(int ii=0; ii<3; ii++) { this->avr_mag[ii] = mag[ii]; }
+            for(int ii=0; ii<3; ii++) { this->_avr_mag[ii] = mag[ii]; }
         err = err_temp;
     }
-    else if(this->active_index == 1){
+    else if(this->_active_index == 1){
         auto [err_temp,mag] = ak09916.read_with_offset();       
         if (err_temp == ESP_OK)
-            for(int ii=0; ii<3; ii++) { this->avr_mag[ii] = mag[ii]; }
-        this->avr_mag[0] = this->avr_mag[0] +  diff_x ;
-        this->avr_mag[1] = this->avr_mag[1] +  diff_y ;
-        this->avr_mag[2] = this->avr_mag[2] +  diff_z ;
+            for(int ii=0; ii<3; ii++) { this->_avr_mag[ii] = mag[ii]; }
+        this->_avr_mag[0] = this->_avr_mag[0] +  diff_x ;
+        this->_avr_mag[1] = this->_avr_mag[1] +  diff_y ;
+        this->_avr_mag[2] = this->_avr_mag[2] +  diff_z ;
         err = err_temp;
     }
 
     if (err == ESP_OK) {
         // 성공 시 데이터 업데이트 및 에러 카운트 초기화
-        this->err_count = 0;
-        this->err_continue_count = 0;
+        this->_err_count = 0;
+        this->_err_continue_count = 0;
 
         // [핵심] 복구되었다면 복구 이벤트 발행
         if (this->is_fault_posted) {
@@ -87,18 +95,18 @@ std::tuple<esp_err_t, std::array<float, 3>> ManageMag::Managed_read_with_offset(
             esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_RECOVERED, &data, sizeof(data), 0);
             this->is_fault_posted = false;
         }
-        return {ESP_OK, {this->avr_mag[0],this->avr_mag[1],this->avr_mag[2]}};
+        return {ESP_OK, {this->_avr_mag[0],this->_avr_mag[1],this->_avr_mag[2]}};
     } 
     else {
         // 실패 시 스위칭 로직
-        this->err_count++;
-        if (this->err_count > 3) {
-            ESP_LOGW(TAG, "Mag %d failed, switching...", this->active_index);
-            this->active_index = (this->active_index == 0) ? 1 : 0; // 스위칭
-            this->err_count = 0;
-            this->err_continue_count++;
+        this->_err_count++;
+        if (this->_err_count > 3) {
+            ESP_LOGW(TAG, "Mag %d failed, switching...", this->_active_index);
+            this->_active_index = (this->_active_index == 0) ? 1 : 0; // 스위칭
+            this->_err_count = 0;
+            this->_err_continue_count++;
         }
-        return {err, {this->avr_mag[0], this->avr_mag[1], this->avr_mag[2]}};
+        return {err, {this->_avr_mag[0], this->_avr_mag[1], this->_avr_mag[2]}};
     }
 }
 

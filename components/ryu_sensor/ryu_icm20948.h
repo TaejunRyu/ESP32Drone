@@ -87,6 +87,9 @@ private:
     std::array<float, 3> _offset_acc = {0.0f, 0.0f, 0.0f};
     std::array<float, 3> _offset_gyro = {0.0f, 0.0f, 0.0f};
     
+    // 두센서가 문제 발생하여 이벤트로 보낸후 일정한 count후에 복구 이벤트를 보낸다.
+    uint32_t _waiting_count =0; 
+    
     uint8_t _current_bank = 0;
     std::string _name {};
     

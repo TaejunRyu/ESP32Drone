@@ -314,7 +314,6 @@ void Flight::flight_task(void *pvParameters)
                     calc_mag_y=mag[1]; 
                     calc_mag_z=mag[2];
                 } 
-                //ESP_LOGI(TAG,"mx:%f , my:%f , mz:%f",calc_mag_x,calc_mag_y,calc_mag_z);
                 ret_code = ret_mag;
             }
         }
@@ -387,22 +386,10 @@ void Flight::flight_task(void *pvParameters)
         portEXIT_CRITICAL(&g_attitude_mux);
         
         // 일시에 g_sys를 가져온다.
-        //sys_t m_sys = g_sys;
+        sys_t m_sys = g_sys;
 
-        if(!g_sys.is_armed) [[unlikely]]{                
-            // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
-            motor.stop_all_motors();
-            // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
-            pid.reset_pid(&pid.pid_roll_angle);
-            pid.reset_pid(&pid.pid_pitch_angle);
-            pid.reset_pid(&pid.pid_yaw_angle);
-            pid.reset_pid(&pid.pid_roll_rate);
-            pid.reset_pid(&pid.pid_pitch_rate);
-            pid.reset_pid(&pid.pid_yaw_rate);
-            pid.reset_pid(&pid.pid_alt_pos);  
-        }else{
-            // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
-            // 감도를 높이려면 값을 키우면 된다.                         
+        // 시동이 걸렸을경우
+        if(m_sys.is_armed) [[likely]]{                
 
             Service::rc_data_t flysky_rc, qgc_rc, final_rc;
             Service::Flysky::get_instance().get_latest_rc(&flysky_rc);
@@ -414,7 +401,8 @@ void Flight::flight_task(void *pvParameters)
             } else if (qgc_rc.type == Service::RC_QGC && qgc_rc.throttle > 5.0f) {
                 final_rc = qgc_rc;
             }
-            //                                          민감도    
+            // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
+            // 감도를 높이려면 값을 키우면 된다.                         
             float tg_roll     = final_rc.roll     ;  //* 0.3f;
             float tg_pitch    = final_rc.pitch    ;  //* 0.3f;
             float tg_yaw_rate = final_rc.yaw      ;  //* 1.5f;
@@ -441,8 +429,20 @@ void Flight::flight_task(void *pvParameters)
                     filtered_climb_rate = temp_rate;
                 }
 
+                // 정상모드
+                if(!m_sys.error_hold_mode && !m_sys.manual_hold_mode ){
+                    alt_throttle_offset = 0.0f;
+                    pid.reset_pid(&pid.pid_alt_pos);
+                    pid.reset_pid(&pid.pid_alt_rate);
+                }
+
+                // 에러발생으로 인한 hold mode
+                if (m_sys.error_hold_mode) {
+                    filtered_climb_rate = 0.0f;                     // 상승률은 0으로 고정
+                }
+
                 // 3. 고도 유지 모드 스위치 처리                               
-                if (g_sys.manual_hold_mode){
+                if (m_sys.manual_hold_mode){
                     if(!last_alt_hold_state){
                         target_alt = filtered_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
                         alt_throttle_offset = 0.0f;     // PID 보정값 초기화
@@ -450,21 +450,16 @@ void Flight::flight_task(void *pvParameters)
                         pid.reset_pid(&pid.pid_alt_rate);
                     }
                 }                 
-                last_alt_hold_state = g_sys.manual_hold_mode ;
+                last_alt_hold_state = m_sys.manual_hold_mode ;
 
-                { // 비정상적인 요인 제한
-                    if (filtered_alt > 500.0f) filtered_alt = 0.0f;                     // 비정상적인 고도 차단
-                    if (filtered_alt <= 0.0f) filtered_alt = 0.0f;                      // 음수 고도 방지
-                    if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
-                }
-
-                // 에러발생으로 인한 hold mode
-                if (g_sys.error_hold_mode) {
-                    filtered_climb_rate = 0.0f;                     // 상승률은 0으로 고정
-                }
+                // 비정상적인 요인 제한
+                if (filtered_alt > 500.0f) filtered_alt = 0.0f;                     // 비정상적인 고도 차단
+                if (filtered_alt <= 0.0f) filtered_alt = 0.0f;                      // 음수 고도 방지
+                if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
+                
 
                 // 사용자 지정 hold mode 
-                if(g_sys.manual_hold_mode) {
+                if(m_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
                     float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
@@ -474,12 +469,6 @@ void Flight::flight_task(void *pvParameters)
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
                 }
 
-                // 정상모드
-                if(!g_sys.error_hold_mode && !g_sys.manual_hold_mode ){
-                    alt_throttle_offset = 0.0f;
-                    pid.reset_pid(&pid.pid_alt_pos);
-                    pid.reset_pid(&pid.pid_alt_rate);
-                }
             }
             
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
@@ -565,6 +554,17 @@ void Flight::flight_task(void *pvParameters)
 if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", m0, m1, m2, m3);
 
             motor.update_compare_value({m0,m1,m2,m3});
+        }else{
+            // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
+            motor.stop_all_motors();
+            // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
+            pid.reset_pid(&pid.pid_roll_angle);
+            pid.reset_pid(&pid.pid_pitch_angle);
+            pid.reset_pid(&pid.pid_yaw_angle);
+            pid.reset_pid(&pid.pid_roll_rate);
+            pid.reset_pid(&pid.pid_pitch_rate);
+            pid.reset_pid(&pid.pid_yaw_rate);
+            pid.reset_pid(&pid.pid_alt_pos);  
         }           
 
         // loop check 

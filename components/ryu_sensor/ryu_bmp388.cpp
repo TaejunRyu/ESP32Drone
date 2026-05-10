@@ -287,6 +287,7 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
     static size_t active_index = 0;
     static size_t err_count = 0;        
     static size_t err_continue_count = 0;
+    static uint32_t _waiting_count = 0;
     static float  baro_alt;
     static bool is_fault_posted = false; // 이벤트 중복 발행 방지
 
@@ -302,11 +303,19 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
             };
             // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
             esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, 
-                           &data, sizeof(data), 0);
-            is_fault_posted = true; 
-            
+                           &data, sizeof(data), 0);            
             ESP_LOGE(TAG, "Both Baro sensors failed. Event posted.");
         }
+
+       // 먹통 이벤트를 보내고 20 번 읽는 타임을 고정으로 기존의 데이터를 보내고 복구처리함.
+        if (_waiting_count > 20){
+            is_fault_posted = true; 
+            err_continue_count = 0;
+            _waiting_count = 0;
+            active_index = 0;
+        }
+        _waiting_count++;
+        
         *return_alt  = baro_alt;
         *return_rate = clib_rate;
 

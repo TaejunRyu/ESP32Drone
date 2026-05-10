@@ -287,9 +287,19 @@ esp_err_t ICM20948::Managed_read_with_offset(float* arg_acc ,float*arg_gyro,size
             // Failsafe 모듈에게 "IMU 둘 다 먹통임"을 알림
             esp_event_post(Event::SYS_FAULT_EVENT_BASE, Event::SENSOR_EVENT_READ_FAILED, 
                            &data, sizeof(data), 0);
-            is_fault_posted = true; 
             ESP_LOGE(TAG, "Both IMU sensors failed. Event posted.");
         }
+
+        // 먹통 이벤트를 보내고 20 번 읽는 타임을 고정으로 기존의 데이터를 보내고 복구처리함.
+        if (_waiting_count > 20){
+            is_fault_posted = true; 
+            err_continue_count = 0;
+            _waiting_count = 0;
+            active_index = 0;
+        }
+        _waiting_count++;
+
+
         memcpy(arg_acc,avr_acc,sizeof(float)*size);
         memcpy(arg_gyro,avr_gyro,sizeof(float)*size);
         
