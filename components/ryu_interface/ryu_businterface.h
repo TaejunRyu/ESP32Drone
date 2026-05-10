@@ -65,9 +65,7 @@ class I2CBus : public BusInterface {
         }
 };
 
-// 4. 팩토리 함수 (클래스 정의가 모두 끝난 후 선언)
-// 이제 I2CBus와 SPIBus가 무엇인지 알기 때문에 에러가 발생하지 않습니다.
-inline BusInterface* createI2C(i2c_master_bus_handle_t bus_handle, uint16_t addr) {
+inline BusInterface* createBIF(i2c_master_bus_handle_t bus_handle, uint16_t addr) {
     i2c_master_dev_handle_t dev_h;
     i2c_device_config_t dev_cfg = {}; // 0으로 전체 초기화
     dev_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
@@ -80,7 +78,7 @@ inline BusInterface* createI2C(i2c_master_bus_handle_t bus_handle, uint16_t addr
     return nullptr;
 }
 
-inline BusInterface* createSPI(spi_host_device_t host, int cs_io) {
+inline BusInterface* createBIF(spi_host_device_t host, int cs_io) {
     spi_device_handle_t dev_h;
     spi_device_interface_config_t dev_cfg = {}; // 0으로 전체 초기화
     dev_cfg.mode = 3;
@@ -93,6 +91,8 @@ inline BusInterface* createSPI(spi_host_device_t host, int cs_io) {
     }
     return nullptr;
 }
+
+
 
 } // namespace Interface
 
