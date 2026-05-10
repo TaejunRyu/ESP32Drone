@@ -397,14 +397,10 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
 // telemetry_task에서 시동 상태에 따라 시스템 상태를 관리하는 로직이 이미 구현되어 있기 때문에, 
 // 여기서는 시동 상태만 업데이트하고 ACK만 보내도록 수정합니다.
 void Mavlink::MAV_CMD_COMPONENT_ARM_DISARM_func(mavlink_message_t *msg, mavlink_command_long_t cmd){
-    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid); 
-    
-    //시동이 자동으로 꺼지니 일단 막아놓는다.
+    send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);     
     if (cmd.param1 > 0.5f && cmd.param1 < 1.5f) {
-        //g_sys.is_armed = true;
         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);    
     } else if (cmd.param1 < 0.5f) {
-        //g_sys.is_armed = false;
         esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);    
     }
     ESP_LOGI(TAG,"MAV_CMD_COMPONENT_ARM_DISARM_func Param1: %8.5f",cmd.param1);
@@ -599,8 +595,8 @@ void Mavlink::on_timer_tick()
     mavlink_message_t msg;
     // 10hz로 구분하고 있으므로 매번 처리...
     mavlink_msg_attitude_pack(SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000, 
-                                                -m_attitude.roll   * DEG_TO_RAD, 
-                                                -m_attitude.pitch  * DEG_TO_RAD, 
+                                                m_attitude.roll   * DEG_TO_RAD, 
+                                                m_attitude.pitch  * DEG_TO_RAD, 
                                                 m_attitude.yaw    * DEG_TO_RAD, 
                                                 m_attitude.rollspeed    * DEG_TO_RAD, 
                                                 m_attitude.pitchspeed   * DEG_TO_RAD, 
@@ -744,7 +740,7 @@ void Mavlink::on_timer_tick()
                         m_gps.vAcc,                                 // 수직 정확도 (mm)
                         m_gps.sAcc,                                 // 속도 정확도 (mm/s)
                         0,                                          // hdg_acc – [degE5] Heading / track uncertainty
-                        static_cast<uint16_t>(m_attitude.heading * 100.0f) // yaw (cdeg 단위로 변환)
+                        static_cast<uint16_t>(m_attitude.yaw * 100.0f) // yaw (cdeg 단위로 변환)
                     );
                     send_mavlink_msg(&msg);
             }
@@ -767,7 +763,9 @@ void Mavlink::on_timer_tick()
                     static_cast<int16_t>(m_gps.velN),   // 단위(cm/s) gps에서 데이터를 받아 처리 VGT문장에서 받으면 된다.
                     static_cast<int16_t>(m_gps.velE),
                     static_cast<int16_t>(m_gps.velD),
-                    static_cast<int16_t>(m_attitude.heading * 100.0f));
+                    static_cast<int16_t>(m_attitude.yaw * 100.0f)
+                );
+
                     send_mavlink_msg(&msg);
             }
             break;

@@ -75,16 +75,16 @@ enum flight_mode_t {
 } ;
 
 struct sys_t {
-    flight_mode_t   flight_mode;        // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
-    uint8_t         system_status;      // standby(3), active(4), critical 등
-    uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
-    bool            is_armed;           // 시동 상태
-    bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
-    bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
-    bool            gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
-    bool            payload_dropped;    // 투하 완료 여부
-    float           battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)
-    uint32_t        loop_count;         // 비행 루프 카운터 (이게 왜 필요하지 ?)
+    volatile flight_mode_t   flight_mode;        // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
+    volatile uint8_t         system_status;      // standby(3), active(4), critical 등
+    volatile uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
+    volatile bool            is_armed;           // 시동 상태
+    volatile bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
+    volatile bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
+    volatile bool            gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
+    volatile bool            payload_dropped;    // 투하 완료 여부
+    volatile float           battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)
+    volatile uint32_t        loop_count;         // 비행 루프 카운터 (이게 왜 필요하지 ?)
 };
 extern sys_t g_sys;
 
@@ -95,7 +95,7 @@ struct attitude_data_t{
     float   roll; 
     float   pitch;
     float   yaw;
-    uint16_t heading;
+    //uint16_t heading;
     float   rollspeed;
     float   pitchspeed;
     float   yawspeed;
@@ -103,8 +103,6 @@ struct attitude_data_t{
 extern attitude_data_t g_attitude;
 extern portMUX_TYPE g_attitude_mux;
 
-
- 
 // --- 고도 데이터 ---
 struct altitude_data_t {
     float current;   // 현재 고도 (기압계 기준, m)

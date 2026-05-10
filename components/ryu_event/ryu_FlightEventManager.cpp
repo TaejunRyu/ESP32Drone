@@ -13,11 +13,10 @@
 #include "ryu_config.h"
 #include "ryu_mavlink.h"
 
-namespace Event{
-    ESP_EVENT_DEFINE_BASE(SYS_MODE_EVENT_BASE);
-}
 
-namespace Service{
+namespace Event{
+
+ESP_EVENT_DEFINE_BASE(SYS_MODE_EVENT_BASE);
 
 esp_err_t FlightEventManager::initialize() {
     if(_initialized) return ESP_OK;

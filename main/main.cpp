@@ -69,7 +69,7 @@ void app_main(void) {
         failsafe.start_task();
     }
 
-    auto& manager = Service::FlightEventManager::get_instance();
+    auto& manager = Event::FlightEventManager::get_instance();
     err = manager.initialize();
     if (err != ESP_OK){
         ESP_LOGE(TAG, "FLight Event Manager Initialize Failed.");

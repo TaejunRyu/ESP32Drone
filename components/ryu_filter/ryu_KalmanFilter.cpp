@@ -55,7 +55,8 @@ void KalmanFilter::update_accel(float ax, float ay, float az) {
     // 중력 예상 방향 (Estimated Gravity)
     float vx = 2.0f * (x[1]*x[3] - x[0]*x[2]);
     float vy = 2.0f * (x[0]*x[1] + x[2]*x[3]);
-    float vz = x[0]*x[0] - x[1]*x[1] - x[2]*x[2] + x[3]*x[3];
+    //float vz = x[0]*x[0] - x[1]*x[1] - x[2]*x[2] + x[3]*x[3];
+    float vz = -x[0]*x[0] + x[1]*x[1] + x[2]*x[2] - x[3]*x[3];       // NED 표준으로 교체.
 
     // Innovation (측정 오차)
     float ex = ax - vx;

@@ -73,7 +73,7 @@ void Mahony::MahonyAHRSupdate(float gx, float gy, float gz, float ax, float ay, 
     // 3. 중력 예상 방향
     float vx = 2.0f * (q1*q3 - q0*q2);
     float vy = 2.0f * (q0*q1 + q2*q3);
-    float vz = q0*q0 - q1*q1 - q2*q2 + q3*q3;
+    float vz = -(q0*q0 - q1*q1 - q2*q2 + q3*q3);
 
     // 4. 오차 계산 (★ 정규화된 mx, my, mz가 쓰이므로 가속도 오차와 밸런스가 맞습니다)
     ex = (ay * vz - az * vy) + (my * wz - mz * wy);
@@ -127,7 +127,7 @@ void Mahony::calibrate_mahony_initial_attitude(float ax, float ay, float az, flo
 
     // 2. 가속도 데이터를 이용해 초기 Roll, Pitch 직접 계산 (Radian)
     // 수평 상태라면 roll, pitch는 0에 매우 가깝게 나옴
-    float roll  = atan2f(ay, az);
+    float roll  = atan2f(ay, -az);
     float pitch = atan2f(-ax, sqrtf(ay * ay + az * az));
 
       // 3. 지자계 데이터를 이용해 초기 Yaw(Heading) 계산 (Tilt-compensated)

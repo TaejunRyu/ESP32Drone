@@ -319,6 +319,21 @@ void Flight::flight_task(void *pvParameters)
             }
         }
 
+
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| AX: %8.3f | AY: %8.3f | AZ: %8.3f | GX: %8.3f | GY: %8.3f | GZ: %8.3f | MX: %8.3f | MY: %8.3f | MZ: %8.3f |",
+//                         calc_acc_x, 
+//                         calc_acc_y, 
+//                         calc_acc_z, 
+//                         calc_gyro_x,
+//                         calc_gyro_y, 
+//                         calc_gyro_z, 
+//                         calc_mag_x,
+//                         calc_mag_y,
+//                         calc_mag_z
+//                         );
+
+
+
         kalman.update(
                         calc_gyro_x * DEG_TO_RAD,
                         calc_gyro_y * DEG_TO_RAD, 
@@ -345,9 +360,12 @@ void Flight::flight_task(void *pvParameters)
         //                     dt
         //                 );
         
-        float roll_deg, pitch_deg, yaw_deg;
+        float roll_deg=0.0f, pitch_deg=0.0f, yaw_deg=0.0f;
         //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
         kalman.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
+
+//if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", roll_deg,pitch_deg,yaw_deg);
+
         
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
         float actual_compass_heading = yaw_deg + 7.7f;
@@ -362,14 +380,13 @@ void Flight::flight_task(void *pvParameters)
         m_attitude.roll         = roll_deg;
         m_attitude.pitch        = pitch_deg;        
         m_attitude.yaw          = actual_compass_heading;
-        m_attitude.heading      = actual_compass_heading;
 
         //m_attitide에저장되어진 정보를 g_attitude에 넘긴다.
         portENTER_CRITICAL(&g_attitude_mux);
         g_attitude = m_attitude;
         portEXIT_CRITICAL(&g_attitude_mux);
         
-        // 일시에 g_sys를 ㅈ가져온다.
+        // 일시에 g_sys를 가져온다.
         sys_t m_sys = g_sys;
 
         if(m_sys.is_armed) [[unlikely]]{                
@@ -480,8 +497,8 @@ void Flight::flight_task(void *pvParameters)
 
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
-            float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  m_attitude.roll,  dt, false);
-            float target_rate_pitch = pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, m_attitude.pitch, dt, false);
+            float target_rate_roll  = -pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  m_attitude.roll,  dt, false);
+            float target_rate_pitch = -pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, m_attitude.pitch, dt, false);
 
             static float target_yaw_angle = 0.0f; // static 또는 전역 변수로 선언
 
@@ -496,7 +513,7 @@ void Flight::flight_task(void *pvParameters)
 
             // 3. [중요] 최단 거리(Shortest Path) 오차 계산 로직을 run_pid_angle 내부에 넣거나 호출 전 수정
             // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
-            float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
+            float target_rate_yaw = -pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
 
 
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calc_gyro_x, dt);
@@ -521,10 +538,10 @@ void Flight::flight_task(void *pvParameters)
             float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
-            float m0 = base_pwm + out_roll - out_pitch + out_yaw;
-            float m1 = base_pwm - out_roll - out_pitch - out_yaw;
+            float m0 = base_pwm - out_roll + out_pitch + out_yaw;
+            float m1 = base_pwm + out_roll - out_pitch + out_yaw;
             float m2 = base_pwm + out_roll + out_pitch - out_yaw;
-            float m3 = base_pwm - out_roll + out_pitch + out_yaw;
+            float m3 = base_pwm - out_roll - out_pitch - out_yaw;
 
             // 2. 가장 많이 튀어나온(최대값) 모터 찾기
             float max_motor = m0;
@@ -541,12 +558,15 @@ void Flight::flight_task(void *pvParameters)
                 m3 -= diff;
             }
 
-            //m0 : FL (CW) ,m1 : FR(CCW), m3 : RL (CCW) ,m4 : RR (CW) 
+            //m0 : FR (CCW) ,m1 : RL(CCW), m3 : FL (CW) ,m4 : RR (CW) 
             //float motor_v[4];
             m0 = std::clamp(m0, 1050.0f, 2000.0f);
             m1 = std::clamp(m1, 1050.0f, 2000.0f);
             m2 = std::clamp(m2, 1050.0f, 2000.0f);
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", m0, m1, m2, m3);
+
+
             motor.update_compare_value({m0,m1,m2,m3});
         }           
 

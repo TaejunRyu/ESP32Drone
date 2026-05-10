@@ -6,4 +6,7 @@ idf_component_register(
     REQUIRES    
         esp_system
         esp_event
+        log
+        ryu_config
+        ryu_service
 )

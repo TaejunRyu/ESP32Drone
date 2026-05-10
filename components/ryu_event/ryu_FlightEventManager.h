@@ -17,7 +17,7 @@
 #include <esp_err.h>
 #include "ryu_flight_event.h"
 
-namespace Service{
+namespace Event{
 
 class FlightEventManager{
     private:
