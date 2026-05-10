@@ -278,36 +278,28 @@ void Flight::flight_task(void *pvParameters)
         //Watch Dog에게 "나 살아 있어!"" 라고 알린다.  
         esp_task_wdt_reset(); 
         
-        // 연속적인 데이터 읽기 실패를 체크한다. 
-        static float    calc_acc_x  = 0.0f,  
-                        calc_acc_y  = 0.0f,  
-                        calc_acc_z  = 0.0f;
-        static float    calc_gyro_x = 0.0f,  
-                        calc_gyro_y = 0.0f,  
-                        calc_gyro_z = 0.0f;
+        static float    calc_acc_x  = 0.0f, calc_acc_y  = 0.0f, calc_acc_z  = 0.0f;
+        static float    calc_gyro_x = 0.0f, calc_gyro_y = 0.0f, calc_gyro_z = 0.0f;
+        static float    calc_mag_x=0.0f,    calc_mag_y=0.0f,    calc_mag_z=0.0f;
 
-        float macc[3]={},mgyro[3]={};
-        esp_err_t ret_code = icm20948_main.Managed_read_with_offset( macc, mgyro,sizeof(macc));
+        float acc[3]={}, gyro[3]={},mag[3]={};
+        esp_err_t ret_code = icm20948_main.Managed_read_with_offset( acc, gyro,sizeof(acc));
         if (ret_code == ESP_OK){
-            calc_acc_x  = macc[0] ;
-            calc_acc_y  = macc[1] ;
-            calc_acc_z  = macc[2] ;
-            calc_gyro_x = mgyro[0] ;
-            calc_gyro_y = mgyro[1] ;
-            calc_gyro_z = mgyro[2] ;
+            calc_acc_x  = acc[0] ;
+            calc_acc_y  = acc[1] ;
+            calc_acc_z  = acc[2] ;
+            calc_gyro_x = gyro[0] ;
+            calc_gyro_y = gyro[1] ;
+            calc_gyro_z = gyro[2] ;
         }
 
-        static float    calc_mag_x=0.0f, 
-                        calc_mag_y=0.0f, 
-                        calc_mag_z=0.0f;
+        icm20948_main.get_mag(mag);
+        calc_mag_x=mag[0]; 
+        calc_mag_y=mag[1]; 
+        calc_mag_z=mag[2];
 
-        if (managed_mag.get_bus_type() == Interface::BusType::SPI){
-            auto mag = icm20948_main.get_mag();
-            calc_mag_x=mag[0]; 
-            calc_mag_y=mag[1]; 
-            calc_mag_z=mag[2];
-        }else{ //Interface::BusType::I2C
-            if (loop_cnt % 8 == 0){ // 50HZ
+        if (loop_cnt % 8 == 0){// 50HZ
+            if (managed_mag.get_bus_type() == Interface::BusType::I2C){ 
                 auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
                 if(ret_mag == ESP_OK){
                     calc_mag_x=mag[0]; 
@@ -461,7 +453,7 @@ void Flight::flight_task(void *pvParameters)
                 // 사용자 지정 hold mode 
                 if(m_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
+                    float target_climb_rate = -pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)

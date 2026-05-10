@@ -299,14 +299,9 @@ esp_err_t ICM20948::Managed_read_with_offset(float* arg_acc ,float*arg_gyro,size
         }
         _waiting_count++;
 
-
         memcpy(arg_acc,avr_acc,sizeof(float)*size);
-        memcpy(arg_gyro,avr_gyro,sizeof(float)*size);
-        
-        //arg_acc[0] = avr_acc[0];arg_acc[1] = avr_acc[1];arg_acc[2] = avr_acc[2];
-        //arg_gyro[0] = avr_gyro[0];arg_gyro[1] = avr_gyro[1];arg_gyro[2] = avr_gyro[2];
+        memcpy(arg_gyro,avr_gyro,sizeof(float)*size);        
         return ESP_FAIL;
-        //return {ESP_FAIL, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}}; 
     }
 
     // 센서 읽기 로직 (Main/Sub 스위칭)
@@ -331,10 +326,7 @@ esp_err_t ICM20948::Managed_read_with_offset(float* arg_acc ,float*arg_gyro,size
         }
         memcpy(arg_acc,acc.data(),sizeof(float)*size);
         memcpy(arg_gyro,gyro.data(),sizeof(float)*size);
-        //arg_acc = acc.data();
-        //arg_gyro = gyro.data();
         return ESP_OK;
-        //return {ESP_OK, acc, gyro};
     } 
     else {
         // 실패 시 스위칭 로직
@@ -347,12 +339,7 @@ esp_err_t ICM20948::Managed_read_with_offset(float* arg_acc ,float*arg_gyro,size
         }
         memcpy(arg_acc,avr_acc,sizeof(float)*size);
         memcpy(arg_gyro,avr_gyro,sizeof(float)*size);
-        
-        //arg_acc = avr_acc;
-        //arg_gyro = avr_gyro;
-
         return err;
-        //return {err, {avr_acc[0], avr_acc[1], avr_acc[2]}, {avr_gyro[0], avr_gyro[1], avr_gyro[2]}};
     }
 }
 
