@@ -21,9 +21,9 @@ esp_err_t PID::initialize()
     // // PID 구조체 초기값 (추천 가이드)
     // // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
     // // Angle (Outer)	    각도 유지	    4.5	                0.0	            0.0	            오직 P값만 사용해도
-    // pid_roll_angle  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    // pid_pitch_angle = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    // pid_yaw_angle   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
+    // pid_roll_deg  = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_pitch_deg = { .kp = 4.5f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    // pid_yaw_deg   = { .kp = 3.0f, .ki = 0.0f,  .kd = 0.0f,  .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f }; // Yaw는 조금 낮게
 
     // // 2. 각속도 제어용 (Inner Loop) - 실제 기체 반응 결정
     // // 제어기 명칭	        역할	        P (Proportional)	I (Integral)	D (Derivative)	비고
@@ -36,9 +36,9 @@ esp_err_t PID::initialize()
 
 
     // 450급 드론용 추천 파라미터 세팅( AI 추천 셋팅)
-    pid_roll_angle  = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_pitch_angle = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
-    pid_yaw_angle   = { .kp = 2.5f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_roll_deg  = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_pitch_deg = { .kp = 3.8f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
+    pid_yaw_deg   = { .kp = 2.5f, .ki = 0.0f,  .kd = 0.0f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
 
     pid_roll_rate   = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
     pid_pitch_rate  = { .kp = 0.15f, .ki = 0.12f, .kd = 0.005f , .integral =0.0f,    .err_prev=0.0f, .prev_rate=0.0f };
@@ -149,17 +149,17 @@ void PID::sync_pid_from_params()
     auto& values = p_mgr.get_values();
 
     // Roll / Pitch / Yaw 각 항의 비례, 적분, 미분 계수
-    pid_roll_angle.kp   = values.MC_ROLL_P;
-    pid_roll_angle.ki   = values.MC_ROLLRATE_I; // rate I를 재활용
-    pid_roll_angle.kd   = values.MC_ROLLRATE_D;
+    pid_roll_deg.kp   = values.MC_ROLL_P;
+    pid_roll_deg.ki   = values.MC_ROLLRATE_I; // rate I를 재활용
+    pid_roll_deg.kd   = values.MC_ROLLRATE_D;
 
-    pid_pitch_angle.kp  = values.MC_PITCH_P;
-    pid_pitch_angle.ki  = values.MC_PITCHRATE_I;
-    pid_pitch_angle.kd  = values.MC_PITCHRATE_D;
+    pid_pitch_deg.kp  = values.MC_PITCH_P;
+    pid_pitch_deg.ki  = values.MC_PITCHRATE_I;
+    pid_pitch_deg.kd  = values.MC_PITCHRATE_D;
 
-    pid_yaw_angle.kp    = values.MC_YAW_P;
-    pid_yaw_angle.ki    = values.MC_YAWRATE_I;
-    pid_yaw_angle.kd    = 0.0f; // 별도 D 없음
+    pid_yaw_deg.kp    = values.MC_YAW_P;
+    pid_yaw_deg.ki    = values.MC_YAWRATE_I;
+    pid_yaw_deg.kd    = 0.0f; // 별도 D 없음
 
     // 고도용 파라미터가 있다면 여기에 추가 (MPC_* 항목을 예시로 사용)
     pid_alt_pos.kp      = values.MPC_Z_P;

@@ -387,10 +387,10 @@ void Flight::flight_task(void *pvParameters)
             }
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
             // 감도를 높이려면 값을 키우면 된다.                         
-            float target_roll_deg       = final_rc.roll     ;  //* 0.3f;
-            float target_pitch_deg      = final_rc.pitch    ;  //* 0.3f;
-            float target_yaw_deg       = final_rc.yaw      ;  //* 1.5f;
-            float target_throttle       = final_rc.throttle * 10.0f;
+            float target_rc_roll_deg        = final_rc.roll     ;  //* 0.3f;
+            float target_rc_pitch_deg       = final_rc.pitch    ;  //* 0.3f;
+            float target_rc_yaw_deg         = final_rc.yaw      ;  //* 1.5f;
+            float target_rc_throttle        = final_rc.throttle * 10.0f;
 
             // 1초에 한번 파라미터 테이블에서 최신 PID 계수를 읽어옵니다
             //if(loop_cnt==100) sync_pid_from_params();
@@ -458,10 +458,10 @@ void Flight::flight_task(void *pvParameters)
             
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
-            if (target_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
-                pid.reset_pid_iterm(&pid.pid_roll_angle);
-                pid.reset_pid_iterm(&pid.pid_pitch_angle);
-                pid.reset_pid_iterm(&pid.pid_yaw_angle);
+            if (target_rc_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
+                pid.reset_pid_iterm(&pid.pid_roll_deg);
+                pid.reset_pid_iterm(&pid.pid_pitch_deg);
+                pid.reset_pid_iterm(&pid.pid_yaw_deg);
                 
                 pid.reset_pid_iterm(&pid.pid_roll_rate);
                 pid.reset_pid_iterm(&pid.pid_pitch_rate);
@@ -470,26 +470,26 @@ void Flight::flight_task(void *pvParameters)
 
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(target_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
-            float target_roll_rate  = pid.run_pid_angle(&pid.pid_roll_angle,  target_roll_deg,  cur_roll_deg,  dt, false);
-            float target_pitch_rate = pid.run_pid_angle(&pid.pid_pitch_angle, target_pitch_deg, cur_pitch_deg, dt, false);
+            float target_roll_rate  = pid.run_pid_angle(&pid.pid_roll_deg,  target_rc_roll_deg,  cur_roll_deg,  dt, false);
+            float target_pitch_rate = pid.run_pid_angle(&pid.pid_pitch_deg, target_rc_pitch_deg, cur_pitch_deg, dt, false);
 
             // 컨트롤러에 의해서 입력되어지는 값.
-            static float target_rc_yaw_deg = 0.0f; // static 또는 전역 변수로 선언
+            static float target_yaw_deg = 0.0f; // static 또는 전역 변수로 선언
 
             // 1. 스틱 입력이 있으면 목표 각도를 변화시킴
-            if (fabsf(target_yaw_deg) > 1.0f) { // 데드밴드 설정
-                 target_rc_yaw_deg += target_yaw_deg * dt;
+            if (fabsf(target_rc_yaw_deg) > 1.0f) { // 데드밴드 설정
+                 target_yaw_deg += target_rc_yaw_deg * dt;
             } else {
-                 //target_rc_yaw_deg = cur_yaw_deg;   
+                 //target_yaw_deg = cur_yaw_deg;   
             }
 
             // 2. 각도 범위 정규화 (0~360도 기준인 m_attitude.yaw와 맞춤)
-            if (target_rc_yaw_deg >= 360.0f) target_rc_yaw_deg -= 360.0f;
-            if (target_rc_yaw_deg < 0.0f)    target_rc_yaw_deg += 360.0f;
+            if (target_yaw_deg >= 360.0f) target_yaw_deg -= 360.0f;
+            if (target_yaw_deg < 0.0f)    target_yaw_deg += 360.0f;
 
             // 3. [중요] 최단 거리(Shortest Path) 오차 계산 로직을 run_pid_angle 내부에 넣거나 호출 전 수정
             // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
-            float target_yaw_rate = pid.run_pid_angle(&pid.pid_yaw_angle, target_rc_yaw_deg, cur_yaw_deg, dt,true);
+            float target_yaw_rate = pid.run_pid_angle(&pid.pid_yaw_deg, target_yaw_deg, cur_yaw_deg, dt,true);
 
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_roll_rate,  cur_gyro.x, dt);
             float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_pitch_rate, cur_gyro.y, dt);
@@ -500,16 +500,16 @@ void Flight::flight_task(void *pvParameters)
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
             // 적분/이전 오차도 같이 초기화.
-            if (target_throttle < 5.0f) {
+            if (target_rc_throttle < 5.0f) {
                 out_yaw = 0.0f;
-                pid.pid_yaw_angle.integral = 0.0f;
-                pid.pid_yaw_angle.err_prev = 0.0f;
+                pid.pid_yaw_deg.integral = 0.0f;
+                pid.pid_yaw_deg.err_prev = 0.0f;
             }
             // 작은 값은 dead‑band 처리
             if (fabsf(out_yaw) < 1.0f) {
                 out_yaw = 0.0f;
             }
-            float base_pwm = 1000.0f + std::max(target_throttle + alt_throttle_offset, 50.0f);
+            float base_pwm = 1000.0f + std::max(target_rc_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
 
@@ -552,9 +552,9 @@ if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| base: %8.3f| out_pitch: %8.3f| out_roll
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
             motor.stop_all_motors();
             // 시동을 켜는 순간 '튀는' 현상을 방지합니다.
-            pid.reset_pid(&pid.pid_roll_angle);
-            pid.reset_pid(&pid.pid_pitch_angle);
-            pid.reset_pid(&pid.pid_yaw_angle);
+            pid.reset_pid(&pid.pid_roll_deg);
+            pid.reset_pid(&pid.pid_pitch_deg);
+            pid.reset_pid(&pid.pid_yaw_deg);
             pid.reset_pid(&pid.pid_roll_rate);
             pid.reset_pid(&pid.pid_pitch_rate);
             pid.reset_pid(&pid.pid_yaw_rate);

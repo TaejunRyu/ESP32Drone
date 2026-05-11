@@ -55,9 +55,9 @@ class PID{
         drone_pid_t pid_alt_pos {};     //목표고도유지 
         drone_pid_t pid_alt_rate {};    //상승/하강 속도제어
 
-        drone_pid_t pid_roll_angle {};  //각도유지
-        drone_pid_t pid_pitch_angle {};
-        drone_pid_t pid_yaw_angle {};
+        drone_pid_t pid_roll_deg {};  //각도유지
+        drone_pid_t pid_pitch_deg {};
+        drone_pid_t pid_yaw_deg {};
 
         drone_pid_t pid_roll_rate {};    //진동회전 제어
         drone_pid_t pid_pitch_rate {};
