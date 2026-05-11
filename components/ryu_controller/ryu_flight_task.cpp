@@ -477,23 +477,25 @@ void Flight::flight_task(void *pvParameters)
 
             // --- [1단계: Outer Loop - 각도 제어] ---
             // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
-            float target_rate_roll  = -pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  m_attitude.roll,  dt, false);
-            float target_rate_pitch = -pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, m_attitude.pitch, dt, false);
+            float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  m_attitude.roll,  dt, false);
+            float target_rate_pitch = pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, m_attitude.pitch, dt, false);
 
+            // 컨트롤러에 의해서 입력되어지는 값.
             static float target_yaw_angle = 0.0f; // static 또는 전역 변수로 선언
-
             // 1. 스틱 입력이 있으면 목표 각도를 변화시킴
             if (fabsf(tg_yaw_rate) > 1.0f) { // 데드밴드 설정
-                target_yaw_angle += tg_yaw_rate * dt;
+                 target_yaw_angle += tg_yaw_rate * dt;
+            } else {
+                 target_yaw_angle = m_attitude.yaw;   
             }
 
             // 2. 각도 범위 정규화 (0~360도 기준인 m_attitude.yaw와 맞춤)
             if (target_yaw_angle >= 360.0f) target_yaw_angle -= 360.0f;
-            if (target_yaw_angle < 0.0f) target_yaw_angle += 360.0f;
+            if (target_yaw_angle < 0.0f)    target_yaw_angle += 360.0f;
 
             // 3. [중요] 최단 거리(Shortest Path) 오차 계산 로직을 run_pid_angle 내부에 넣거나 호출 전 수정
             // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
-            float target_rate_yaw = -pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
+            float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
 
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calc_gyro_x, dt);
             float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, calc_gyro_y, dt);
@@ -516,10 +518,16 @@ void Flight::flight_task(void *pvParameters)
             float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
-            float m0 = base_pwm - out_roll + out_pitch + out_yaw;
-            float m1 = base_pwm + out_roll - out_pitch + out_yaw;
-            float m2 = base_pwm + out_roll + out_pitch - out_yaw;
-            float m3 = base_pwm - out_roll - out_pitch - out_yaw;
+
+            // m0: Front-Left (CW)
+            float m0 = base_pwm + out_pitch + out_roll - out_yaw;
+            // m1: Front-Right (CCW)
+            float m1 = base_pwm + out_pitch - out_roll + out_yaw;
+            // m2: Rear-Left (CCW)
+            float m2 = base_pwm - out_pitch + out_roll + out_yaw;
+            // m3: Rear-Right (CW)
+            float m3 = base_pwm - out_pitch - out_roll - out_yaw;
+
 
             // 2. 가장 많이 튀어나온(최대값) 모터 찾기
             float max_motor = m0;
@@ -536,7 +544,6 @@ void Flight::flight_task(void *pvParameters)
                 m3 -= diff;
             }
 
-            //m0 : FR (CCW) ,m1 : RL(CCW), m3 : FL (CW) ,m4 : RR (CW) 
             //float motor_v[4];
             m0 = std::clamp(m0, 1050.0f, 2000.0f);
             m1 = std::clamp(m1, 1050.0f, 2000.0f);

@@ -2,44 +2,18 @@
 
 #include <array>
 #include <string_view>
+#include <math.h>
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
 
 namespace ENV {
 
-#define M_PI 3.14159265358979323846
-
 inline constexpr uint8_t SYSTEM_ID      = 1;
 inline constexpr uint8_t COMPONENT_ID   = 1;
 
-inline constexpr  float RAD_TO_DEG = 180.0f/M_PI;
-inline constexpr  float DEG_TO_RAD = M_PI/180.0f;
-
-
-
-inline constexpr bool USE_BMP388_SPI = false;  // true로 설정하면 BMP388 SPI 경로 사용
-inline constexpr gpio_num_t  VSPI_SCLK   = GPIO_NUM_18;
-inline constexpr gpio_num_t  VSPI_MISO   = GPIO_NUM_19;
-inline constexpr gpio_num_t  VSPI_MOSI   = GPIO_NUM_23;
-// 개별 CS 핀 (센서마다 하나씩)
-inline constexpr gpio_num_t  VSPI_CS1    = GPIO_NUM_5;  // ICM20948 #1
-inline constexpr gpio_num_t  VSPI_CS2    = GPIO_NUM_25; // ICM20948 #2
-inline constexpr gpio_num_t  VSPI_CS3    = GPIO_NUM_15; // BMP388 SPI CS
-
-//남은핀.
-//12번(MTDI)은 부팅 시 내부 Flash 전압을 결정합니다. 
-//SCLK 라인에 연결된 SD 카드의 저항 성분 때문에 전압이 꼬여서 부팅이 안 될 수 있습니다.
-//해결: idf.py menuconfig → Serial flasher config → Flash voltage (3.3V)로 강제 고정하세요. (이렇게 하면 12번 핀의 전압과 상관없이 정상 부팅됩니다.)
-inline constexpr gpio_num_t  HSPI_SCLK    = GPIO_NUM_12; //  MTDI핀
-inline constexpr gpio_num_t  HSPI_MISO    = GPIO_NUM_15; // 일반핀.
-inline constexpr gpio_num_t  HSPI_MOSI    = GPIO_NUM_13; //  JTAG핀
-//2 상황: 부팅 시 이 핀은 Low여야 합니다.
-//체크: 보통 SD 카드 모듈의 CS 핀에는 10kΩ 정도의 풀업 저항이 달려 있어 부팅 시 High가 되기 쉽습니다.
-//해결: 만약 전원을 켰는데 아무 반응이 없다면, 
-//2번 핀을 Low로 살짝 잡아주거나 부팅 후에만 CS로 동작하게 회로를 점검해야 합니다. (정 안 되면 14번 핀과 바꾸는 게 상책입니다.)
-inline constexpr gpio_num_t  HSPI_CS      = GPIO_NUM_2;  // 부팅관련
-inline constexpr gpio_num_t  T1    = GPIO_NUM_0;  // 부팅관련
-  
+inline constexpr  float RAD_TO_DEG = (180.0f/M_PI);
+inline constexpr  float DEG_TO_RAD = (M_PI/180.0f);
+   
 // 시스템의 순차적 진행
 enum sys_status_t{                    
     SYS_STATE_UNINIT,            // 시스템 초기화 중 (센서 체크 전) 	       
@@ -187,3 +161,29 @@ struct baro_t{
 extern baro_t g_baro;
 
 }
+
+
+
+
+//inline constexpr bool USE_BMP388_SPI = false;  // true로 설정하면 BMP388 SPI 경로 사용
+// inline constexpr gpio_num_t  VSPI_SCLK   = GPIO_NUM_18;
+// inline constexpr gpio_num_t  VSPI_MISO   = GPIO_NUM_19;
+// inline constexpr gpio_num_t  VSPI_MOSI   = GPIO_NUM_23;
+// // 개별 CS 핀 (센서마다 하나씩)
+// inline constexpr gpio_num_t  VSPI_CS1    = GPIO_NUM_5;  // ICM20948 #1
+// inline constexpr gpio_num_t  VSPI_CS2    = GPIO_NUM_25; // ICM20948 #2
+// inline constexpr gpio_num_t  VSPI_CS3    = GPIO_NUM_15; // BMP388 SPI CS
+
+// //남은핀.
+// //12번(MTDI)은 부팅 시 내부 Flash 전압을 결정합니다. 
+// //SCLK 라인에 연결된 SD 카드의 저항 성분 때문에 전압이 꼬여서 부팅이 안 될 수 있습니다.
+// //해결: idf.py menuconfig → Serial flasher config → Flash voltage (3.3V)로 강제 고정하세요. (이렇게 하면 12번 핀의 전압과 상관없이 정상 부팅됩니다.)
+// inline constexpr gpio_num_t  HSPI_SCLK    = GPIO_NUM_12; //  MTDI핀
+// inline constexpr gpio_num_t  HSPI_MISO    = GPIO_NUM_15; // 일반핀.
+// inline constexpr gpio_num_t  HSPI_MOSI    = GPIO_NUM_13; //  JTAG핀
+// //2 상황: 부팅 시 이 핀은 Low여야 합니다.
+// //체크: 보통 SD 카드 모듈의 CS 핀에는 10kΩ 정도의 풀업 저항이 달려 있어 부팅 시 High가 되기 쉽습니다.
+// //해결: 만약 전원을 켰는데 아무 반응이 없다면, 
+// //2번 핀을 Low로 살짝 잡아주거나 부팅 후에만 CS로 동작하게 회로를 점검해야 합니다. (정 안 되면 14번 핀과 바꾸는 게 상책입니다.)
+// inline constexpr gpio_num_t  HSPI_CS      = GPIO_NUM_2;  // 부팅관련
+// inline constexpr gpio_num_t  T1    = GPIO_NUM_0;  // 부팅관련

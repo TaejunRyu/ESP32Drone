@@ -97,8 +97,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
 
         case MAVLINK_MSG_ID_MANUAL_CONTROL:{
             // x, y, z, r 값은 이미 -1000 ~ 1000 (또는 z는 0~1000) 범위입니다.
-            float x = static_cast<float>(mavlink_msg_manual_control_get_x(msg)); // Roll
-            float y = static_cast<float>(mavlink_msg_manual_control_get_y(msg)); // Pitch
+            float y = static_cast<float>(mavlink_msg_manual_control_get_x(msg)); // Roll
+            float x = static_cast<float>(mavlink_msg_manual_control_get_y(msg)); // Pitch
             float z = static_cast<float>(mavlink_msg_manual_control_get_z(msg)); // Throttle
             float r = static_cast<float>(mavlink_msg_manual_control_get_r(msg)); // Yaw
 

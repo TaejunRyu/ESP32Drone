@@ -100,7 +100,9 @@ float PID::run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is
 float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, float dt)
 {
     if (dt <= 0.0f) return 0.0f;
+
     float error = target_rate - current_rate;
+
 
    // [Safety Check] I2C 에러 및 복구 중 처리
     if (ENV::g_sys.error_hold_mode || ENV::g_sys.manual_hold_mode) {
@@ -117,8 +119,9 @@ float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, f
     // I 항 (Anti-Windup 적용)
     p->integral += error * dt;
     // 출력 기준으로 I항 제한 (예: 모터 출력의 최대 15%까지만 담당)
-    float i_out = std::clamp(p->ki * p->integral, -150.0f, 150.0f); 
-
+    //float i_out = std::clamp(p->ki * p->integral, -150.0f, 150.0f); 
+    float i_out = std::clamp(p->ki * p->integral, -60.0f, 60.0f); 
+ 
     // D 항 (Measurement Derivative: 목표값 변화가 아닌 실제 센서 변화 기반)
     // 오차 변화량 대신 '현재 각속도 변화'를 쓰면 스틱을 급격히 움직일 때 튀는 현상이 줄어듭니다.
     float d_out = p->kd * (p->prev_rate - current_rate) / dt;

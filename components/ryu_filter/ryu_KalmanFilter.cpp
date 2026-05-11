@@ -65,7 +65,9 @@ void KalmanFilter::update_accel(float ax, float ay, float az) {
 
     // 칼만 이득(K)을 적용한 상태 보정 
     // S3의 FPU 성능을 고려하여 가중치를 통해 상태값 업데이트
-    float K = 0.01f; // 고정 게인 사용 시 안정적
+
+    // 의미: "내 예측(자이로)을 99% 믿고, 가속도 센서의 지적은 1%만 수용해서 조금씩 고치겠다"는 뜻입니다.
+    float K = 0.03f; // 고정 게인 사용 시 안정적
     x[0] += K * ( -x[2]*ex + x[1]*ey );
     x[1] += K * (  x[3]*ex + x[0]*ey - 2.0f*x[1]*ez );
     x[2] += K * ( -x[0]*ex + x[3]*ey - 2.0f*x[2]*ez );
@@ -94,8 +96,11 @@ void KalmanFilter::get_euler(float* roll, float* pitch, float* yaw) {
 
 void KalmanFilter::update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float dt) {
     predict(gx, gy, gz, dt);      // 1. 자이로 기반 예측
+
     update_accel(ax, ay, az);     // 2. 가속도계 기반 Roll/Pitch 보정
+    
     update_mag(mx, my, mz);       // 3. 지자계 기반 Yaw 보정 (추가됨)
+    
     normalize_quat();             // 4. 정규화
 }
 
