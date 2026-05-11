@@ -31,18 +31,18 @@ void Telemetry::telemetry_task(void *pv)
                     mavlink.handle_mavlink_message(&msg);
                     // QGC 명령에 따른 상태 업데이트 로직
                     static bool previous_armed_state = false;
-                    if (previous_armed_state != g_sys.is_armed) {
-                        if (g_sys.is_armed) {
-                            g_heartbeat.base_mode   |= MAV_MODE_FLAG_SAFETY_ARMED;
-                            g_sys.system_status      = MAV_STATE_ACTIVE;
+                    if (previous_armed_state != ENV::g_sys.is_armed) {
+                        if (ENV::g_sys.is_armed) {
+                            ENV::g_heartbeat.base_mode   |= MAV_MODE_FLAG_SAFETY_ARMED;
+                            ENV::g_sys.system_status      = MAV_STATE_ACTIVE;
                             // calibrate_ground_pressure(); // 주석 처리 유지: 통신 두절 방지
                             ESP_LOGD(TAG,"시동으로 프래그 변환(시동)");
                         } else {
-                            g_heartbeat.base_mode   &= ~MAV_MODE_FLAG_SAFETY_ARMED;
-                            g_sys.system_status      = MAV_STATE_STANDBY;
+                            ENV::g_heartbeat.base_mode   &= ~MAV_MODE_FLAG_SAFETY_ARMED;
+                            ENV::g_sys.system_status      = MAV_STATE_STANDBY;
                             ESP_LOGD(TAG,"시동으로 프래그 변환(시동 꺼짐)");
                         }
-                        previous_armed_state = g_sys.is_armed; // 중복 코드 제거
+                        previous_armed_state = ENV::g_sys.is_armed; // 중복 코드 제거
                     }
                 }
             }

@@ -51,7 +51,7 @@ void FailSafe::update_health(Event::fault_event_data_t* fault) {
         case Event::FAULT_ID_IMU:{  
             bit = SYS_HEALTH_IMU_OK;
             //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
-            g_sys.error_hold_mode = true;  // 에러가 발생하여 HOLD_MODE 상태로 전환 ( 이 곳에서도 시스템 모드전환 및 산태 프래그를 체크하여 현재모드 설정을 어떻게 할지)
+            ENV::g_sys.error_hold_mode = true;  // 에러가 발생하여 HOLD_MODE 상태로 전환 ( 이 곳에서도 시스템 모드전환 및 산태 프래그를 체크하여 현재모드 설정을 어떻게 할지)
             break;
         }
         case Event::FAULT_ID_BARO:{
@@ -61,13 +61,13 @@ void FailSafe::update_health(Event::fault_event_data_t* fault) {
         case Event::FAULT_ID_MAG:  bit = SYS_HEALTH_MAG_OK; break;
         case Event::FAULT_ID_GPS:{  
             bit = SYS_HEALTH_GPS_OK; 
-            g_sys.error_hold_mode = true;
+            ENV::g_sys.error_hold_mode = true;
             //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
             break;
         }
         case Event::FAULT_ID_RC:{   
             bit = SYS_HEALTH_RC_OK; 
-            g_sys.error_hold_mode = true;
+            ENV::g_sys.error_hold_mode = true;
             //esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ERROR_HOLD,nullptr,0,0);
             break;
         }
@@ -96,7 +96,7 @@ void FailSafe::failsafe_manager_task(void *pvParameters) {
         if (!(instance.system_health & SYS_HEALTH_IMU_OK)) { //IMU가 정상이 아니면 센서 전체 initialize...
             // IMU가 죽어있다면 여기서 I2C 리셋 시도 등 전역 복구 수행    
             instance.reinit_all_sensors();
-            g_sys.error_hold_mode = false;
+            ENV::g_sys.error_hold_mode = false;
         }        
         if (!(instance.system_health & SYS_HEALTH_BARO_OK)) { 
             // baro sensor check   ,  수동 전환하여 Go to Home         
@@ -108,13 +108,13 @@ void FailSafe::failsafe_manager_task(void *pvParameters) {
             // gps sensor check    , 수동 전환하여 Go to Home
 
             // 정상작동후 처리 
-            g_sys.error_hold_mode = false;
+            ENV::g_sys.error_hold_mode = false;
         }
         if (!(instance.system_health & SYS_HEALTH_RC_OK)) { 
             // flysky sensor check , QGC든지 아니면 BRIGE에서 신호를           
 
             // 정상작동후 처리
-            g_sys.error_hold_mode = false;
+            ENV::g_sys.error_hold_mode = false;
         }
         if (!(instance.system_health & SYS_HEALTH_BATTERY_OK)) { 
             // battery sensor check , RTL 처리            

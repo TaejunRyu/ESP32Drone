@@ -175,9 +175,9 @@ void Mahony::get_euler(float *roll, float *pitch, float *yaw)
     const float q2q2 = q2 * q2;
     const float q3q3 = q3 * q3;             
 
-    *roll = atan2f(2.0f * (q0 * q1 + q2 * q3), q0q0 - q1q1 - q2q2 + q3q3)   * RAD_TO_DEG;
-    *pitch = asinf(std::clamp(2.0f * (q0 * q2 - q1 * q3), -1.0f, 1.0f))     * RAD_TO_DEG;    
-    *yaw   = atan2f(2.0f * (q1 * q2 + q0 * q3), q0q0 + q1q1 - q2q2 - q3q3)  * RAD_TO_DEG;
+    *roll = atan2f(2.0f * (q0 * q1 + q2 * q3), q0q0 - q1q1 - q2q2 + q3q3)   * ENV::RAD_TO_DEG;
+    *pitch = asinf(std::clamp(2.0f * (q0 * q2 - q1 * q3), -1.0f, 1.0f))     * ENV::RAD_TO_DEG;    
+    *yaw   = atan2f(2.0f * (q1 * q2 + q0 * q3), q0q0 + q1q1 - q2q2 - q3q3)  * ENV::RAD_TO_DEG;
 }
 
 esp_err_t Mahony::initialize()

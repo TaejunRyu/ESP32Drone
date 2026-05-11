@@ -326,9 +326,9 @@ void Flight::flight_task(void *pvParameters)
 
 
         kalman.update(
-                        calc_gyro_x * DEG_TO_RAD,
-                        calc_gyro_y * DEG_TO_RAD, 
-                        calc_gyro_z * DEG_TO_RAD, 
+                        calc_gyro_x * ENV::DEG_TO_RAD,
+                        calc_gyro_y * ENV::DEG_TO_RAD, 
+                        calc_gyro_z * ENV::DEG_TO_RAD, 
                         calc_acc_x, 
                         calc_acc_y, 
                         calc_acc_z, 
@@ -364,7 +364,7 @@ void Flight::flight_task(void *pvParameters)
         while (actual_compass_heading < 0)    actual_compass_heading += 360.0f;
         while (actual_compass_heading >= 360) actual_compass_heading -= 360.0f;
     
-        attitude_data_t m_attitude ={};               
+        ENV::attitude_data_t m_attitude ={};               
         m_attitude.rollspeed    = calc_gyro_x ;
         m_attitude.pitchspeed   = calc_gyro_y ;
         m_attitude.yawspeed     = calc_gyro_z ;
@@ -373,12 +373,12 @@ void Flight::flight_task(void *pvParameters)
         m_attitude.yaw          = actual_compass_heading;
 
         //m_attitide에 저장되어진 정보를 g_attitude에 넘긴다.
-        portENTER_CRITICAL(&g_attitude_mux);
-        g_attitude = m_attitude;
-        portEXIT_CRITICAL(&g_attitude_mux);
+        portENTER_CRITICAL(&ENV::g_attitude_mux);
+        ENV::g_attitude = m_attitude;
+        portEXIT_CRITICAL(&ENV::g_attitude_mux);
         
         // 일시에 g_sys를 가져온다.
-        sys_t m_sys = g_sys;
+        ENV::sys_t m_sys = ENV::g_sys;
 
         // 시동이 걸렸을경우
         if(m_sys.is_armed) [[likely]]{                
@@ -605,7 +605,7 @@ BaseType_t Flight::start_task()
     icm20948_sub.calibrate();		
 
     auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
-    g_baro.ground_pressure = mgp;
+    ENV::g_baro.ground_pressure = mgp;
     vTaskDelay(pdMS_TO_TICKS(50));
     bmp388_sub.calibrate_ground_pressure();
     //g_baro.ground_pressure = (mgp+sgp) * 0.5;

@@ -30,8 +30,8 @@ void Mavlink::send_status_text(const char *text, uint8_t severity)
     strncpy(buf, text, sizeof(buf) - 1);
     // severity: MAV_SEVERITY_INFO (6), MAV_SEVERITY_WARNING (4), MAV_SEVERITY_CRITICAL (2) 등
     mavlink_msg_statustext_pack(
-        SYSTEM_ID,
-        COMPONENT_ID,
+        ENV::SYSTEM_ID,
+        ENV::COMPONENT_ID,
         &msg,
         severity,
         buf,0,0
@@ -48,7 +48,7 @@ void Mavlink::send_mav_command_ack(uint16_t command, uint8_t result, uint8_t pro
 {
     mavlink_message_t msg;
     mavlink_msg_command_ack_pack(
-                    SYSTEM_ID, COMPONENT_ID,    // FC의 System/Component ID
+                    ENV::SYSTEM_ID, ENV::COMPONENT_ID,    // FC의 System/Component ID
                     &msg,
                     command,                    // 응답할 명령 번호 
                     result,                     // 결과 (MAV_RESULT_ACCEPTED)
@@ -130,7 +130,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
         }
         case MAVLINK_MSG_ID_SYSTEM_TIME:{
             mavlink_message_t ret_msg;
-            mavlink_msg_system_time_pack(SYSTEM_ID, COMPONENT_ID,&ret_msg,    // 보통 1 (Autopilot)                
+            mavlink_msg_system_time_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID,&ret_msg,    // 보통 1 (Autopilot)                
                 0,                                                                      // Param 1: Unix time (us)
                 (uint32_t)(esp_timer_get_time() / 1000)                                 // Param 2: Boot time (ms)
             );
@@ -143,8 +143,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             mavlink_param_request_list_t req;
             mavlink_msg_param_request_list_decode(msg,&req);
             
-            if (req.target_system != SYSTEM_ID || 
-                (req.target_component != COMPONENT_ID && req.target_component != 0)) {
+            if (req.target_system != ENV::SYSTEM_ID || 
+                (req.target_component != ENV::COMPONENT_ID && req.target_component != 0)) {
                 break;
             }
 
@@ -161,7 +161,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                     val_to_send = p_mgr.get_value_by_index(i);
                 } 
                 mavlink_message_t msg;
-                mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
+                mavlink_msg_param_value_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, 
                                              par.name.data(), val_to_send, par.type,p_mgr.get_param_count(), i);
                 send_mavlink_msg(&msg);
                 vTaskDelay(pdMS_TO_TICKS(3));
@@ -171,8 +171,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
         case MAVLINK_MSG_ID_PARAM_REQUEST_READ: {   
             mavlink_param_request_read_t req;
             mavlink_msg_param_request_read_decode(msg, &req);
-            if (req.target_system != SYSTEM_ID || 
-                (req.target_component != COMPONENT_ID && req.target_component != 0)) {
+            if (req.target_system != ENV::SYSTEM_ID || 
+                (req.target_component != ENV::COMPONENT_ID && req.target_component != 0)) {
                 break;
             }
             if (req.param_index != -1) 
@@ -189,7 +189,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                     val_to_send = p_mgr.get_value_by_index(req.param_index);
                 }
                 mavlink_message_t msg;
-                mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
+                mavlink_msg_param_value_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, 
                                             Service::params[req.param_index].name.data(),
                                             val_to_send, 
                                             Service::params[req.param_index].type,
@@ -203,8 +203,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
         case MAVLINK_MSG_ID_PARAM_SET: {
             mavlink_param_set_t set;
             mavlink_msg_param_set_decode(msg, &set);
-            if (set.target_system != SYSTEM_ID || 
-                (set.target_component != COMPONENT_ID && set.target_component != 0)) {
+            if (set.target_system != ENV::SYSTEM_ID || 
+                (set.target_component != ENV::COMPONENT_ID && set.target_component != 0)) {
                 break;
             }
             // [중요] 변경된 값을 다시 보내줘야 QGC 화면에서 수치가 확정됨
@@ -225,7 +225,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
                 Controller::PID::get_instance().sync_pid_from_params();
 
                 mavlink_message_t msg;
-                mavlink_msg_param_value_pack(SYSTEM_ID, COMPONENT_ID, &msg, 
+                mavlink_msg_param_value_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, 
                                             set.param_id, val_to_send, set.param_type,p_mgr.get_param_count(),index);               
                 send_mavlink_msg(&msg);
             }
@@ -238,8 +238,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             mavlink_msg_command_long_decode(msg, &cmd);       
             
             // 나에게 온것이 아니면 처리하지 않음.
-            if (cmd.target_system != SYSTEM_ID || 
-                (cmd.target_component != COMPONENT_ID && cmd.target_component != 0)) {
+            if (cmd.target_system != ENV::SYSTEM_ID || 
+                (cmd.target_component != ENV::COMPONENT_ID && cmd.target_component != 0)) {
                 break;
             }
             switch (cmd.command){
@@ -308,7 +308,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
         case MAVLINK_MSG_ID_MISSION_CLEAR_ALL: {
             mavlink_message_t ack_msg;
             mavlink_msg_mission_ack_pack(
-                SYSTEM_ID, COMPONENT_ID,
+                ENV::SYSTEM_ID, ENV::COMPONENT_ID,
                 &ack_msg,
                 msg->sysid, msg->compid,        // 받는 사람 (GCS)
                 MAV_MISSION_ACCEPTED,           // 결과: 잘 지웠어!
@@ -320,7 +320,7 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
         case MAVLINK_MSG_ID_MISSION_REQUEST_LIST: {
             mavlink_message_t ack_msg;
             mavlink_msg_mission_count_pack(
-                SYSTEM_ID, COMPONENT_ID,
+                ENV::SYSTEM_ID, ENV::COMPONENT_ID,
                 &ack_msg,
                 msg->sysid, msg->compid,    // 받는 사람 (GCS)
                 0,                          // 미션 총 개수
@@ -337,53 +337,53 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             mavlink_set_mode_t  cmd;
             mavlink_msg_set_mode_decode(msg, &cmd);
             
-            if( cmd.target_system != SYSTEM_ID) break;
-            g_heartbeat.base_mode = cmd.base_mode;
-            if (g_heartbeat.base_mode & MAV_MODE_FLAG_CUSTOM_MODE_ENABLED) {
+            if( cmd.target_system != ENV::SYSTEM_ID) break;
+            ENV::g_heartbeat.base_mode = cmd.base_mode;
+            if (ENV::g_heartbeat.base_mode & MAV_MODE_FLAG_CUSTOM_MODE_ENABLED) {
                 switch (cmd.custom_mode) {
                     case (uint32_t)0x00010000: // Manual                         
-                        g_heartbeat.custom_mode = (uint32_t)0x00010000; //qgc용                        
-                        g_sys.flight_mode = MODE_MANUAL;                //fc용       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00010000; //qgc용                        
+                        ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                //fc용       
                         break;
                     case (uint32_t)0x00020000: // Altitude control
-                        g_heartbeat.custom_mode = (uint32_t)0x00020000;
-                        g_sys.flight_mode = MODE_ALTCTL;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00020000;
+                        ENV::g_sys.flight_mode = ENV::MODE_ALTCTL;                       
                         break;
                     case (uint32_t)0x00030000: // position control
-                        g_heartbeat.custom_mode = (uint32_t)0x00030000;
-                        g_sys.flight_mode = MODE_POSCTL;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00030000;
+                        ENV::g_sys.flight_mode = ENV::MODE_POSCTL;                       
                         break;
                     case (uint32_t)0x00040000: // Offboard
-                        g_heartbeat.custom_mode = (uint32_t)0x00040000;
-                        g_sys.flight_mode = MODE_OFFBOARD;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00040000;
+                        ENV::g_sys.flight_mode = ENV::MODE_OFFBOARD;                       
                         break;
                     case (uint32_t)0x00050000: // Acro
-                        g_heartbeat.custom_mode = (uint32_t)0x00050000;
-                        g_sys.flight_mode = MODE_ACRO;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00050000;
+                        ENV::g_sys.flight_mode = ENV::MODE_ACRO;                       
                         break;
                     case (uint32_t)0x00060000: // rattitude
-                        g_heartbeat.custom_mode = (uint32_t)0x00060000;
-                        g_sys.flight_mode = MODE_MANUAL;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00060000;
+                        ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                       
                         break;    
                     case (uint32_t)0x00070000: // Stabilize
-                        g_heartbeat.custom_mode = (uint32_t)0x00070000;
-                        g_sys.flight_mode = MODE_STABILIZED;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x00070000;
+                        ENV::g_sys.flight_mode = ENV::MODE_STABILIZED;                       
                         break;
                     case (uint32_t)0x03040000: // standby
-                        g_heartbeat.custom_mode = (uint32_t)0x03040000;
-                        g_sys.flight_mode = MODE_MANUAL;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x03040000;
+                        ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                       
                         break;
                     case (uint32_t)0x04040000: // Mission
-                        g_heartbeat.custom_mode = (uint32_t)0x04040000;
-                        g_sys.flight_mode = MODE_MISSION;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x04040000;
+                        ENV::g_sys.flight_mode = ENV::MODE_MISSION;                       
                         break; 
                     case (uint32_t)0x05040000: // Return 
-                        g_heartbeat.custom_mode = (uint32_t)0x05040000;
-                        g_sys.flight_mode = MODE_RTL;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x05040000;
+                        ENV::g_sys.flight_mode = ENV::MODE_RTL;                       
                         break;
                     case (uint32_t)0x09040000: // Land
-                        g_sys.flight_mode = MODE_PRECISION_LAND;                       
-                        g_heartbeat.custom_mode = (uint32_t)0x09040000;
+                        ENV::g_sys.flight_mode = ENV::MODE_PRECISION_LAND;                       
+                        ENV::g_heartbeat.custom_mode = (uint32_t)0x09040000;
                         break;
                     default:
                             ESP_LOGI(TAG, "Unknown custom mode: 0x%08X", cmd.custom_mode);
@@ -426,18 +426,18 @@ void Mavlink::MAV_CMD_DO_SET_HOME_func(mavlink_message_t *msg, mavlink_command_l
     auto& gps = Sensor::Gps::get_instance();
     if (cmd.param1 == 1){
         // Param 1이 1이면 현재 센서(GPS) 위치를 홈으로 설정
-        qgc_home_pos.lat = gps.share_gps.lat;
-        qgc_home_pos.lon = gps.share_gps.lon;
-        qgc_home_pos.alt = gps.share_gps.alt;
+        ENV::qgc_home_pos.lat = gps.share_gps.lat;
+        ENV::qgc_home_pos.lon = gps.share_gps.lon;
+        ENV::qgc_home_pos.alt = gps.share_gps.alt;
     }
     else
     {
         // Param 1이 0이면 전달받은 파라미터로 설정
-        qgc_home_pos.lat = cmd.param5;
-        qgc_home_pos.lon = cmd.param6;
-        qgc_home_pos.alt = cmd.param7;
+        ENV::qgc_home_pos.lat = cmd.param5;
+        ENV::qgc_home_pos.lon = cmd.param6;
+        ENV::qgc_home_pos.alt = cmd.param7;
     }
-    qgc_home_pos.is_set = true;
+    ENV::qgc_home_pos.is_set = true;
 
     //처리결과 송싱 해야함...
     
@@ -465,7 +465,7 @@ void Mavlink::MAV_CMD_REQUEST_AUTOPILOT_CAPABILITIES_func(mavlink_message_t *msg
 
     // 3. 버전 정보 패킹 및 전송
     mavlink_message_t ver_msg;
-    mavlink_msg_autopilot_version_encode(SYSTEM_ID, COMPONENT_ID, &ver_msg, &version);
+    mavlink_msg_autopilot_version_encode(ENV::SYSTEM_ID, ENV::COMPONENT_ID, &ver_msg, &version);
     send_mavlink_msg(&ver_msg);
 
 }
@@ -481,8 +481,8 @@ void Mavlink::MAV_CMD_REQUEST_MESSAGE_func(mavlink_message_t *msg, mavlink_comma
         // 1. ACK 패킹 및 전송
         mavlink_message_t ack_msg;
         mavlink_msg_protocol_version_pack(
-            SYSTEM_ID,           // 내 FC 시스템 ID (보통 1)
-            COMPONENT_ID,        // 내 컴포넌트 ID (MAV_COMP_ID_AUTOPILOT1: 1)
+            ENV::SYSTEM_ID,           // 내 FC 시스템 ID (보통 1)
+            ENV::COMPONENT_ID,        // 내 컴포넌트 ID (MAV_COMP_ID_AUTOPILOT1: 1)
             &ack_msg,
             200,                 // version: MAVLink 2.0 (200)
             100,                 // min_hw_version: 최소 지원 버전 (100)
@@ -564,8 +564,8 @@ void Mavlink::MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavl
     send_mav_command_ack(cmd.command, MAV_RESULT_ACCEPTED,0,0,msg->sysid,msg->compid);
     mavlink_message_t ack_msg;
     mavlink_msg_protocol_version_pack(
-        SYSTEM_ID,           // 내 FC 시스템 ID (보통 1)
-        COMPONENT_ID,        // 내 컴포넌트 ID (MAV_COMP_ID_AUTOPILOT1: 1)
+        ENV::SYSTEM_ID,           // 내 FC 시스템 ID (보통 1)
+        ENV::COMPONENT_ID,        // 내 컴포넌트 ID (MAV_COMP_ID_AUTOPILOT1: 1)
         &ack_msg,
         200,                 // version: MAVLink 2.0 (200)
         100,                 // min_hw_version: 최소 지원 버전 (100)
@@ -580,21 +580,21 @@ void Mavlink::MAV_CMD_REQUEST_PROTOCOL_VERSION_func(mavlink_message_t *msg, mavl
 
 void Mavlink::on_timer_tick()
 {
-    attitude_data_t m_attitude;
-    portENTER_CRITICAL(&g_attitude_mux);
-    m_attitude = g_attitude;
-    portEXIT_CRITICAL(&g_attitude_mux);
+    ENV::attitude_data_t m_attitude;
+    portENTER_CRITICAL(&ENV::g_attitude_mux);
+    m_attitude = ENV::g_attitude;
+    portEXIT_CRITICAL(&ENV::g_attitude_mux);
 
     static uint8_t step = 0;
     mavlink_message_t msg;
     // 10hz로 구분하고 있으므로 매번 처리...
-    mavlink_msg_attitude_pack(SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000, 
-                                                m_attitude.roll   * DEG_TO_RAD, 
-                                                m_attitude.pitch  * DEG_TO_RAD, 
-                                                m_attitude.yaw    * DEG_TO_RAD, 
-                                                m_attitude.rollspeed    * DEG_TO_RAD, 
-                                                m_attitude.pitchspeed   * DEG_TO_RAD, 
-                                                m_attitude.yawspeed     * DEG_TO_RAD );
+    mavlink_msg_attitude_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, esp_timer_get_time()/1000, 
+                                                m_attitude.roll   * ENV::DEG_TO_RAD, 
+                                                m_attitude.pitch  * ENV::DEG_TO_RAD, 
+                                                m_attitude.yaw    * ENV::DEG_TO_RAD, 
+                                                m_attitude.rollspeed    * ENV::DEG_TO_RAD, 
+                                                m_attitude.pitchspeed   * ENV::DEG_TO_RAD, 
+                                                m_attitude.yawspeed     * ENV::DEG_TO_RAD );
     send_mavlink_msg(&msg);
 
     static Sensor::Gps::gps_data_t m_gps={};
@@ -656,13 +656,13 @@ void Mavlink::on_timer_tick()
 
     switch (step) {
         case 0:{ // 하트비트 전송
-            mavlink_msg_heartbeat_pack(SYSTEM_ID, COMPONENT_ID,&msg, 
+            mavlink_msg_heartbeat_pack(ENV::SYSTEM_ID, ENV::COMPONENT_ID,&msg, 
                                         MAV_TYPE_QUADROTOR, 
                                         //MAV_AUTOPILOT_GENERIC,
                                         MAV_AUTOPILOT_PX4,
-                                        g_heartbeat.base_mode,  
-                                        g_heartbeat.custom_mode, 
-                                        g_sys.system_status);
+                                        ENV::g_heartbeat.base_mode,  
+                                        ENV::g_heartbeat.custom_mode, 
+                                        ENV::g_sys.system_status);
             send_mavlink_msg(&msg);
             break;
         }
@@ -698,7 +698,7 @@ void Mavlink::on_timer_tick()
             
             // 시스템 상태 패킷 구성 예시
             mavlink_msg_sys_status_pack(
-                SYSTEM_ID, COMPONENT_ID, &msg, 
+                ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, 
                 sensors_present, sensors_enabled, sensors_health,         // 센서 상태 비트마스크
                 load,        // CPU Load (0~1000)
                 battery_voltage, current_battery, battery_remaining, 
@@ -709,7 +709,7 @@ void Mavlink::on_timer_tick()
         }    
         case 6:{ // 라디오 상태 전송 (RSSI, Noise)
              mavlink_msg_radio_status_pack_chan(
-                            SYSTEM_ID, COMPONENT_ID,MAVLINK_COMM_1, &msg, 
+                            ENV::SYSTEM_ID, ENV::COMPONENT_ID,MAVLINK_COMM_1, &msg, 
                             Service::EspNow::get_instance().current_rssi, // 드론이 받은 브릿지의  신호
                             0,0, Service::EspNow::get_instance().noise_floor, 0, 0, 0);
             send_mavlink_msg(&msg);
@@ -718,7 +718,7 @@ void Mavlink::on_timer_tick()
         case 9:{ // gps 정보 
             if (m_gps.home_alt > -9000.0f && m_gps.fixType >= 3) {
                 mavlink_msg_gps_raw_int_pack(
-                        SYSTEM_ID, COMPONENT_ID, &msg, 
+                        ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, 
                         esp_timer_get_time() / 1000,               
                         m_gps.fixType,                              // 실제 Fix 타입을 그대로 전달 (0~4)                     
                         static_cast<int32_t>(m_gps.lat * 1e7),      // 위도
@@ -749,7 +749,7 @@ void Mavlink::on_timer_tick()
                 int32_t alt_rel = static_cast<int32_t>((m_gps.hMSL - m_gps.home_alt) );
                 
                 mavlink_msg_global_position_int_pack(
-                    SYSTEM_ID, COMPONENT_ID, &msg, esp_timer_get_time()/1000,
+                    ENV::SYSTEM_ID, ENV::COMPONENT_ID, &msg, esp_timer_get_time()/1000,
                     static_cast<int32_t>(m_gps.lat * 1e7), 
                     static_cast<int32_t>(m_gps.lon * 1e7),
                     static_cast<int32_t>(alt_msl),      // 해수면 고도

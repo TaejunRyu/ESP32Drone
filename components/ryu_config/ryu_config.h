@@ -5,6 +5,7 @@
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
 
+namespace ENV {
 
 #define M_PI 3.14159265358979323846
 
@@ -184,3 +185,5 @@ struct baro_t{
     float ground_pressure;     // 이륙 지점 기준 기압
 };
 extern baro_t g_baro;
+
+}

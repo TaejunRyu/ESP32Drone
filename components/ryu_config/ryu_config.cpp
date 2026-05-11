@@ -1,6 +1,9 @@
 #include "ryu_config.h"
 #include <c_library_v2/common/mavlink.h>
 
+
+namespace ENV{
+
 sys_t g_sys = {
              .flight_mode       = MODE_STABILIZED, 
              .system_status     = SYS_STATE_STANDBY,  // 전원 초기 상태 (system_status = 3 = STANDBY)
@@ -42,3 +45,4 @@ heartbeat_t g_heartbeat={
 // 기압계의 데이터를 보관
 baro_t g_baro ={};
 
+}

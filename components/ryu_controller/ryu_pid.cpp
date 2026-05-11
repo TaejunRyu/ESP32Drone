@@ -75,7 +75,7 @@ float PID::run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is
     }
 
     // [Safety Check] 센서 에러(Hold Mode) 발생 시 처리
-    if (g_sys.error_hold_mode || g_sys.manual_hold_mode) {
+    if (ENV::g_sys.error_hold_mode || ENV::g_sys.manual_hold_mode) {
          p->err_prev = error; // 복구 시 D항 튀는 것 방지 (동기화)
         const float p_out = p->kp * error;
         const float i_out = p->ki * p->integral; // 기존 누적값만 사용 (업데이트 X)
@@ -103,7 +103,7 @@ float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, f
     float error = target_rate - current_rate;
 
    // [Safety Check] I2C 에러 및 복구 중 처리
-    if (g_sys.error_hold_mode || g_sys.manual_hold_mode) {
+    if (ENV::g_sys.error_hold_mode || ENV::g_sys.manual_hold_mode) {
         p->prev_rate = current_rate; // 센서 복구 시 D항 폭주 방지 (동기화)
         float p_out = p->kp * error;
         float i_out = std::clamp(p->ki * p->integral, -150.0f, 150.0f); // 기존 I값 유지

@@ -98,21 +98,21 @@ void Flysky::flysky_task(void *pvParameters)
             portEXIT_CRITICAL(&flysky->_my_spinlock);
 
             if ( flysky->_rc_data.aux1 > 0){
-                g_sys.manual_hold_mode =true;
+                ENV::g_sys.manual_hold_mode =true;
             }else{
-                g_sys.manual_hold_mode =false;
+                ENV::g_sys.manual_hold_mode =false;
             }
 
             // 시동(Arming) 로직
-            if (!g_sys.is_armed) {
+            if (!ENV::g_sys.is_armed) {
                 if (flysky->is_arming_gesture(m_rc)) {
-                    g_sys.is_armed = true;
+                    ENV::g_sys.is_armed = true;
                     esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_ARM,nullptr,0,0);   
                     Driver::Buzzer::get_instance().sound_connected();
                 }
             } else {
                 if (flysky->is_disarming_gesture(m_rc)) {
-                    g_sys.is_armed = false;
+                    ENV::g_sys.is_armed = false;
                     esp_event_post(Event::SYS_MODE_EVENT_BASE,Event::MODE_DISARM,nullptr,0,0);   
                     Driver::Buzzer::get_instance().sound_disconnected();
                 }
@@ -120,7 +120,7 @@ void Flysky::flysky_task(void *pvParameters)
 
         }else{
             // 100ms 타임아웃 발생 (신호 유실)
-            if (g_sys.is_armed) {
+            if (ENV::g_sys.is_armed) {
                 portENTER_CRITICAL(&flysky->_my_spinlock);
                 flysky->_rc_data.throttle = 0;
                 flysky->_rc_data.roll = 0;

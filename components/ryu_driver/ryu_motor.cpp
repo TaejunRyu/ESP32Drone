@@ -174,10 +174,6 @@ void Motor::set_drop_angle(int angle)
 
 void Motor::update_compare_value(std::array<float,4> values)
 {
-     if (!g_sys.is_armed) {
-        stop_all_motors();
-        return;
-    }
     for (size_t ii = 0; auto comp : _comparators) {
         uint32_t val = static_cast<uint32_t>(std::round(values[ii++]));
         mcpwm_comparator_set_compare_value(comp, val);
