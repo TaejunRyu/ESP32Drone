@@ -70,7 +70,8 @@ esp_err_t Flight::initialize()
 
     { //ICM20948의 main 초기화
         // 1. Main IMU 설정 (주소 전달 -> 내부에서 장치추가/Bus객체생성/set_bus/init까지 한방에)
-        err = Sensor::ICM20948::Main().init_bus(Interface::createBIF(bus_handle, Sensor::ICM20948::ADDR_VCC));
+        err = Sensor::ICM20948::Main().init_bus(
+                        Interface::createBIF(bus_handle, Sensor::ICM20948::ADDR_VCC));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "ICM20948 Main Module Setup Failed.");
             return err;
@@ -88,7 +89,8 @@ esp_err_t Flight::initialize()
         vTaskDelay(pdMS_TO_TICKS(10));
     }
     {// 2. Sub IMU 설정
-        err = Sensor::ICM20948::Sub().init_bus(Interface::createBIF(bus_handle, Sensor::ICM20948::ADDR_GND));
+        err = Sensor::ICM20948::Sub().init_bus(
+                        Interface::createBIF(bus_handle, Sensor::ICM20948::ADDR_GND));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "ICM20948 Sub Module Setup Failed.");
             return err;
@@ -102,7 +104,8 @@ esp_err_t Flight::initialize()
     }
 
     { //AK09916 INITIALIZE
-        err = Sensor::AK09916::get_instance().init_bus(Interface::createBIF(bus_handle,Sensor::AK09916::ADDR));
+        err = Sensor::AK09916::get_instance().init_bus(
+                        Interface::createBIF(bus_handle,Sensor::AK09916::ADDR));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "AK09916 Module Setup Failed.");
             return err;
@@ -116,7 +119,8 @@ esp_err_t Flight::initialize()
     }
 
     {
-        err = Sensor::IST8310::get_instance().init_bus(Interface::createBIF(bus_handle,Sensor::IST8310::ADDR));
+        err = Sensor::IST8310::get_instance().init_bus(
+                    Interface::createBIF(bus_handle,Sensor::IST8310::ADDR));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "IST8310 Module Setup Failed.");
             return err;
@@ -130,7 +134,8 @@ esp_err_t Flight::initialize()
     }
 
     {    
-        Sensor::BMP388::Main().init_bus(Interface::createBIF(bus_handle,Sensor::BMP388::ADDR_VCC));
+        Sensor::BMP388::Main().init_bus(
+                Interface::createBIF(bus_handle,Sensor::BMP388::ADDR_VCC));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "BMP338 Main Module setup Failed.");
             return err;
@@ -144,7 +149,8 @@ esp_err_t Flight::initialize()
     }
 
     {
-        Sensor::BMP388::Sub().init_bus(Interface::createBIF(bus_handle,Sensor::BMP388::ADDR_GND));
+        Sensor::BMP388::Sub().init_bus(
+                Interface::createBIF(bus_handle,Sensor::BMP388::ADDR_GND));
         if (err != ESP_OK){
             ESP_LOGI(TAG, "BMP338 Sub Module Setup Failed.");
             return err;
@@ -241,6 +247,9 @@ esp_err_t Flight::initialize()
     return err;
 }
 
+
+
+
 /**
  * @brief 
  *      1. 실제 비행 로직이 처리되는 task.
@@ -277,99 +286,82 @@ void Flight::flight_task(void *pvParameters)
  
         //Watch Dog에게 "나 살아 있어!"" 라고 알린다.  
         esp_task_wdt_reset(); 
-        
-        static float    calc_acc_x  = 0.0f, calc_acc_y  = 0.0f, calc_acc_z  = 0.0f;
-        static float    calc_gyro_x = 0.0f, calc_gyro_y = 0.0f, calc_gyro_z = 0.0f;
-        static float    calc_mag_x=0.0f,    calc_mag_y=0.0f,    calc_mag_z=0.0f;
 
+        static ENV::sensor_data_t cur_acc{};
+        static ENV::sensor_data_t cur_gyro{};
+        static ENV::sensor_data_t cur_mag{};
+        
+        
         float acc[3]={}, gyro[3]={},mag[3]={};
         esp_err_t ret_code = icm20948_main.Managed_read_with_offset( acc, gyro,sizeof(acc));
         if (ret_code == ESP_OK){
-            calc_acc_x  = acc[0] ;
-            calc_acc_y  = acc[1] ;
-            calc_acc_z  = acc[2] ;
-            calc_gyro_x = gyro[0] ;
-            calc_gyro_y = gyro[1] ;
-            calc_gyro_z = gyro[2] ;
+
+            std::copy(acc, acc + 3, (float*)&cur_acc);
+            std::copy(gyro, gyro + 3, (float*)&cur_gyro);
         }
 
-        icm20948_main.get_mag(mag);
-        calc_mag_x=mag[0]; 
-        calc_mag_y=mag[1]; 
-        calc_mag_z=mag[2];
 
         if (loop_cnt % 8 == 0){// 50HZ
-            if (managed_mag.get_bus_type() == Interface::BusType::I2C){ 
+            if (managed_mag.get_bus_type() == Interface::BusType::SPI){ 
+                icm20948_main.get_mag(mag);
+                std::copy(mag, mag + 3, (float*)&cur_mag);
+            } else if (managed_mag.get_bus_type() == Interface::BusType::I2C){ 
                 auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
                 if(ret_mag == ESP_OK){
-                    calc_mag_x=mag[0]; 
-                    calc_mag_y=mag[1]; 
-                    calc_mag_z=mag[2];
+                    std::copy(mag.data(), mag.data() + 3, (float*)&cur_mag);
                 } 
                 ret_code = ret_mag;
             }
         }
 
-
-// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| AX: %8.3f | AY: %8.3f | AZ: %8.3f | GX: %8.3f | GY: %8.3f | GZ: %8.3f | MX: %8.3f | MY: %8.3f | MZ: %8.3f |",
-//                         calc_acc_x, 
-//                         calc_acc_y, 
-//                         calc_acc_z, 
-//                         calc_gyro_x,
-//                         calc_gyro_y, 
-//                         calc_gyro_z, 
-//                         calc_mag_x,
-//                         calc_mag_y,
-//                         calc_mag_z
-//                         );
-
-
-
         kalman.update(
-                        calc_gyro_x * ENV::DEG_TO_RAD,
-                        calc_gyro_y * ENV::DEG_TO_RAD, 
-                        calc_gyro_z * ENV::DEG_TO_RAD, 
-                        calc_acc_x, 
-                        calc_acc_y, 
-                        calc_acc_z, 
-                        calc_mag_x,
-                        calc_mag_y,
-                        calc_mag_z,
+                        cur_gyro.x * ENV::DEG_TO_RAD,
+                        cur_gyro.y * ENV::DEG_TO_RAD,
+                        cur_gyro.z * ENV::DEG_TO_RAD,
+                        cur_acc.x,
+                        cur_acc.y,
+                        cur_acc.z,
+                        cur_mag.x,
+                        cur_mag.y,
+                        cur_mag.z,
                         dt
                         );
               
         // mahony.MahonyAHRSupdate(   
-        //                     calc_gyro_x * DEG_TO_RAD,
-        //                     calc_gyro_y * DEG_TO_RAD, 
-        //                     calc_gyro_z * DEG_TO_RAD, 
-        //                     calc_acc_x, 
-        //                     calc_acc_y, 
-        //                     calc_acc_z, 
-        //                     calc_mag_x,
-        //                     calc_mag_y,
-        //                     calc_mag_z,
-        //                     dt
-        //                 );
+                        // cur_gyro.x * ENV::DEG_TO_RAD,
+                        // cur_gyro.y * ENV::DEG_TO_RAD,
+                        // cur_gyro.z * ENV::DEG_TO_RAD,
+                        // cur_acc.x,
+                        // cur_acc.y,
+                        // cur_acc.z,
+                        // cur_mag.x,
+                        // cur_mag.y,
+                        // cur_mag.z,
+                        // dt
+                        // );
         
-        float roll_deg=0.0f, pitch_deg=0.0f, yaw_deg=0.0f;
+        float   cur_roll_deg{0.0f}, 
+                cur_pitch_deg{0.0f}, 
+                cur_yaw_deg{0.0f};
+
         //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
-        kalman.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
+        kalman.get_euler(&cur_roll_deg,&cur_pitch_deg,&cur_yaw_deg);
 
 //if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", roll_deg,pitch_deg,yaw_deg);
 
         
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
-        float actual_compass_heading = yaw_deg + 7.7f;
+        float actual_compass_heading = cur_yaw_deg + 7.7f;
 
         while (actual_compass_heading < 0)    actual_compass_heading += 360.0f;
         while (actual_compass_heading >= 360) actual_compass_heading -= 360.0f;
     
         ENV::attitude_data_t m_attitude ={};               
-        m_attitude.rollspeed    = calc_gyro_x ;
-        m_attitude.pitchspeed   = calc_gyro_y ;
-        m_attitude.yawspeed     = calc_gyro_z ;
-        m_attitude.roll         = roll_deg;
-        m_attitude.pitch        = pitch_deg;        
+        m_attitude.rollspeed    = cur_gyro.x ;
+        m_attitude.pitchspeed   = cur_gyro.y ;
+        m_attitude.yawspeed     = cur_gyro.z ;
+        m_attitude.roll         = cur_roll_deg;
+        m_attitude.pitch        = cur_pitch_deg;        
         m_attitude.yaw          = actual_compass_heading;
 
         //m_attitide에 저장되어진 정보를 g_attitude에 넘긴다.
@@ -395,10 +387,10 @@ void Flight::flight_task(void *pvParameters)
             }
             // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
             // 감도를 높이려면 값을 키우면 된다.                         
-            float tg_roll     = final_rc.roll     ;  //* 0.3f;
-            float tg_pitch    = final_rc.pitch    ;  //* 0.3f;
-            float tg_yaw_rate = final_rc.yaw      ;  //* 1.5f;
-            float tg_throttle = final_rc.throttle * 10.0f;
+            float target_roll_deg       = final_rc.roll     ;  //* 0.3f;
+            float target_pitch_deg      = final_rc.pitch    ;  //* 0.3f;
+            float target_yaw_deg       = final_rc.yaw      ;  //* 1.5f;
+            float target_throttle       = final_rc.throttle * 10.0f;
 
             // 1초에 한번 파라미터 테이블에서 최신 PID 계수를 읽어옵니다
             //if(loop_cnt==100) sync_pid_from_params();
@@ -407,18 +399,20 @@ void Flight::flight_task(void *pvParameters)
             static float alt_throttle_offset = 0.0f;         
 
             if (loop_cnt % 20 == 2){ //20HZ
-                static float target_alt = 0.0f;
-                static bool last_alt_hold_state = false;
+                static float target_alt{0.0f};
+                static bool last_alt_hold_state{false};
 
                 // bmp388에서 읽어오는 변수 (현재 고도와 상승률)
-                static float    filtered_alt =0.0f, 
-                                filtered_climb_rate=0.0f;
+                static float    cur_alt{0.0f}, 
+                                cur_climb_rate{0.0f};
                 
-                float temp_alt =0.0f,temp_rate =0.0f;
-                auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
-                if (err == ESP_OK){
-                    filtered_alt        = temp_alt;                    
-                    filtered_climb_rate = temp_rate;
+                {
+                    float temp_alt{0.0f},temp_rate{0.0f};
+                    auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
+                    if (err == ESP_OK){
+                        cur_alt        = temp_alt;                    
+                        cur_climb_rate = temp_rate;
+                    }
                 }
 
                 // 정상모드
@@ -430,13 +424,13 @@ void Flight::flight_task(void *pvParameters)
 
                 // 에러발생으로 인한 hold mode
                 if (m_sys.error_hold_mode) {
-                    filtered_climb_rate = 0.0f;                     // 상승률은 0으로 고정
+                    cur_climb_rate = 0.0f;                     // 상승률은 0으로 고정
                 }
 
                 // 3. 고도 유지 모드 스위치 처리                               
                 if (m_sys.manual_hold_mode){
                     if(!last_alt_hold_state){
-                        target_alt = filtered_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
+                        target_alt = cur_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
                         alt_throttle_offset = 0.0f;     // PID 보정값 초기화
                         pid.reset_pid(&pid.pid_alt_pos);
                         pid.reset_pid(&pid.pid_alt_rate);
@@ -445,27 +439,26 @@ void Flight::flight_task(void *pvParameters)
                 last_alt_hold_state = m_sys.manual_hold_mode ;
 
                 // 비정상적인 요인 제한
-                if (filtered_alt > 500.0f) filtered_alt = 0.0f;                     // 비정상적인 고도 차단
-                if (filtered_alt <= 0.0f) filtered_alt = 0.0f;                      // 음수 고도 방지
-                if (fabsf(filtered_climb_rate) > 10.0f) filtered_climb_rate = 0.0f; // 비정상적 상승률 방지
+                if (cur_alt > 500.0f) cur_alt = 0.0f;                     // 비정상적인 고도 차단
+                if (cur_alt <= 0.0f) cur_alt = 0.0f;                      // 음수 고도 방지
+                if (fabsf(cur_climb_rate) > 10.0f) cur_climb_rate = 0.0f; // 비정상적 상승률 방지
                 
 
                 // 사용자 지정 hold mode 
                 if(m_sys.manual_hold_mode) {
                     // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = -pid.run_pid_angle(&pid.pid_alt_pos, target_alt, filtered_alt, 0.025f, false);
+                    float target_climb_rate = -pid.run_pid_angle(&pid.pid_alt_pos, target_alt, cur_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)
-                    alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, filtered_climb_rate, 0.025f);
+                    alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.025f);
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
                 }
-
             }
             
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
-            if (tg_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
+            if (target_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
                 pid.reset_pid_iterm(&pid.pid_roll_angle);
                 pid.reset_pid_iterm(&pid.pid_pitch_angle);
                 pid.reset_pid_iterm(&pid.pid_yaw_angle);
@@ -476,37 +469,38 @@ void Flight::flight_task(void *pvParameters)
             }
 
             // --- [1단계: Outer Loop - 각도 제어] ---
-            // 조종기 스틱(tg_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
-            float target_rate_roll  = pid.run_pid_angle(&pid.pid_roll_angle,  tg_roll,  m_attitude.roll,  dt, false);
-            float target_rate_pitch = pid.run_pid_angle(&pid.pid_pitch_angle, tg_pitch, m_attitude.pitch, dt, false);
+            // 조종기 스틱(target_roll) -> 목표 각도 -> 목표 각속도(deg/s) 출력
+            float target_roll_rate  = pid.run_pid_angle(&pid.pid_roll_angle,  target_roll_deg,  cur_roll_deg,  dt, false);
+            float target_pitch_rate = pid.run_pid_angle(&pid.pid_pitch_angle, target_pitch_deg, cur_pitch_deg, dt, false);
 
             // 컨트롤러에 의해서 입력되어지는 값.
-            static float target_yaw_angle = 0.0f; // static 또는 전역 변수로 선언
+            static float target_rc_yaw_deg = 0.0f; // static 또는 전역 변수로 선언
+
             // 1. 스틱 입력이 있으면 목표 각도를 변화시킴
-            if (fabsf(tg_yaw_rate) > 1.0f) { // 데드밴드 설정
-                 target_yaw_angle += tg_yaw_rate * dt;
+            if (fabsf(target_yaw_deg) > 1.0f) { // 데드밴드 설정
+                 target_rc_yaw_deg += target_yaw_deg * dt;
             } else {
-                 target_yaw_angle = m_attitude.yaw;   
+                 //target_rc_yaw_deg = cur_yaw_deg;   
             }
 
             // 2. 각도 범위 정규화 (0~360도 기준인 m_attitude.yaw와 맞춤)
-            if (target_yaw_angle >= 360.0f) target_yaw_angle -= 360.0f;
-            if (target_yaw_angle < 0.0f)    target_yaw_angle += 360.0f;
+            if (target_rc_yaw_deg >= 360.0f) target_rc_yaw_deg -= 360.0f;
+            if (target_rc_yaw_deg < 0.0f)    target_rc_yaw_deg += 360.0f;
 
             // 3. [중요] 최단 거리(Shortest Path) 오차 계산 로직을 run_pid_angle 내부에 넣거나 호출 전 수정
             // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
-            float target_rate_yaw = pid.run_pid_angle(&pid.pid_yaw_angle, target_yaw_angle, m_attitude.yaw, dt,true);
+            float target_yaw_rate = pid.run_pid_angle(&pid.pid_yaw_angle, target_rc_yaw_deg, cur_yaw_deg, dt,true);
 
-            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_rate_roll,  calc_gyro_x, dt);
-            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_rate_pitch, calc_gyro_y, dt);
-            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_rate_yaw,   calc_gyro_z, dt);
+            float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_roll_rate,  cur_gyro.x, dt);
+            float out_pitch = pid.run_pid_rate(&pid.pid_pitch_rate, target_pitch_rate, cur_gyro.y, dt);
+            float out_yaw   = pid.run_pid_rate(&pid.pid_yaw_rate,   target_yaw_rate,   cur_gyro.z, dt);
 
 //if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "out_roll: %8.3f out_pitch: %8.3f out_yaw: %8.3f", out_roll,out_pitch,out_yaw);
 
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
             // 적분/이전 오차도 같이 초기화.
-            if (tg_throttle < 5.0f) {
+            if (target_throttle < 5.0f) {
                 out_yaw = 0.0f;
                 pid.pid_yaw_angle.integral = 0.0f;
                 pid.pid_yaw_angle.err_prev = 0.0f;
@@ -515,44 +509,45 @@ void Flight::flight_task(void *pvParameters)
             if (fabsf(out_yaw) < 1.0f) {
                 out_yaw = 0.0f;
             }
-            float base_pwm = 1000.0f + std::max(tg_throttle + alt_throttle_offset, 50.0f);
+            float base_pwm = 1000.0f + std::max(target_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
 
             // m0: Front-Left (CW)
-            float m0 = base_pwm + out_pitch + out_roll - out_yaw;
+            float m1 = base_pwm + out_pitch + out_roll - out_yaw;
             // m1: Front-Right (CCW)
-            float m1 = base_pwm + out_pitch - out_roll + out_yaw;
+            float m2 = base_pwm + out_pitch - out_roll + out_yaw;
             // m2: Rear-Left (CCW)
-            float m2 = base_pwm - out_pitch + out_roll + out_yaw;
+            float m3 = base_pwm - out_pitch + out_roll + out_yaw;
             // m3: Rear-Right (CW)
-            float m3 = base_pwm - out_pitch - out_roll - out_yaw;
+            float m4 = base_pwm - out_pitch - out_roll - out_yaw;
 
 
             // 2. 가장 많이 튀어나온(최대값) 모터 찾기
-            float max_motor = m0;
-            if (m1 > max_motor) max_motor = m1;
+            float max_motor = m1;
             if (m2 > max_motor) max_motor = m2;
             if (m3 > max_motor) max_motor = m3;
+            if (m4 > max_motor) max_motor = m4;
 
             // 3. 만약 최대값이 2000을 넘는다면, 넘는 만큼 모든 모터에서 공통으로 차감
             if (max_motor > 2000.0f) {
                 float diff = max_motor - 2000.0f;
-                m0 -= diff;
                 m1 -= diff;
                 m2 -= diff;
                 m3 -= diff;
+                m4 -= diff;
             }
 
             //float motor_v[4];
-            m0 = std::clamp(m0, 1050.0f, 2000.0f);
             m1 = std::clamp(m1, 1050.0f, 2000.0f);
             m2 = std::clamp(m2, 1050.0f, 2000.0f);
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
+            m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", m0, m1, m2, m3);
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+                                          base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
 
-            motor.update_compare_value({m0,m1,m2,m3});
+            motor.update_compare_value({m1,m2,m3,m4});
         }else{
             // 시동 안 걸렸을 때는 모터 정지 및 PID 적분항 초기화
             motor.stop_all_motors();
@@ -620,7 +615,7 @@ BaseType_t Flight::start_task()
     // {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
 	// 	auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
 	// 	acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-    //     gyro[0]   *=  -1.0f;
+    //  gyro[0]   *=  -1.0f;
 
     //     // 지자계 데이터를 읽는다. 		
     //     auto [ist_ret,ist_mag]  = ist8310.read_with_offset();

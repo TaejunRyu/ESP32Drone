@@ -39,8 +39,9 @@ class PID{
             float ki;
             float kd;
             float integral;
-            float err_prev;  // Outer Loop(각도)용: 이전 오차 저장
-            float prev_rate; // Inner Loop(각속도)용: 이전 자이로 값 저장
+            float err_prev;     // Outer Loop(각도)용: 이전 오차 저장
+            float prev_rate;    // Inner Loop(각속도)용: 이전 자이로 값 저장
+            float d_out_filt;   // Filter 적용.
         };
 
         void  reset_pid(drone_pid_t *p) ;
@@ -62,7 +63,7 @@ class PID{
         drone_pid_t pid_pitch_rate {};
         drone_pid_t pid_yaw_rate {};    // 회전 속도제어
     private:
-
+        float _alpha = 0.1f;   // d항 lpf filter 적용.
         bool _initialized = false;
 };
 

@@ -70,9 +70,10 @@ float PID::run_pid_angle(drone_pid_t *p, float tar, float cur, float dt, bool is
 
     // 1. 오차 계산 직후에 정규화 수행 (이래야 P, I, D 모든 항에 올바른 오차가 적용됨)
     if (is_yaw) {
-        while (error > 180.0f) error -= 360.0f;
-        while (error < -180.0f) error += 360.0f;
-    }
+    error = fmodf(error + 180.0f, 360.0f);
+    if (error < 0) error += 360.0f;
+    error -= 180.0f;
+}
 
     // [Safety Check] 센서 에러(Hold Mode) 발생 시 처리
     if (ENV::g_sys.error_hold_mode || ENV::g_sys.manual_hold_mode) {
@@ -117,15 +118,27 @@ float PID::run_pid_rate(drone_pid_t *p, float target_rate, float current_rate, f
     float p_out = p->kp * error;
 
     // I 항 (Anti-Windup 적용)
-    p->integral += error * dt;
-    // 출력 기준으로 I항 제한 (예: 모터 출력의 최대 15%까지만 담당)
-    //float i_out = std::clamp(p->ki * p->integral, -150.0f, 150.0f); 
-    float i_out = std::clamp(p->ki * p->integral, -60.0f, 60.0f); 
+    // p->integral += error * dt;
+    // // 출력 기준으로 I항 제한 (예: 모터 출력의 최대 15%까지만 담당)
+    // //float i_out = std::clamp(p->ki * p->integral, -150.0f, 150.0f); 
+    // float i_out = std::clamp(p->ki * p->integral, -60.0f, 60.0f); 
  
+    p->integral += error * dt;
+    // i_out을 계산하기 전, integral 자체를 미리 제한 (I항의 영향력을 각속도 단위에서 제어)
+    p->integral = std::clamp(p->integral, -200.0f, 200.0f); 
+    float i_out = p->ki * p->integral;
+
+
+
     // D 항 (Measurement Derivative: 목표값 변화가 아닌 실제 센서 변화 기반)
     // 오차 변화량 대신 '현재 각속도 변화'를 쓰면 스틱을 급격히 움직일 때 튀는 현상이 줄어듭니다.
-    float d_out = p->kd * (p->prev_rate - current_rate) / dt;
-    p->prev_rate = current_rate;
+    // float d_out = p->kd * (p->prev_rate - current_rate) / dt;
+    // p->prev_rate = current_rate;
+
+    float raw_d_out = p->kd * (p->prev_rate - current_rate) / dt;
+    // 간단한 LPF 예시 (alpha는 0.1~0.3 정도, 낮을수록 부드러움)
+    p->d_out_filt = p->d_out_filt * (1.0f - _alpha) + raw_d_out * _alpha;
+    float d_out = p->d_out_filt;    
 
     return p_out + i_out + d_out;
 }

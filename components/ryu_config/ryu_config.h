@@ -13,7 +13,16 @@ inline constexpr uint8_t COMPONENT_ID   = 1;
 
 inline constexpr  float RAD_TO_DEG = (180.0f/M_PI);
 inline constexpr  float DEG_TO_RAD = (M_PI/180.0f);
-   
+
+
+struct sensor_data_t{
+    float x;
+    float y;
+    float z;
+};
+
+
+
 // 시스템의 순차적 진행
 enum sys_status_t{                    
     SYS_STATE_UNINIT,            // 시스템 초기화 중 (센서 체크 전) 	       
