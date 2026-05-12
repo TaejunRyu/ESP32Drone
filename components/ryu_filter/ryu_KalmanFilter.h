@@ -29,11 +29,11 @@ public:
     float x[7] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     
     // 오차 공분산 행렬 P (7x7)
-    float P[7][7] = {0};
+    float P[7][7] = {0.0f,};
 
     // 필터 게인 파라미터 (S3 환경에 맞춘 튜닝값)
-    const float Q_quat = 0.001f;   // 쿼터니언 변화 노이즈
-    const float Q_bias = 0.000001f; // 자이로 바이어스 변화 노이즈
+    const float Q_quat  = 0.001f;   // 쿼터니언 변화 노이즈
+    const float Q_bias  = 0.000001f; // 자이로 바이어스 변화 노이즈
     const float R_accel = 0.05f;    // 가속도계 신뢰도 (낮을수록 가속도계를 더 믿음)
 
     void update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float dt);

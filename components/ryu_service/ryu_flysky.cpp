@@ -93,6 +93,8 @@ void Flysky::flysky_task(void *pvParameters)
             m_rc.aux4 = (local_ppm[7] > 1500) ? 1 : 0;
           
             m_rc.type  = Service::RC_FLYSKY;
+
+            m_rc.receive_time = esp_timer_get_time();
             portENTER_CRITICAL(&flysky->_my_spinlock);
             flysky->_rc_data = m_rc;
             portEXIT_CRITICAL(&flysky->_my_spinlock);

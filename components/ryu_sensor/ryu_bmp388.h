@@ -45,7 +45,7 @@ class BMP388{
         esp_err_t deinitialize();
         std::tuple<esp_err_t ,float> get_relative_altitude();
         std::tuple<esp_err_t ,float> calibrate_ground_pressure();        
-        //std::tuple<esp_err_t, float,float> Managed_get_relative_altitude();
+        float get_ground_pressure(){return _ground_pressure;};
         esp_err_t Managed_get_relative_altitude(float *return_alt, float *return_rate);
         float get_climb_rate(){return _climb_rate;};
         esp_err_t init_bus(Interface::BusInterface *bus);

@@ -33,6 +33,7 @@ struct rc_data_t {
     float aux3;      // 보조 채널 3 (SWC 3단)
     float aux4;      // 보조 채널 4
     enum_rc_type type;
+    uint64_t receive_time;
 };
 
 

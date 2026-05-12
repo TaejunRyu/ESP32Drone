@@ -86,10 +86,11 @@ enum flight_mode_t {
     MODE_PRECISION_LAND   // 정밀 착륙
 } ;
 
+// 시스템의 hold mode 상태.
 enum flight_hold_mode{
-    MODE_NORMAL         = 1 << 0,
-    MODE_USER_HOLD_MODE = 1 << 1,
-    MODE_ERR_HOLD_MODE  = 1 << 2
+    MODE_NORMAL,            // 정상모드
+    MODE_USER_HOLD_MODE,    // 사용자 hold mode
+    MODE_ERR_HOLD_MODE      // error hold mode
 };
 
 
@@ -99,8 +100,6 @@ struct sys_t {
     volatile uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
     volatile bool            is_armed;           // 시동 상태
     volatile flight_hold_mode hold_mode; 
-    //volatile bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
-    //volatile bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
     volatile bool            gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
     volatile bool            payload_dropped;    // 투하 완료 여부
     volatile float           battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)

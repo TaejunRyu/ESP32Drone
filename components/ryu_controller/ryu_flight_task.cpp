@@ -295,20 +295,32 @@ void Flight::flight_task(void *pvParameters)
         float acc[3]={}, gyro[3]={},mag[3]={};
         esp_err_t ret_code = icm20948_main.Managed_read_with_offset( acc, gyro,sizeof(acc));
         if (ret_code == ESP_OK){
-            memcpy(cur_acc.data,acc,sizeof(float)*3);
-            memcpy(cur_gyro.data,gyro,sizeof(float)*3);
+            for(size_t ii = 0 ; ii < 3 ; ++ii){ 
+                cur_acc.data[ii] = acc[ii];
+                cur_gyro.data[ii] = gyro[ii];
+            }
+            // memcpy(cur_acc.data,acc,sizeof(float)*3);
+            // memcpy(cur_gyro.data,gyro,sizeof(float)*3);
         }
 
 
         if (loop_cnt % 8 == 0){// 50HZ
             if (managed_mag.get_bus_type() == Interface::BusType::SPI){ 
                 icm20948_main.get_mag(mag);
-                memcpy(cur_mag.data,mag,sizeof(float)*3);
+                for(size_t ii = 0 ; ii < 3 ; ++ii){ 
+                    cur_mag.data[ii] = mag[ii];
+                }
+
+                // memcpy(cur_mag.data,mag,sizeof(float)*3);
 
             } else if (managed_mag.get_bus_type() == Interface::BusType::I2C){ 
                 auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
                 if(ret_mag == ESP_OK){
-                    memcpy(cur_mag.data,mag.data(),sizeof(float)*3);
+                    for(size_t ii = 0 ; ii < 3 ; ++ii){ 
+                        cur_mag.data[ii] = mag[ii];
+                    }
+
+                    // memcpy(cur_mag.data,mag.data(),sizeof(float)*3);
                 } 
                 ret_code = ret_mag;
             }
@@ -343,8 +355,12 @@ void Flight::flight_task(void *pvParameters)
         ENV::euler_data_t cur_euler_deg {0.0f,};
 
         //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
-        kalman.get_euler(&cur_euler_deg.roll,&cur_euler_deg.pitch,&cur_euler_deg.yaw);
-
+        float t_roll,t_pitch,t_yaw;
+        kalman.get_euler(&t_roll,&t_pitch,&t_yaw);
+        cur_euler_deg.roll  = t_roll;
+        cur_euler_deg.pitch = t_pitch;
+        cur_euler_deg.yaw   = t_yaw;
+        
 //if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", roll_deg,pitch_deg,yaw_deg);
         
         constexpr float TARGET_TRUE_NORTH = 7.7f; 
@@ -383,12 +399,19 @@ void Flight::flight_task(void *pvParameters)
             } else if (qgc_rc.type == Service::RC_QGC && qgc_rc.throttle > 5.0f) {
                 final_rc = qgc_rc;
             }
-            // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
-            // 감도를 높이려면 값을 키우면 된다.                         
-            float target_rc_roll_deg        = final_rc.roll     ;  //* 0.3f;
-            float target_rc_pitch_deg       = final_rc.pitch    ;  //* 0.3f;
-            float target_rc_yaw_deg         = final_rc.yaw      ;  //* 1.5f;
-            float target_rc_throttle        = final_rc.throttle * 10.0f;
+            static  float   target_rc_roll_deg{0.0f},
+                            target_rc_pitch_deg{0.0f},
+                            target_rc_yaw_deg{0.0f},
+                            target_rc_throttle{0.0f};
+            
+            if (esp_timer_get_time() - final_rc.receive_time < 50'000){
+                // 조종기 입력값 계산  (실제 조종기에서 들어오는 값들을 scale 작업을 하여 감도를 조절한다.)
+                // 감도를 높이려면 값을 키우면 된다.                         
+                target_rc_roll_deg        = final_rc.roll     ;  //* 0.3f;
+                target_rc_pitch_deg       = final_rc.pitch    ;  //* 0.3f;
+                target_rc_yaw_deg         = final_rc.yaw      ;  //* 1.5f;
+                target_rc_throttle        = final_rc.throttle * 10.0f;
+            }
 
             // 1초에 한번 파라미터 테이블에서 최신 PID 계수를 읽어옵니다
             //if(loop_cnt==100) sync_pid_from_params();
@@ -398,62 +421,69 @@ void Flight::flight_task(void *pvParameters)
 
             if (loop_cnt % 20 == 2){ //20HZ
                 static float target_alt{0.0f};
-                static ENV::flight_hold_mode last_alt_hold_state{ENV::flight_hold_mode::MODE_NORMAL};
+                
 
                 // bmp388에서 읽어오는 변수 (현재 고도와 상승률)
                 static float    cur_alt{0.0f}, 
                                 cur_climb_rate{0.0f};
-                
                 {
                     float temp_alt{0.0f},temp_rate{0.0f};
                     auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
                     if (err == ESP_OK){
                         cur_alt        = temp_alt;                    
+                        ENV::g_altitude.current =temp_alt;
                         cur_climb_rate = temp_rate;
                     }
                 }
+                // 비정상적인 요인 제한
+                if (cur_alt > 500.0f)   cur_alt = 0.0f;                     // 비정상적인 고도 차단
+                if (cur_alt <= 0.0f)    cur_alt = 0.0f;                      // 음수 고도 방지
+                if (fabsf(cur_climb_rate) > 10.0f) cur_climb_rate = 0.0f; // 비정상적 상승률 방지
 
-                // 정상모드
-                if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL){
-                    alt_throttle_offset = 0.0f;
-                    pid.reset_pid(&pid.pid_alt_pos);
-                    pid.reset_pid(&pid.pid_alt_rate);
-                }
 
                 // 에러발생으로 인한 hold mode
-                if (m_sys.hold_mode == ENV::flight_hold_mode::MODE_ERR_HOLD_MODE) {
-                    cur_climb_rate = 0.0f;                     // 상승률은 0으로 고정
-                }
+                // if (m_sys.hold_mode == ENV::flight_hold_mode::MODE_ERR_HOLD_MODE) {
+                //     cur_climb_rate = 0.0f;                     // 상승률은 0으로 고정
+                // }
 
-                // 3. 고도 유지 모드 스위치 처리                               
-                if (m_sys.hold_mode == ENV::flight_hold_mode::MODE_USER_HOLD_MODE){
-                    if(!last_alt_hold_state){
-                        target_alt = cur_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
-                        alt_throttle_offset = 0.0f;     // PID 보정값 초기화
-                        pid.reset_pid(&pid.pid_alt_pos);
-                        pid.reset_pid(&pid.pid_alt_rate);
-                    }
-                }                 
-                last_alt_hold_state = m_sys.hold_mode ;
-
-                // 비정상적인 요인 제한
-                if (cur_alt > 500.0f) cur_alt = 0.0f;                     // 비정상적인 고도 차단
-                if (cur_alt <= 0.0f) cur_alt = 0.0f;                      // 음수 고도 방지
-                if (fabsf(cur_climb_rate) > 10.0f) cur_climb_rate = 0.0f; // 비정상적 상승률 방지
                 
-
+                static ENV::flight_hold_mode last_alt_hold_state{ENV::flight_hold_mode::MODE_NORMAL};
                 // 사용자 지정 hold mode 
                 if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_USER_HOLD_MODE) {
+                    // 3. 고도 유지 모드 스위치 처리                               
+                    if(last_alt_hold_state  != ENV::flight_hold_mode::MODE_USER_HOLD_MODE){
+                        target_alt = cur_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
+                        pid.reset_pid(&pid.pid_alt_pos);
+                        pid.reset_pid(&pid.pid_alt_rate);
+                        last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
+                    }
                     // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = -pid.run_pid_angle(&pid.pid_alt_pos, target_alt, cur_alt, 0.025f, false);
+                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, cur_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)
                     alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.025f);
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
+                } else  if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL) {
+                    last_alt_hold_state = ENV::flight_hold_mode::MODE_NORMAL ;
+                    alt_throttle_offset = 0.0f; // 기본 수동 스로틀 사용
+                    //pid.reset_pid(&pid.pid_alt_pos);
+                    //pid.reset_pid(&pid.pid_alt_rate);
                 }
-            }
+
+
+// ESP_LOGI(TAG, "cur_alt: %8.3f target_alt: %8.3f  alt_throttle_offset: %8.3f", 
+//                         cur_alt,
+//                         target_alt,
+//                         alt_throttle_offset
+//                     );
+
+
+
+            } // loop_cnt %20 ==2 {}
+
             
+
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
             if (target_rc_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
@@ -473,20 +503,25 @@ void Flight::flight_task(void *pvParameters)
 
             // 컨트롤러에 의해서 입력되어지는 값.
             static float target_yaw_deg = 0.0f; // static 또는 전역 변수로 선언
-
+            static bool was_controlling = false; // 직전 루프에서 스틱을 조종 중이었는지 기억
             // 1. 스틱 입력이 있으면 목표 각도를 변화시킴
+            // 2. 스틱이력이 없으면 0도를 바라보게 된다.
             if (fabsf(target_rc_yaw_deg) > 1.0f) { // 데드밴드 설정
                  target_yaw_deg += target_rc_yaw_deg * dt;
+                 was_controlling = true;
             } else {
-                 //target_yaw_deg = cur_yaw_deg;   
+                // [스틱 정지] 
+                if (was_controlling) {
+                    // ★ 중요: 스틱을 딱 놓은 '첫 번째 루프'에서만 현재 실제 각도를 목표각도로 고정!
+                    target_yaw_deg = cur_euler_deg.yaw; 
+                    was_controlling = false; // 다음 루프부터는 이 if문에 들어오지 않음
+                }
+                // 이제 스틱을 놓아도 target_yaw_deg가 현재 각도로 고정되므로 그 자리를 유지(Hold)합니다.
             }
-
             // 2. 각도 범위 정규화 (0~360도 기준인 m_attitude.yaw와 맞춤)
             if (target_yaw_deg >= 360.0f) target_yaw_deg -= 360.0f;
             if (target_yaw_deg < 0.0f)    target_yaw_deg += 360.0f;
 
-            // 3. [중요] 최단 거리(Shortest Path) 오차 계산 로직을 run_pid_angle 내부에 넣거나 호출 전 수정
-            // 여기서는 Yaw 전용 Angle PID를 호출 (최단 거리 로직이 포함된 함수라고 가정)
             float target_yaw_rate = pid.run_pid_angle(&pid.pid_yaw_deg, target_yaw_deg, cur_euler_deg.yaw, dt,true);
 
             float out_roll  = pid.run_pid_rate(&pid.pid_roll_rate,  target_roll_rate,  cur_gyro.x, dt);
@@ -542,8 +577,8 @@ void Flight::flight_task(void *pvParameters)
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
             m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
-                                          base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
+// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+//                                           base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
 
             motor.update_compare_value({m1,m2,m3,m4});
         }else{

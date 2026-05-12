@@ -288,9 +288,9 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
     static size_t err_count = 0;        
     static size_t err_continue_count = 0;
     static uint32_t _waiting_count = 0;
-    static float  baro_alt;
     static bool is_fault_posted = false; // 이벤트 중복 발행 방지
 
+    static float baro_alt;
     static float clib_rate = 0;
 
     // [핵심] 두 센서 모두 임계치 초과 시 이벤트 발행
@@ -325,7 +325,7 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
     // 센서 읽기 로직 (Main/Sub 스위칭)
     auto& target_instance = (active_index == 0) ? BMP388::mainInstance : BMP388::subInstance;
     auto [err, alt] = target_instance.get_relative_altitude();
-    float rate      = target_instance.update_climb_rate();
+    float rate      = target_instance.get_climb_rate();
 
     if (err == ESP_OK) {
         // 성공 시 데이터 업데이트 및 에러 카운트 초기화
@@ -346,7 +346,6 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
         }
         *return_alt  = baro_alt;
         *return_rate = clib_rate;
-
         return ESP_OK;
     } 
     else {
@@ -392,10 +391,9 @@ std::tuple<esp_err_t ,float> BMP388::get_relative_altitude()
 
 
 inline std::tuple<esp_err_t,uint32_t,uint32_t> BMP388::read_bmp388(){
-    uint8_t reg = REG_DATA;
     uint8_t d[6] = {0};
     // 데이터 읽기 실패 시 0 반환
-    esp_err_t ret_code  = _bus->read(reg,d,6);
+    esp_err_t ret_code  = _bus->read(REG_DATA,d,6);
     if (ret_code != ESP_OK) {
         ESP_LOGE(TAG, "Read error: %s", esp_err_to_name(ret_code)); // 에러 종류 확인
         return {ESP_FAIL,0,0};
@@ -418,7 +416,5 @@ esp_err_t BMP388::init_bus(Interface::BusInterface* bus) {
     
     return ESP_OK;
 }
-
-
 
 }// namespace Sensor

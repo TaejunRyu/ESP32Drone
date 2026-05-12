@@ -118,6 +118,8 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             m_rc.pitch    = std::clamp(m_rc.pitch,      -100.0f, 100.0f);
             m_rc.yaw      = std::clamp(m_rc.yaw,        -100.0f, 100.0f);
             m_rc.type     = Service::RC_QGC;
+            m_rc.receive_time = esp_timer_get_time();
+
             // 이하의 숫자는 0으로 처리.....
             // Utils::Apply_DeadZone(m_rc.roll ,2.0f);
             // Utils::Apply_DeadZone(m_rc.pitch,2.0f);
@@ -340,61 +342,80 @@ void Mavlink::handle_mavlink_message(mavlink_message_t *msg)
             if( cmd.target_system != ENV::SYSTEM_ID) break;
             ENV::g_heartbeat.base_mode = cmd.base_mode;
             if (ENV::g_heartbeat.base_mode & MAV_MODE_FLAG_CUSTOM_MODE_ENABLED) {
+                
+
                 switch (cmd.custom_mode) {
                     case (uint32_t)0x00010000: // Manual                         
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00010000; //qgc용                        
                         ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                //fc용       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x00020000: // Altitude control
+                        // GPS가 없거나 끊겼을 때 작동합니다. 
+                        // 기체의 고도와 바라보는 방향(Yaw Heading)은 그 자리에 고정(Hold)되지만, 
+                        // 수평 위치는 바람에 밀릴 수 있습니다
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00020000;
                         ENV::g_sys.flight_mode = ENV::MODE_ALTCTL;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x00030000: // position control
+                        // 가장 대표적인 홀드 모드입니다. 
+                        // 키를 놓으면 회전 각도(Yaw Hold)뿐만 아니라 GPS를 기반으로 위도, 경도, 고도까지 그 자리에 칼같이 고정합니다.
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00030000;
                         ENV::g_sys.flight_mode = ENV::MODE_POSCTL;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x00040000: // Offboard
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00040000;
                         ENV::g_sys.flight_mode = ENV::MODE_OFFBOARD;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x00050000: // Acro
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00050000;
                         ENV::g_sys.flight_mode = ENV::MODE_ACRO;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x00060000: // rattitude
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00060000;
                         ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;    
                     case (uint32_t)0x00070000: // Stabilize
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x00070000;
                         ENV::g_sys.flight_mode = ENV::MODE_STABILIZED;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x03040000: // standby
+                        // 비행 중 QGC 패널에서 대기(Hold/Loiter) 버튼을 누르면 
+                        // 기체가 자동으로 조종권을 가져가서 현재 위치와 방위각을 유지하며 제자리 비행을 합니다.
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x03040000;
                         ENV::g_sys.flight_mode = ENV::MODE_MANUAL;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_USER_HOLD_MODE;
                         break;
                     case (uint32_t)0x04040000: // Mission
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x04040000;
                         ENV::g_sys.flight_mode = ENV::MODE_MISSION;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break; 
                     case (uint32_t)0x05040000: // Return 
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x05040000;
                         ENV::g_sys.flight_mode = ENV::MODE_RTL;                       
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                     case (uint32_t)0x09040000: // Land
                         ENV::g_sys.flight_mode = ENV::MODE_PRECISION_LAND;                       
                         ENV::g_heartbeat.custom_mode = (uint32_t)0x09040000;
-                        break;
-                    default:
-                            ESP_LOGI(TAG, "Unknown custom mode: 0x%08X", cmd.custom_mode);
+                        ENV::g_sys.hold_mode = ENV::flight_hold_mode::MODE_NORMAL;
                         break;
                 }
             }
+            ESP_LOGI(TAG, "MAVLINK_MSG_ID_SET_MODE custom mode: 0x%08X", cmd.custom_mode);
             break;
         }
         default:{            
            //ESP_LOGI(TAG, "SWITCH default msgid: %u (%s)", msg->msgid, ret_msg ? ret_msg->name : "Unknown");
         }
+        
     }    
 }
 
@@ -741,7 +762,7 @@ void Mavlink::on_timer_tick()
             break;
         }
         case 1: case 8:{
-            if (m_gps.home_alt > -9000.0f && m_gps.fixType >= 3) {
+            //if (m_gps.home_alt > -9000.0f && m_gps.fixType >= 3) {
                 //현재고도
                 int32_t alt_msl = static_cast<int32_t>(m_gps.hMSL );
                 
@@ -753,6 +774,7 @@ void Mavlink::on_timer_tick()
                     static_cast<int32_t>(m_gps.lat * 1e7), 
                     static_cast<int32_t>(m_gps.lon * 1e7),
                     static_cast<int32_t>(alt_msl),      // 해수면 고도
+//                    static_cast<int32_t>(ENV::g_altitude.current),      // 이것은 기압계로 측정한 고도 => g_baro.filtered_altitude * 1000.0f),
                     static_cast<int32_t>(alt_rel),      // 이것은 기압계로 측정한 고도 => g_baro.filtered_altitude * 1000.0f),
                     static_cast<int16_t>(m_gps.velN),   // 단위(cm/s) gps에서 데이터를 받아 처리 VGT문장에서 받으면 된다.
                     static_cast<int16_t>(m_gps.velE),
@@ -761,7 +783,7 @@ void Mavlink::on_timer_tick()
                 );
 
                     send_mavlink_msg(&msg);
-            }
+            //}
             break;
         }
         case 2:
