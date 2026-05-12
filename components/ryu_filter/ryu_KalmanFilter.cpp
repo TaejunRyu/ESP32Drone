@@ -67,7 +67,7 @@ void KalmanFilter::update_accel(float ax, float ay, float az) {
     // S3의 FPU 성능을 고려하여 가중치를 통해 상태값 업데이트
 
     // 의미: "내 예측(자이로)을 99% 믿고, 가속도 센서의 지적은 1%만 수용해서 조금씩 고치겠다"는 뜻입니다.
-    float K = 0.03f; // 고정 게인 사용 시 안정적
+    float K = 0.02f; // 고정 게인 사용 시 안정적
     x[0] += K * ( -x[2]*ex + x[1]*ey );
     x[1] += K * (  x[3]*ex + x[0]*ey - 2.0f*x[1]*ez );
     x[2] += K * ( -x[0]*ex + x[3]*ey - 2.0f*x[2]*ez );

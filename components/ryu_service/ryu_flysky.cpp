@@ -98,9 +98,9 @@ void Flysky::flysky_task(void *pvParameters)
             portEXIT_CRITICAL(&flysky->_my_spinlock);
 
             if ( flysky->_rc_data.aux1 > 0){
-                ENV::g_sys.manual_hold_mode =true;
+                ENV::g_sys.hold_mode =ENV::flight_hold_mode::MODE_USER_HOLD_MODE;
             }else{
-                ENV::g_sys.manual_hold_mode =false;
+                ENV::g_sys.hold_mode =ENV::flight_hold_mode::MODE_NORMAL;
             }
 
             // 시동(Arming) 로직

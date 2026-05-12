@@ -15,12 +15,40 @@ inline constexpr  float RAD_TO_DEG = (180.0f/M_PI);
 inline constexpr  float DEG_TO_RAD = (M_PI/180.0f);
 
 
+// template <typename T>
+// struct Vector3 {
+//     T data[3];
+// };
+
+// struct sensor_data_t : public Vector3<float> {
+//     float& x = data[0]; // 이름 부여
+//     float& y = data[1];
+//     float& z = data[2];
+// };
+
+// struct euler_data_t : public Vector3<float> {
+//     float& roll     = data[0]; // 다른 이름 부여
+//     float& pitch    = data[1];
+//     float& yaw      = data[2];
+// };
+
 struct sensor_data_t{
-    float x;
-    float y;
-    float z;
+     union {
+        float data[3];
+        struct {
+            float x, y, z;
+        };
+    };
 };
 
+struct euler_data_t {
+     union {
+        float data[3];
+        struct {
+            float roll, pitch, yaw;
+        };
+    };
+};
 
 
 // 시스템의 순차적 진행
@@ -58,13 +86,21 @@ enum flight_mode_t {
     MODE_PRECISION_LAND   // 정밀 착륙
 } ;
 
+enum flight_hold_mode{
+    MODE_NORMAL         = 1 << 0,
+    MODE_USER_HOLD_MODE = 1 << 1,
+    MODE_ERR_HOLD_MODE  = 1 << 2
+};
+
+
 struct sys_t {
     volatile flight_mode_t   flight_mode;        // 현재 비행 모드 => 이건 아직 미정 그냥 qgc와 연계하기 위하여 정의 
     volatile uint8_t         system_status;      // standby(3), active(4), critical 등
     volatile uint32_t        system_health;      // 현재 시스템의 상태 ryu_failsafe.h에서 주로 사용
     volatile bool            is_armed;           // 시동 상태
-    volatile bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
-    volatile bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
+    volatile flight_hold_mode hold_mode; 
+    //volatile bool            manual_hold_mode;   // flysky controller에서 hold mode 지정
+    //volatile bool            error_hold_mode;    // 센서의 오류로 인한 고정 비행
     volatile bool            gps_ready;          // GPS 수신 준비 완료 (이것이 필요할까?) 
     volatile bool            payload_dropped;    // 투하 완료 여부
     volatile float           battery_voltage;    // 배터리 전압 ( 바로 구할수 있는데 필요할까 ?)

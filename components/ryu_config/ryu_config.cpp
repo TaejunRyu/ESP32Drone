@@ -8,9 +8,10 @@ sys_t g_sys = {
              .flight_mode       = MODE_STABILIZED, 
              .system_status     = SYS_STATE_STANDBY,  // 전원 초기 상태 (system_status = 3 = STANDBY)
              .system_health     = 0x00011111b,        // ERR::SYS_HEALTH_ALL_OK 
-             .is_armed          = false, 
-             .manual_hold_mode  = false,
-             .error_hold_mode   = false,
+             .is_armed          = false,
+             .hold_mode         = MODE_NORMAL, 
+             //.manual_hold_mode  = false,
+             //.error_hold_mode   = false,
              .gps_ready         = false,
              .payload_dropped   = false,
              .battery_voltage   = 0.0f,
