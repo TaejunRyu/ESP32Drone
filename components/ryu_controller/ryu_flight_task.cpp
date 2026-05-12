@@ -264,7 +264,7 @@ void Flight::flight_task(void *pvParameters)
     auto& icm20948_main = Sensor::ICM20948::Main();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& pid           = Controller::PID::get_instance();
-    //auto& mahony        = Service::Mahony::get_instance();
+    auto& mahony        = Filter::Mahony::get_instance();
     //auto& flysky        = Service::Flysky::get_instance();
     auto& managed_mag  = Sensor::ManageMag::get_instance();
     if(!managed_mag.is_initialized())
@@ -340,23 +340,23 @@ void Flight::flight_task(void *pvParameters)
                         );
               
         // mahony.MahonyAHRSupdate(   
-                        // cur_gyro.x * ENV::DEG_TO_RAD,
-                        // cur_gyro.y * ENV::DEG_TO_RAD,
-                        // cur_gyro.z * ENV::DEG_TO_RAD,
-                        // cur_acc.x,
-                        // cur_acc.y,
-                        // cur_acc.z,
-                        // cur_mag.x,
-                        // cur_mag.y,
-                        // cur_mag.z,
-                        // dt
-                        // );
+        //                 cur_gyro.x * ENV::DEG_TO_RAD,
+        //                 cur_gyro.y * ENV::DEG_TO_RAD,
+        //                 cur_gyro.z * ENV::DEG_TO_RAD,
+        //                 cur_acc.x,
+        //                 cur_acc.y,
+        //                 cur_acc.z,
+        //                 cur_mag.x,
+        //                 cur_mag.y,
+        //                 cur_mag.z,
+        //                 dt
+        //                 );
         
         ENV::euler_data_t cur_euler_deg {0.0f,};
 
-        //mahony.get_euler(&roll_deg,&pitch_deg,&yaw_deg);
         float t_roll,t_pitch,t_yaw;
         kalman.get_euler(&t_roll,&t_pitch,&t_yaw);
+
         cur_euler_deg.roll  = t_roll;
         cur_euler_deg.pitch = t_pitch;
         cur_euler_deg.yaw   = t_yaw;
@@ -418,14 +418,20 @@ void Flight::flight_task(void *pvParameters)
             
             // 수직속도 (Inner Loop: 수직 속도 유지 (PI 제어 위주))
             static float alt_throttle_offset = 0.0f;         
+            static float target_alt{0.0f};
+            static float    cur_alt{0.0f}, 
+                            cur_climb_rate{0.0f};
+
+            static float estimated_alt = 0.0f;        // 400Hz로 부드럽게 추정되는 현재 고도 (PID 입력용)
+            static float estimated_climb_rate = 0.0f; // 400Hz로 부드럽게 추정되는 현재 상승률 (PID 입력용)
+                            
+            // 기압계가 안 들어오는 순간에도 가속도를 적분하여 고도와 속도를 부드럽게 이어줍니다.
+            estimated_alt += estimated_climb_rate * dt + 0.5f * cur_acc.z * dt * dt;
+            estimated_climb_rate += cur_acc.z * dt;
+
 
             if (loop_cnt % 20 == 2){ //20HZ
-                static float target_alt{0.0f};
-                
-
                 // bmp388에서 읽어오는 변수 (현재 고도와 상승률)
-                static float    cur_alt{0.0f}, 
-                                cur_climb_rate{0.0f};
                 {
                     float temp_alt{0.0f},temp_rate{0.0f};
                     auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
@@ -433,65 +439,67 @@ void Flight::flight_task(void *pvParameters)
                         cur_alt        = temp_alt;                    
                         ENV::g_altitude.current =temp_alt;
                         cur_climb_rate = temp_rate;
+
+                        estimated_alt = (estimated_alt * 0.85f) + (temp_alt * 0.15f);
+                        estimated_climb_rate = (estimated_climb_rate * 0.85f) + (temp_rate * 0.15f);
                     }
                 }
-                // 비정상적인 요인 제한
-                if (cur_alt > 500.0f)   cur_alt = 0.0f;                     // 비정상적인 고도 차단
-                if (cur_alt <= 0.0f)    cur_alt = 0.0f;                      // 음수 고도 방지
-                if (fabsf(cur_climb_rate) > 10.0f) cur_climb_rate = 0.0f; // 비정상적 상승률 방지
+                // 비정상적인 요인 제한( 고도제한 )
+                static float saved_cur_alt={0.0f};
+                if ( cur_alt < 500.0f && cur_alt > 0)
+                    saved_cur_alt = cur_alt;
+                else 
+                    cur_alt = saved_cur_alt;
 
+                // 비정상적인 요인 제한(하강/ 상승속도 제한)
+                static float saved_cur_climb_reate={0.0f};
+                if (fabsf(cur_climb_rate) <= 10 )
+                    saved_cur_climb_reate = cur_climb_rate;
+                else
+                    cur_climb_rate = saved_cur_climb_reate;
 
                 // 에러발생으로 인한 hold mode
-                // if (m_sys.hold_mode == ENV::flight_hold_mode::MODE_ERR_HOLD_MODE) {
-                //     cur_climb_rate = 0.0f;                     // 상승률은 0으로 고정
-                // }
+                if (m_sys.hold_mode == ENV::flight_hold_mode::MODE_ERR_HOLD_MODE) {
+                    cur_climb_rate = 0.0f;                     // 상승률은 0으로 고정
+                }                
+            } // loop_cnt %20 ==2 {}
 
-                
-                static ENV::flight_hold_mode last_alt_hold_state{ENV::flight_hold_mode::MODE_NORMAL};
-                // 사용자 지정 hold mode 
-                if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_USER_HOLD_MODE) {
-                    // 3. 고도 유지 모드 스위치 처리                               
-                    if(last_alt_hold_state  != ENV::flight_hold_mode::MODE_USER_HOLD_MODE){
-                        target_alt = cur_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
-                        pid.reset_pid(&pid.pid_alt_pos);
-                        pid.reset_pid(&pid.pid_alt_rate);
-                        last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
-                    }
 
-                   // 메인 루프 내부 테스트용 코드
-                    static float mock_time = 0.0f;
-                    mock_time += 0.025f;
-
-                    // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
-                    float cur_alt = target_alt + 0.5f * sinf(mock_time); 
-
-                    // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, 0.025f, false);
-                    target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
-
-                    // Inner Loop: 수직 속도 유지 (PI 제어 위주)
-                    alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.025f);
-                    alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
-
-                } else  if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL) {
-                    last_alt_hold_state = ENV::flight_hold_mode::MODE_NORMAL ;
-                    alt_throttle_offset = 0.0f; // 기본 수동 스로틀 사용
-                    //pid.reset_pid(&pid.pid_alt_pos);
-                    //pid.reset_pid(&pid.pid_alt_rate);
+            static ENV::flight_hold_mode last_alt_hold_state{ENV::flight_hold_mode::MODE_NORMAL};
+            // 사용자 지정 hold mode 
+            if(m_sys.hold_mode != ENV::flight_hold_mode::MODE_NORMAL) {
+                // 3. 고도 유지 모드 스위치 처리                               
+                if(last_alt_hold_state  != ENV::flight_hold_mode::MODE_USER_HOLD_MODE){
+                    target_alt = cur_alt;      // 모드가 켜지는 순간의 고도를 목표로 고정
+                    pid.reset_pid(&pid.pid_alt_pos);
+                    pid.reset_pid(&pid.pid_alt_rate);
+                    last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
                 }
 
 
-ESP_LOGI(TAG, "cur_alt: %8.3f target_alt: %8.3f  alt_throttle_offset: %8.3f", 
-                        cur_alt,
-                        target_alt,
-                        alt_throttle_offset
-                    );
+                // &&&&&&&&&&&&&&&메인 루프 내부 테스트용 코드&&&&&&&&&&&&&&&&(테스트후 삭제)
+                static float mock_time = 0.0f;
+                mock_time += 0.025f;
+                // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
+                float cur_alt = target_alt + 0.5f * sinf(mock_time); 
+                // &&&&&&77&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
 
+                // Outer Loop: 고도 유지 (P 제어 위주)
+                float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, 0.05f, false);
+                target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
-            } // loop_cnt %20 ==2 {}
+                // Inner Loop: 수직 속도 유지 (PI 제어 위주)
+                alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.05f);
+                alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
 
-            
+            } else  if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL) {
+                last_alt_hold_state = ENV::flight_hold_mode::MODE_NORMAL ;
+                alt_throttle_offset = 0.0f; // 기본 수동 스로틀 사용
+                //pid.reset_pid(&pid.pid_alt_pos);
+                //pid.reset_pid(&pid.pid_alt_rate);
+            }
+
 
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
@@ -586,8 +594,8 @@ ESP_LOGI(TAG, "cur_alt: %8.3f target_alt: %8.3f  alt_throttle_offset: %8.3f",
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
             m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-// if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
-//                                           base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
+if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+                                         alt_throttle_offset,base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
 
             motor.update_compare_value({m1,m2,m3,m4});
         }else{
@@ -628,7 +636,7 @@ BaseType_t Flight::start_task()
     auto& ak09916       = Sensor::AK09916::get_instance();
     auto& bmp388_main   = Sensor::BMP388::Main();
     auto& bmp388_sub    = Sensor::BMP388::Sub();
-    //auto& mahony        = Filter::Mahony::get_instance();
+    auto& mahony        = Filter::Mahony::get_instance();
     auto& motor         = Driver::Motor::get_instance();
     auto& gps           = Sensor::Gps::get_instance();
     auto& flysky        = Service::Flysky::get_instance();
@@ -639,7 +647,7 @@ BaseType_t Flight::start_task()
     //auto& failsafe      = Service::FailSafe::get_instance();
     auto& timer         = Service::Timer::get_instance();
     
-    esp_err_t ret;
+    esp_err_t err = ESP_FAIL;
     auto mac_addr = espnow.get_my_mac_address();
     ESP_LOGI(TAG, "My MAC address: %02x:%02x:%02x:%02x:%02x:%02x",mac_addr[0], mac_addr[1], mac_addr[2],mac_addr[3], mac_addr[4], mac_addr[5]);
     
@@ -648,30 +656,30 @@ BaseType_t Flight::start_task()
     vTaskDelay(pdMS_TO_TICKS(50));
     icm20948_sub.calibrate();		
 
-    auto [ret_bmp0,mgp] = bmp388_main.calibrate_ground_pressure();
+    float mgp{};
+    err = bmp388_main.calibrate_ground_pressure(&mgp);
     ENV::g_baro.ground_pressure = mgp;
     vTaskDelay(pdMS_TO_TICKS(50));
-    bmp388_sub.calibrate_ground_pressure();
-    //g_baro.ground_pressure = (mgp+sgp) * 0.5;
+    err = bmp388_sub.calibrate_ground_pressure(&mgp);
+    
+    {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
+		auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
+		acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
+        gyro[0]   *=  -1.0f;
 
-    // {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
-	// 	auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
-	// 	acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-    //  gyro[0]   *=  -1.0f;
+        // 지자계 데이터를 읽는다. 		
+        auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
+		auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
 
-    //     // 지자계 데이터를 읽는다. 		
-    //     auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
-	// 	auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
+        auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
+        auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
+        auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
 
-    //     auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
-    //     auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
-    //     auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
-
-	// 	// 융합된 데이터를 적용처리.
-    //     mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
-	// 	ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
-	// 	// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
-	// }
+		// 융합된 데이터를 적용처리.
+        mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
+		ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
+		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
+	}
 
     bool is_all_ok = true;
     // // ========== [3단계] 센서 연결 상태 검증 (critical check) ==========
@@ -731,13 +739,13 @@ BaseType_t Flight::start_task()
     ESP_LOGI(TAG, "✅ All Processes is passed... Flight ready!");
 
     // 콜백이 등록되어야지 데이터가 들어온다.
-    ret = espnow.connect_callback();
-    if (ret != ESP_OK){
+    err = espnow.connect_callback();
+    if (err != ESP_OK){
         res = pdFAIL;
     }
     // 10hz,1hz...일정하게 qgc로 보내는 mavlink message처리를 한다.
-    ret = timer.Start();
-    if (ret != ESP_OK){
+    err = timer.Start();
+    if (err != ESP_OK){
         res = pdFAIL;
     }
 //   buzzer.sound_success();

@@ -6,7 +6,7 @@
 #include <string>
 #include <driver/i2c_master.h>
 #include <esp_log.h>
-#include "ryu_businterface.h"
+
 
 namespace Interface {
     class BusInterface;
@@ -37,18 +37,18 @@ class BMP388{
         static inline constexpr uint8_t ADDR_VCC   =   0x77;
         static inline constexpr uint8_t ADDR_GND   =   0x76;
 
-
+        esp_err_t init_bus(Interface::BusInterface *bus);
         void setStatus(bool status) { _isAlive = status; }
         bool getStatus() { return _isAlive; }
         esp_err_t initialize();
         bool is_initialized(){return _initialized;};
         esp_err_t deinitialize();
-        std::tuple<esp_err_t ,float> get_relative_altitude();
-        std::tuple<esp_err_t ,float> calibrate_ground_pressure();        
+
+        esp_err_t calibrate_ground_pressure(float *ground_pressure);
         float get_ground_pressure(){return _ground_pressure;};
+        esp_err_t get_relative_altitude(float *filtered_alt);
+        float get_climb_rate() { return _climb_rate; };
         esp_err_t Managed_get_relative_altitude(float *return_alt, float *return_rate);
-        float get_climb_rate(){return _climb_rate;};
-        esp_err_t init_bus(Interface::BusInterface *bus);
 
     private:
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
@@ -92,23 +92,17 @@ class BMP388{
                     adc_t_last = 0;
                     
         float update_climb_rate();
-        bool  is_data_ready();
-        esp_err_t  read_calib();
+        bool is_data_ready();
         void init_coefficients();
-        std::tuple<esp_err_t, uint32_t, uint32_t> read_bmp388();
-
-        
-        std::tuple<esp_err_t, float> get_pressure();
-
-        
+        esp_err_t  read_calib();
+        esp_err_t read_bmp388(uint32_t *adcp, uint32_t *adct);
+        esp_err_t get_pressure(float *pressure);        
+       
         bool _initialized = false;
         std::string _name {};
         bool _isAlive = false;
         // private 생성자: 외부에서 호출 불가
         BMP388(std::string n) : _name(n), _isAlive(true) {}
-
-
-
     };
 
 }

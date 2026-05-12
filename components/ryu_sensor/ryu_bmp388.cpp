@@ -2,6 +2,7 @@
 #include <tuple>
 #include <freertos/FreeRTOS.h>
 #include "ryu_i2c.h" 
+#include "ryu_businterface.h"
 #include "ryu_sensor_event.h"
 
 namespace Sensor{
@@ -155,7 +156,7 @@ float BMP388::update_climb_rate()
 
 
 
-std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
+esp_err_t BMP388::calibrate_ground_pressure(float* ground_pressure)
 {
     float sum = 0;
     int count = 0;
@@ -165,11 +166,12 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
     ESP_LOGI(TAG, "✓ Start ground pressure correction (100 samplings)...");
 
     // 1. 센서 안정화를 위해 첫 데이터는 읽고 버림
-    auto [ret_code,pressure] = get_pressure();
-    vTaskDelay(pdMS_TO_TICKS(200));
+    float pressure{};
+    auto ret_code = get_pressure(&pressure);
+    vTaskDelay(pdMS_TO_TICKS(20)); // 50Hz 샘플링
 
     while(count < 100 && attempts < 200) { // 최대 200번 시도
-        std::tie(ret_code,pressure)= get_pressure();
+        ret_code= get_pressure(&pressure);
         
         if (pressure > 800.0f && pressure < 1200.0f) { // 좀 더 타이트한 유효 범위 (지상 기준)
             sum += pressure;
@@ -186,17 +188,20 @@ std::tuple<esp_err_t,float> BMP388::calibrate_ground_pressure()
         }
         if(error_count > 10) {
             ESP_LOGE(TAG, "❌ Ground pressure correction failed (sensor check needed)");
-            return {ret_code,0.0f};
+            *ground_pressure = 0.0f;
+            return ret_code;
         }
     }
 
     if (count >= 50) { // 최소 50개 이상의 유효 샘플 확보 시
         this->_ground_pressure = sum / (float)count;
         ESP_LOGI(TAG, "✓ Ground pressure setting complete: %.2f hPa (Samples: %d)", this->_ground_pressure, count);
-        return {ret_code,this->_ground_pressure};
+        *ground_pressure = _ground_pressure;
+        return ret_code;
     }
     ESP_LOGE(TAG, "❌ Ground pressure correction failed (sensor check needed)");
-    return {ret_code,0.0f};
+    *ground_pressure = 0.0f;
+    return ret_code;
 }
 
 /**
@@ -245,9 +250,10 @@ void BMP388::init_coefficients() {
 }
 
 
-std::tuple <esp_err_t,float> BMP388::get_pressure()
+esp_err_t BMP388::get_pressure(float * pressure)
 {
-    auto [ret_code,adc_p,adc_t] = read_bmp388();        
+    uint32_t adc_p{},adc_t{}; 
+    auto  ret_code = read_bmp388(&adc_p ,&adc_t);        
     if (ret_code == ESP_OK){
         float uncomp_p = (float)adc_p;
         float uncomp_t = (float)adc_t;
@@ -277,9 +283,11 @@ std::tuple <esp_err_t,float> BMP388::get_pressure()
 
         float comp_press = partial_out1 + partial_out2 + d4;
 
-        return{ret_code, (float)(comp_press * 0.01f)}; // Pa -> hPa
-    }else{
-        return {ret_code,0.0f};
+        *pressure = (float)(comp_press * 0.01f);
+        return ret_code; // Pa -> hPa
+    } else {
+        *pressure = 0.0f;
+        return ret_code;
     }
 }
 
@@ -324,8 +332,9 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
 
     // 센서 읽기 로직 (Main/Sub 스위칭)
     auto& target_instance = (active_index == 0) ? BMP388::mainInstance : BMP388::subInstance;
-    auto [err, alt] = target_instance.get_relative_altitude();
-    float rate      = target_instance.get_climb_rate();
+    float alt{};
+    auto err    = target_instance.get_relative_altitude(&alt);
+    float rate  = target_instance.get_climb_rate();
 
     if (err == ESP_OK) {
         // 성공 시 데이터 업데이트 및 에러 카운트 초기화
@@ -364,16 +373,20 @@ esp_err_t BMP388::Managed_get_relative_altitude(float* return_alt, float* return
     }
 }
 
-std::tuple<esp_err_t ,float> BMP388::get_relative_altitude()
+esp_err_t BMP388::get_relative_altitude(float * filtered_alt)
 {
     if (this->_ground_pressure <= 500.0f) {
         ESP_LOGE(TAG, "Error => Verify Ground Pressure..."); // 에러 종류 확인
-        return {ESP_FAIL,0.0f}; // 비정상적인 지면 기압 차단
+        *filtered_alt = 0.0f;
+        return ESP_FAIL; // 비정상적인 지면 기압 차단
     }
-    auto [ret_code, pressure] = get_pressure();
+    float pressure{};
+    auto ret_code = get_pressure(&pressure);
     
-    if (ret_code != ESP_OK || pressure <= 500.0f )
-        return {ret_code,this->_last_altitude}; // 일시적 오류 시 이전 값 유지
+    if (ret_code != ESP_OK || pressure <= 500.0f ){
+        *filtered_alt =_last_altitude;
+        return ret_code; // 일시적 오류 시 이전 값 유지
+    }
 
     // 고도 계산 공식 (ISA 모델)
     this->_current_alt = 44330.0f * (1.0f - powf(pressure / this->_ground_pressure, 0.190295f));
@@ -386,17 +399,20 @@ std::tuple<esp_err_t ,float> BMP388::get_relative_altitude()
     this->_last_altitude = this->_filtered_alt;
 
     this->update_climb_rate();
-    return {ret_code,this->_filtered_alt};
+    *filtered_alt = _filtered_alt;
+    return ret_code;
 }
 
 
-inline std::tuple<esp_err_t,uint32_t,uint32_t> BMP388::read_bmp388(){
+inline esp_err_t BMP388::read_bmp388(uint32_t* adcp,uint32_t* adct){
     uint8_t d[6] = {0};
     // 데이터 읽기 실패 시 0 반환
     esp_err_t ret_code  = _bus->read(REG_DATA,d,6);
     if (ret_code != ESP_OK) {
         ESP_LOGE(TAG, "Read error: %s", esp_err_to_name(ret_code)); // 에러 종류 확인
-        return {ESP_FAIL,0,0};
+        *adcp = 0;
+        *adct = 0;
+        return ESP_FAIL;
     }
     // 1. Raw ADC (24-bit) 조합: 데이터시트상 [0]=LSB, [1]=MSB, [2]=XLSB 순서임
     // 반드시 uint32_t로 먼저 합친 후 double로 변환해야 데이터가 안 깨짐
@@ -405,7 +421,10 @@ inline std::tuple<esp_err_t,uint32_t,uint32_t> BMP388::read_bmp388(){
     
     this->adc_p_last = adc_p;
     this->adc_t_last = adc_t;
-    return {ret_code,adc_p,adc_t};
+    *adcp = adc_p;
+    *adct = adc_t;
+    
+    return ret_code;
 }
 
 esp_err_t BMP388::init_bus(Interface::BusInterface* bus) {
