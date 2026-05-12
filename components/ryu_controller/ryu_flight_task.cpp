@@ -457,13 +457,22 @@ void Flight::flight_task(void *pvParameters)
                         pid.reset_pid(&pid.pid_alt_rate);
                         last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
                     }
+
+                   // 메인 루프 내부 테스트용 코드
+                    static float mock_time = 0.0f;
+                    mock_time += 0.025f;
+
+                    // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
+                    float cur_alt = target_alt + 0.5f * sinf(mock_time); 
+
                     // Outer Loop: 고도 유지 (P 제어 위주)
-                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt, cur_alt, 0.025f, false);
+                    float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, 0.025f, false);
                     target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
                     // Inner Loop: 수직 속도 유지 (PI 제어 위주)
                     alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.025f);
                     alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
+
                 } else  if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL) {
                     last_alt_hold_state = ENV::flight_hold_mode::MODE_NORMAL ;
                     alt_throttle_offset = 0.0f; // 기본 수동 스로틀 사용
@@ -472,11 +481,11 @@ void Flight::flight_task(void *pvParameters)
                 }
 
 
-// ESP_LOGI(TAG, "cur_alt: %8.3f target_alt: %8.3f  alt_throttle_offset: %8.3f", 
-//                         cur_alt,
-//                         target_alt,
-//                         alt_throttle_offset
-//                     );
+ESP_LOGI(TAG, "cur_alt: %8.3f target_alt: %8.3f  alt_throttle_offset: %8.3f", 
+                        cur_alt,
+                        target_alt,
+                        alt_throttle_offset
+                    );
 
 
 
