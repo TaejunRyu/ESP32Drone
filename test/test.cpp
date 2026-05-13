@@ -1,27 +1,17 @@
 #include "stdio.h"
 #include <array>
 #include <tuple>
-struct aaa{
-    int a;
-    int b;
-};
 
-int func(float *arg1, float *arg2){
-    arg1[0]= 10.0f;
-    arg1[1]= 30.0f;
-    arg1[2]= 50.0f;
-return 1;
     
 
-}
-
 int  main(void) {
-    float aaa[3]={1,2,3};
-    float bbb[3]={4,5,6};
+    float x[7] ={0.0f,0.0f,0.0f,0.0f,0.3f,0.5f,0.7f};
 
-    int kk = func(aaa,bbb);
+    float& q4 = x[4];
+    float& q5 = x[5];
+    float& q6 = x[6];
 
-    printf("%f  %f   %f",aaa[0],aaa[1],aaa[2]);
+    printf("%f  %f   %f",q4,q5,q6);
 
     return 0;
 }

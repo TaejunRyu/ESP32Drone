@@ -371,20 +371,10 @@ void Flight::flight_task(void *pvParameters)
     
         ENV::attitude_data_t m_attitude ={};               
 
-        float roll_speed_err; 
-        float pitch_speed_err;
-        float yaw_speed_err;
-        
         // kalman의 x[4],x[5],x[6]성분을 가저와 현재 gyro데이터에서 제거한후 pid에 적용.
-        kalman.get_speed(&roll_speed_err,&pitch_speed_err,&yaw_speed_err);
-        
-        roll_speed_err *= ENV::RAD_TO_DEG;
-        pitch_speed_err*= ENV::RAD_TO_DEG;
-        yaw_speed_err  *= ENV::RAD_TO_DEG;
-
-        cur_gyro.x = cur_gyro.x - roll_speed_err ;
-        cur_gyro.y = cur_gyro.y - pitch_speed_err;
-        cur_gyro.z = cur_gyro.z - yaw_speed_err  ;
+        cur_gyro.x = cur_gyro.x - kalman.q4 * ENV::RAD_TO_DEG;
+        cur_gyro.y = cur_gyro.y - kalman.q5 * ENV::RAD_TO_DEG;
+        cur_gyro.z = cur_gyro.z - kalman.q6 * ENV::RAD_TO_DEG;
 
 // if (loop_cnt % 16 == 0) 
 //         ESP_LOGI(TAG, "roll_speed_err : %8.5f pitch_speed_err: %8.5f yaw_speed_err: %8.5f cur_gyro x: %8.5f cur_gyro y: %8.5f cur_gyro z: %8.5f", 
@@ -472,18 +462,18 @@ void Flight::flight_task(void *pvParameters)
 
             if (loop_cnt % 20 == 2){ //20HZ
                 // bmp388에서 읽어오는 변수 (현재 고도와 상승률)
-                {
-                    float temp_alt{0.0f},temp_rate{0.0f};
-                    auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
-                    if (err == ESP_OK){
-                        cur_alt        = temp_alt;                    
-                        ENV::g_altitude.current =temp_alt;
-                        cur_climb_rate = temp_rate;
-                        // [안전화] 가속도 적분치와 실제 기압계 데이터 상보필터(Complementary Filter) 융합
-                        estimated_alt = (estimated_alt * 0.95f) + (temp_alt * 0.05f);
-                        estimated_climb_rate = (estimated_climb_rate * 0.90f) + (temp_rate * 0.10f);
-                    }
+ 
+                float temp_alt{0.0f},temp_rate{0.0f};
+                auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
+                if (err == ESP_OK){
+                    cur_alt        = temp_alt;                    
+                    ENV::g_altitude.current =temp_alt;
+                    cur_climb_rate = temp_rate;
+                    // [안전화] 가속도 적분치와 실제 기압계 데이터 상보필터(Complementary Filter) 융합
+                    estimated_alt = (estimated_alt * 0.95f) + (temp_alt * 0.05f);
+                    estimated_climb_rate = (estimated_climb_rate * 0.90f) + (temp_rate * 0.10f);
                 }
+ 
                 // 비정상적인 요인 제한( 고도제한 )
                 static float saved_cur_alt={0.0f};
                 if ( cur_alt < 500.0f && cur_alt > 0)
@@ -543,6 +533,7 @@ void Flight::flight_task(void *pvParameters)
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
 
             bool is_on_ground = target_rc_throttle < 10.0f;
+
             if (is_on_ground) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
                 pid.reset_pid_iterm(&pid.pid_roll_deg);
                 pid.reset_pid_iterm(&pid.pid_pitch_deg);
@@ -602,18 +593,19 @@ void Flight::flight_task(void *pvParameters)
             if (fabsf(out_yaw) < 1.0f) {
                 out_yaw = 0.0f;
             }
-
+            // rc의 trottle의 값(target_rc_throttle)과 고도에 따른 출력기본값(alt_throttle_offset)
+            // 최대값은 1050이 제한값이다 
             float base_pwm = 1000.0f + std::max(target_rc_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
 
-            // m0: Front-Left (CW)
+            // m1: Front-Left (CW)
+            // m2: Front-Right (CCW)
+            // m3: Rear-Left (CCW)
+            // m4: Rear-Right (CW)
             float m1 = base_pwm + out_pitch + out_roll - out_yaw;
-            // m1: Front-Right (CCW)
             float m2 = base_pwm + out_pitch - out_roll + out_yaw;
-            // m2: Rear-Left (CCW)
             float m3 = base_pwm - out_pitch + out_roll + out_yaw;
-            // m3: Rear-Right (CW)
             float m4 = base_pwm - out_pitch - out_roll - out_yaw;
 
 

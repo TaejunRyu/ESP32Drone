@@ -28,6 +28,10 @@ public:
     // 상태 벡터 x = [q0, q1, q2, q3, bx, by, bz]
     float x[7] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     
+    float& q4 = x[4]; 
+    float& q5 = x[5]; 
+    float& q6 = x[6]; 
+
     // 오차 공분산 행렬 P (7x7)
     float P[7][7] = {0.0f,};
 
@@ -39,7 +43,7 @@ public:
     void update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float dt);
     void update(float gx, float gy, float gz, float ax, float ay, float az, float dt);
     void get_euler(float* roll, float* pitch, float* yaw);
-    void get_speed(float* rollspeed, float* pitchspeed, float* yawspeed);
+    void get_speed_err(float* rollspeed, float* pitchspeed, float* yawspeed);
     void reset();
 
 private:
