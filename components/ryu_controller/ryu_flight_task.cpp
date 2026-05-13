@@ -326,6 +326,20 @@ void Flight::flight_task(void *pvParameters)
             }
         }
 
+if (loop_cnt % 64 == 0) 
+    ESP_LOGI(TAG, "| AX : %8.5f | AY : %8.5f | AZ : %8.5f | GX : %8.5f | GY : %8.5f | GZ : %8.5f | MX : %8.5f | MY : %8.5f | MZ : %8.5f |",
+                    cur_acc.x,
+                    cur_acc.y,
+                    cur_acc.z,
+                    cur_gyro.x,
+                    cur_gyro.y,
+                    cur_gyro.z,
+                    cur_mag.x,
+                    cur_mag.y,
+                    cur_mag.z
+                    );
+
+
         kalman.update(
                         cur_gyro.x * ENV::DEG_TO_RAD,
                         cur_gyro.y * ENV::DEG_TO_RAD,
@@ -630,9 +644,9 @@ void Flight::flight_task(void *pvParameters)
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
             m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-if (loop_cnt % 16 == 0) 
-        ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_roll: %8.3f| out_pitch: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
-                                         alt_throttle_offset,base_pwm,out_roll,out_pitch,out_yaw,m1, m2, m3, m4);
+// if (loop_cnt % 16 == 0) 
+//         ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_roll: %8.3f| out_pitch: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+//                                          alt_throttle_offset,base_pwm,out_roll,out_pitch,out_yaw,m1, m2, m3, m4);
 
             motor.update_compare_value({m1,m2,m3,m4});
         }else{

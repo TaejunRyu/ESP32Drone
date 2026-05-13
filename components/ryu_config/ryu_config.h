@@ -6,7 +6,16 @@
 #include <driver/i2c_master.h>
 #include <driver/uart.h>
 
+
+
 namespace ENV {
+
+// 1. CLASS_NO_COPY 매크로 정의 추가
+#ifndef CLASS_NO_COPY
+#define CLASS_NO_COPY(ClassName) \
+    ClassName(const ClassName&) = delete; \
+    ClassName& operator=(const ClassName&) = delete;
+#endif
 
 inline constexpr uint8_t SYSTEM_ID      = 1;
 inline constexpr uint8_t COMPONENT_ID   = 1;

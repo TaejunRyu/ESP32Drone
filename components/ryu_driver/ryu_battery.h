@@ -7,6 +7,7 @@
 #include <esp_adc/adc_cali_scheme.h>
 #include <driver/gpio.h>
 #include <esp_log.h>
+#include "ryu_config.h"
 
 namespace Driver{
 
@@ -20,10 +21,12 @@ class Battery{
             static Battery instance; 
             return instance;
         }
-        Battery(const Battery&) = delete;
-        Battery& operator=(const Battery&) = delete;
-        Battery(Battery&&) = delete;
-        Battery& operator=(Battery&&) = delete;
+        CLASS_NO_COPY(Battery);
+
+        // Battery(const Battery&) = delete;
+        // Battery& operator=(const Battery&) = delete;
+        // Battery(Battery&&) = delete;
+        // Battery& operator=(Battery&&) = delete;
 
         
         static inline constexpr gpio_num_t     BATTERY_ADC_PIN         = GPIO_NUM_34;
