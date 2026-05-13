@@ -28,6 +28,10 @@ public:
     // 상태 벡터 x = [q0, q1, q2, q3, bx, by, bz]
     float x[7] = {1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     
+    float& q0 = x[0]; 
+    float& q1 = x[1]; 
+    float& q2 = x[2]; 
+    float& q3 = x[3]; 
     float& q4 = x[4]; 
     float& q5 = x[5]; 
     float& q6 = x[6]; 
