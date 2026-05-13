@@ -55,8 +55,13 @@ void KalmanFilter::update_accel(float ax, float ay, float az) {
     float q0 = x[0], q1 = x[1], q2 = x[2], q3 = x[3];
     float vx = 2.0f * (q1*q3 - q0*q2);
     float vy = 2.0f * (q0*q1 + q2*q3);
+    //float vz = -(q0*q0 - q1*q1 - q2*q2 + q3*q3); // 위아래가 뒤집혀서 부호 반전함.
     float vz = q0*q0 - q1*q1 - q2*q2 + q3*q3; 
 
+    // // 오차 연산 (Innovation)
+    // float ex = ax - vx;
+    // float ey = ay - vy;
+    // float ez = az - vz;
 
     // Innovation (측정 오차)
     float ex = (ay * vz - az * vy);

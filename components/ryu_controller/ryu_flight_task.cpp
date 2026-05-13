@@ -372,9 +372,9 @@ void Flight::flight_task(void *pvParameters)
         ENV::attitude_data_t m_attitude ={};               
 
         // kalman의 x[4],x[5],x[6]성분을 가저와 현재 gyro데이터에서 제거한후 pid에 적용.
-        cur_gyro.x = cur_gyro.x - kalman.q4 * ENV::RAD_TO_DEG;
-        cur_gyro.y = cur_gyro.y - kalman.q5 * ENV::RAD_TO_DEG;
-        cur_gyro.z = cur_gyro.z - kalman.q6 * ENV::RAD_TO_DEG;
+        cur_gyro.x = cur_gyro.x - kalman.gyro_x_err * ENV::RAD_TO_DEG;
+        cur_gyro.y = cur_gyro.y - kalman.gyro_y_err * ENV::RAD_TO_DEG;
+        cur_gyro.z = cur_gyro.z - kalman.gyro_z_err * ENV::RAD_TO_DEG;
 
 // if (loop_cnt % 16 == 0) 
 //         ESP_LOGI(TAG, "roll_speed_err : %8.5f pitch_speed_err: %8.5f yaw_speed_err: %8.5f cur_gyro x: %8.5f cur_gyro y: %8.5f cur_gyro z: %8.5f", 
