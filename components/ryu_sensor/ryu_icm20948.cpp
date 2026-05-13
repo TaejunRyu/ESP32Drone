@@ -247,7 +247,7 @@ std::tuple<esp_err_t, std::array<float, 3>, std::array<float, 3>> ICM20948::read
     // X축 (Roll 축) : 기체의 전방(Front/Forward)이 (+)입니다. (후방이 -)
     // Y축 (Pitch 축): 기체의 우측(Right)이 (+)입니다. (좌측이 -)
     // Z축 (Yaw 축)  : 기체의 아래(Down) 방향이 (+)입니다. (하늘이 -)
-    acc[2]  *= -1.0f;   // az: (-)를 가져야한다.
+    //acc[2]  *= -1.0f;   // az: (-)를 가져야한다.
     gyro[2] *= -1.0f;   // gz: 오른쪽회전시 (+)로 증가  
 
     acc[1]  *= -1.0f;   // 오른손 법칙에 의하여 설정

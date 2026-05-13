@@ -39,6 +39,7 @@ public:
     void update(float gx, float gy, float gz, float ax, float ay, float az, float mx, float my, float mz, float dt);
     void update(float gx, float gy, float gz, float ax, float ay, float az, float dt);
     void get_euler(float* roll, float* pitch, float* yaw);
+    void get_speed(float* rollspeed, float* pitchspeed, float* yawspeed);
     void reset();
 
 private:

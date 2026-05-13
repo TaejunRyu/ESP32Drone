@@ -361,7 +361,7 @@ void Flight::flight_task(void *pvParameters)
         cur_euler_deg.pitch = t_pitch;
         cur_euler_deg.yaw   = t_yaw;
         
-//if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", roll_deg,pitch_deg,yaw_deg);
+//if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", cur_euler_deg.roll,cur_euler_deg.pitch,cur_euler_deg.yaw);
         
         constexpr float TARGET_TRUE_NORTH = 7.7f; 
         // 진북에서 -7.7도정도에 자북이 존재하므로 현재 자북을 구한상태에 +7.7도를 더해야만 진북이된다.
@@ -370,12 +370,39 @@ void Flight::flight_task(void *pvParameters)
         else if (cur_euler_deg.yaw >= 360.0f)   cur_euler_deg.yaw -= 360.0f;
     
         ENV::attitude_data_t m_attitude ={};               
+
+        float roll_speed_err; 
+        float pitch_speed_err;
+        float yaw_speed_err;
+        
+        // kalman의 x[4],x[5],x[6]성분을 가저와 현재 gyro데이터에서 제거한후 pid에 적용.
+        kalman.get_speed(&roll_speed_err,&pitch_speed_err,&yaw_speed_err);
+        
+        roll_speed_err *= ENV::RAD_TO_DEG;
+        pitch_speed_err*= ENV::RAD_TO_DEG;
+        yaw_speed_err  *= ENV::RAD_TO_DEG;
+
+        cur_gyro.x = cur_gyro.x - roll_speed_err ;
+        cur_gyro.y = cur_gyro.y - pitch_speed_err;
+        cur_gyro.z = cur_gyro.z - yaw_speed_err  ;
+
+// if (loop_cnt % 16 == 0) 
+//         ESP_LOGI(TAG, "roll_speed_err : %8.5f pitch_speed_err: %8.5f yaw_speed_err: %8.5f cur_gyro x: %8.5f cur_gyro y: %8.5f cur_gyro z: %8.5f", 
+//                         roll_speed_err,
+//                         pitch_speed_err,
+//                         yaw_speed_err,
+//                         cur_gyro.x,
+//                         cur_gyro.y,
+//                         cur_gyro.z
+//                     );
+
         m_attitude.rollspeed    = cur_gyro.x ;
         m_attitude.pitchspeed   = cur_gyro.y ;
         m_attitude.yawspeed     = cur_gyro.z ;
         m_attitude.roll         = cur_euler_deg.roll;
         m_attitude.pitch        = cur_euler_deg.pitch;        
         m_attitude.yaw          = cur_euler_deg.yaw;
+
 
         //m_attitide에 저장되어진 정보를 g_attitude에 넘긴다.
         portENTER_CRITICAL(&ENV::g_attitude_mux);
@@ -425,9 +452,22 @@ void Flight::flight_task(void *pvParameters)
             static float estimated_alt = 0.0f;        // 400Hz로 부드럽게 추정되는 현재 고도 (PID 입력용)
             static float estimated_climb_rate = 0.0f; // 400Hz로 부드럽게 추정되는 현재 상승률 (PID 입력용)
                             
-            // 기압계가 안 들어오는 순간에도 가속도를 적분하여 고도와 속도를 부드럽게 이어줍니다.
-            estimated_alt += estimated_climb_rate * dt + 0.5f * cur_acc.z * dt * dt;
-            estimated_climb_rate += cur_acc.z * dt;
+            // [수정] 1. 중력가속도가 차감된 순수 수직 가속도 계산 (Z축 Up이 플러스인 시스템 기준)
+            // m_attitude.roll과 pitch 각도(라디안)를 이용하여 물리적 틸트 보정을 가합니다.
+            float cos_roll = cosf(cur_euler_deg.roll * ENV::DEG_TO_RAD);
+            float cos_pitch = cosf(cur_euler_deg.pitch * ENV::DEG_TO_RAD);
+            
+            // 기체가 기울어지면 센서에 찍히는 중력 성분이 분산되므로 이를 복원하여 1.0G(9.8)를 뺍니다.
+            // 만약 cur_acc.z 단위가 G단위라면 1.0f를 빼고, m/s^2 단위라면 9.80665f를 빼야 합니다.
+            float pure_vertical_accel = (cur_acc.z / (cos_roll * cos_pitch)) - 1.0f; 
+            
+            // G단위를 m/s^2 스케일로 변환하여 적분 처리 (BMP388 고도 단위인 미터(m)와 스케일 일치)
+            pure_vertical_accel *= 9.80665f; 
+
+            // 가속도를 통한 고도/상승률 초고속 적분 추정 (Drift 방지를 위해 임계치 클램핑)
+            if (fabsf(pure_vertical_accel) < 0.2f) pure_vertical_accel = 0.0f; // 진동 노이즈 데드밴드 처리
+            estimated_alt += estimated_climb_rate * dt; //+ 0.5f * pure_vertical_accel * dt * dt;
+            estimated_climb_rate += pure_vertical_accel * dt;
 
 
             if (loop_cnt % 20 == 2){ //20HZ
@@ -439,9 +479,9 @@ void Flight::flight_task(void *pvParameters)
                         cur_alt        = temp_alt;                    
                         ENV::g_altitude.current =temp_alt;
                         cur_climb_rate = temp_rate;
-
-                        estimated_alt = (estimated_alt * 0.85f) + (temp_alt * 0.15f);
-                        estimated_climb_rate = (estimated_climb_rate * 0.85f) + (temp_rate * 0.15f);
+                        // [안전화] 가속도 적분치와 실제 기압계 데이터 상보필터(Complementary Filter) 융합
+                        estimated_alt = (estimated_alt * 0.95f) + (temp_alt * 0.05f);
+                        estimated_climb_rate = (estimated_climb_rate * 0.90f) + (temp_rate * 0.10f);
                     }
                 }
                 // 비정상적인 요인 제한( 고도제한 )
@@ -476,14 +516,12 @@ void Flight::flight_task(void *pvParameters)
                     last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
                 }
 
-
                 // &&&&&&&&&&&&&&&메인 루프 내부 테스트용 코드&&&&&&&&&&&&&&&&(테스트후 삭제)
                 static float mock_time = 0.0f;
                 mock_time += 0.025f;
                 // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
                 float cur_alt = target_alt + 0.5f * sinf(mock_time); 
                 // &&&&&&77&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-
 
                 // Outer Loop: 고도 유지 (P 제어 위주)
                 float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, 0.05f, false);
@@ -493,7 +531,7 @@ void Flight::flight_task(void *pvParameters)
                 alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.05f);
                 alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
 
-            } else  if(m_sys.hold_mode == ENV::flight_hold_mode::MODE_NORMAL) {
+            } else {
                 last_alt_hold_state = ENV::flight_hold_mode::MODE_NORMAL ;
                 alt_throttle_offset = 0.0f; // 기본 수동 스로틀 사용
                 //pid.reset_pid(&pid.pid_alt_pos);
@@ -503,7 +541,9 @@ void Flight::flight_task(void *pvParameters)
 
             //정지 상태에서 출력값이 누적되는 문제를 해결하기 위해,
             // 이 코드에 I-term만 초기화하는 기능을 추가하고 적용하는 방법을 제안해 드립니다.
-            if (target_rc_throttle < 10.0f) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
+
+            bool is_on_ground = target_rc_throttle < 10.0f;
+            if (is_on_ground) { // 스로틀이 매우 낮을 때 (바닥에 있을 때)
                 pid.reset_pid_iterm(&pid.pid_roll_deg);
                 pid.reset_pid_iterm(&pid.pid_pitch_deg);
                 pid.reset_pid_iterm(&pid.pid_yaw_deg);
@@ -550,15 +590,19 @@ void Flight::flight_task(void *pvParameters)
             // throttle이 거의 0일 때는 yaw 제어를 억제하여
             // 하한 클램프와 충돌하는 현상을 방지한다.
             // 적분/이전 오차도 같이 초기화.
-            if (target_rc_throttle < 5.0f) {
+            if (is_on_ground){
+                out_roll = 0.0f;
+                out_pitch = 0.0f;
                 out_yaw = 0.0f;
-                pid.pid_yaw_deg.integral = 0.0f;
+                //pid.pid_yaw_deg.integral = 0.0f;
                 pid.pid_yaw_deg.err_prev = 0.0f;
             }
+
             // 작은 값은 dead‑band 처리
             if (fabsf(out_yaw) < 1.0f) {
                 out_yaw = 0.0f;
             }
+
             float base_pwm = 1000.0f + std::max(target_rc_throttle + alt_throttle_offset, 50.0f);
 
             // 1. 우선 클램프 없이 믹싱 계산 (임시 변수)
@@ -594,8 +638,9 @@ void Flight::flight_task(void *pvParameters)
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
             m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_pitch: %8.3f| out_roll: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
-                                         alt_throttle_offset,base_pwm,out_pitch,out_roll,out_yaw,m1, m2, m3, m4);
+if (loop_cnt % 16 == 0) 
+        ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_roll: %8.3f| out_pitch: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+                                         alt_throttle_offset,base_pwm,out_roll,out_pitch,out_yaw,m1, m2, m3, m4);
 
             motor.update_compare_value({m1,m2,m3,m4});
         }else{
@@ -655,28 +700,20 @@ BaseType_t Flight::start_task()
     icm20948_main.calibrate();  
     vTaskDelay(pdMS_TO_TICKS(50));
     icm20948_sub.calibrate();		
+    vTaskDelay(pdMS_TO_TICKS(50));
 
     float mgp{};
     err = bmp388_main.calibrate_ground_pressure(&mgp);
     ENV::g_baro.ground_pressure = mgp;
     vTaskDelay(pdMS_TO_TICKS(50));
     err = bmp388_sub.calibrate_ground_pressure(&mgp);
-    
+    vTaskDelay(pdMS_TO_TICKS(50));    
     {// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (시작)==========	        
 		auto [ret,acc,gyro]     = icm20948_main.read_with_offset();
-		acc[1]    *=  -1.0f;  // 오른손 법칙에 적용 2가지 모두 (-)부호를 해야한다 (여기는 gyro는 사용하지 않지만 알아두라는 알림의 표시로...)
-        gyro[0]   *=  -1.0f;
-
         // 지자계 데이터를 읽는다. 		
         auto [ist_ret,ist_mag]  = ist8310.read_with_offset();
-		auto [ ak_ret, ak_mag]  = ak09916.read_with_offset();    
-
-        auto  magx = (ist_mag[0]+ak_mag[0])*0.5;
-        auto  magy = (ist_mag[1]+ak_mag[1])*0.5;
-        auto  magz = (ist_mag[2]+ak_mag[2])*0.5;
-
 		// 융합된 데이터를 적용처리.
-        mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],magx,magy,magz);
+        mahony.calibrate_mahony_initial_attitude(acc[0],acc[1], acc[2],ist_mag[0],ist_mag[1],ist_mag[2]);
 		ESP_LOGI(TAG, "✓ Mahony attitude initialization completeed");
 		// ========== Mahony AHRS 초기 롤/피치 캘리브레이션 (끝)==========
 	}
