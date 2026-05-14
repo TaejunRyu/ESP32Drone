@@ -7,7 +7,7 @@ namespace Filter {
 
 class AltitudeEstimator {
     private:
-        AltitudeEstimator();
+        AltitudeEstimator() = default;
         ~AltitudeEstimator() = default;
         static constexpr const char* TAG = "AltitudeEstimator";
         
