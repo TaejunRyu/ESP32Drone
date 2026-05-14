@@ -1,63 +1,86 @@
 #pragma once
 
 #include <cmath>
+#include <esp_timer.h>
 
 namespace Filter {
 
-class AltiKalman {
-private:
-    AltiKalman();
-    ~AltiKalman() = default;
+class AltitudeEstimator {
+    private:
+        AltitudeEstimator();
+        ~AltitudeEstimator() = default;
+        static constexpr const char* TAG = "AltitudeEstimator";
+        
+        // 상태 벡터 x = [고도(m), 수직속도(m/s)]
+        float z = 0.0f;
+        float v = 0.0f;
 
-public:
-    static AltiKalman& get_instance() {
-        static AltiKalman instance;
-        return instance;
+        // 가속도 바이어스 추정 (수직 가속도 영점 보정용)
+        float acc_bias = 0.0f;
+
+        // 필터 게인 (튜닝 파라미터)
+        const float K_pos = 0.04f;   // 기압계 고도 보정 게인
+        const float K_vel = 0.15f;   // 기압계 기반 속도 보정 게인
+        const float K_bias = 0.01f;  // 가속도 바이어스 수정 게인
+
+    public:
+        // 복사 및 이동 금지
+        AltitudeEstimator(const AltitudeEstimator&) = delete;
+        AltitudeEstimator& operator=(const AltitudeEstimator&) = delete;
+        
+        static AltitudeEstimator& get_instance() {
+            static AltitudeEstimator instance;
+            return instance;
+        }
+
+        /**
+         * @brief 400Hz 메인 제어 루프에서 매번 실행하는 가속도 예측 (Prediction)
+         * @param raw_az IMU의 Z축 가속도 (m/s^2 단위, 센서 상 기준)
+         * @param roll AHRS 칼만 필터에서 계산된 현재 Roll (radian)
+         * @param pitch AHRS 칼만 필터에서 계산된 현재 Pitch (radian)
+         * @param dt 주기 (400Hz = 0.0025f)
+         */
+        void predict(float raw_az, float roll, float pitch, float dt) {
+            // 1. 센서 좌표계 가속도를 지구 평면 좌표계(수직 가속도)로 변환 (중력 상쇄 포함)
+            // 주의: 센서 방향에 따라 부호가 바뀔 수 있습니다. (여기서는 정립 상태 1G = +9.81m/s^2 가정)
+            float accel_earth_z = raw_az * std::cos(roll) * std::cos(pitch) - 9.80665f;
+            
+            // 바이어스 제거
+            accel_earth_z -= acc_bias;
+
+            // 2. 400Hz 초고속 적분 (지터 없이 흐르는 기본 상태)
+            z += v * dt + 0.5f * accel_earth_z * dt * dt;
+            v += accel_earth_z * dt;
+        }
+
+        /**
+         * @brief 20Hz 기압계 수신 루프(또는 데이터 도착 시점)에서 호출하는 보정 (Update)
+         * @param baro_alt 기압계로부터 변환된 현재 절대/상대 고도 (m)
+         */
+        void update_baro(float baro_alt) {
+            // 예측 고도와 기압계 고도의 오차(Innovation) 계산
+            float innovation = baro_alt - z;
+
+            // 마할라노비스 거리를 단순화한 게이트 필터 (프로펠러 후류/와류 노이즈 차단)
+            // 갑자기 고도가 1.5미터 이상 튀는 기압계 노이즈가 들어오면 업데이트를 차단
+            if (std::abs(innovation) > 1.5f) {
+                return; 
+            }
+
+            // 오차를 상태 변수 전반에 분배 (수직 속도와 가속도 영점까지 보정됨)
+            z += K_pos * innovation;
+            v += K_vel * innovation;
+            acc_bias += K_bias * innovation; // 가속도 드리프트 흡수
+        }
+
+        void get_altitude_states(float* altitude, float* climb_rate) {
+            *altitude = z;
+            *climb_rate = v;
+        }
+
+        void reset() {
+            z = 0.0f; v = 0.0f; acc_bias = 0.0f;
     }
-
-    // 상태 벡터: x = [고도(m), 수직속도(m/s)]
-    float z = 0.0f;
-    float v = 0.0f;
-
-    // 공분산 행렬 (2x2)
-    float P[2][2] = {{1.0f, 0.0f}, {0.0f, 1.0f}};
-
-    // 프로세스 노이즈 (가속도계의 불확실성)
-    const float Q_accel = 0.01f;
-    // 측정 노이즈 (기압계의 노이즈 - 높을수록 기압계를 덜 믿음)
-    const float R_baro = 0.5f; 
-
-    /**
-     * @param acc_z_earth 중력 가속도가 제거된 순수 수직 가속도 (m/s^2)
-     * @param dt 루프 주기 (sec)
-     */
-    void predict(float acc_z_earth, float dt);
-
-    /**
-     * @param baro_alt 기압계로부터 계산된 현재 고도 (m)
-     */
-    void update(float baro_alt);
-
-    void reset(float initial_alt);
 };
 
-} // namespace Service
-
-
-
-// // AHRS 칼만 필터에서 얻은 쿼터니언(q)을 활용
-// float q0 = kalman.x[0], q1 = kalman.x[1], q2 = kalman.x[2], q3 = kalman.x[3];
-
-// // 1. 기체 좌표계의 가속도를 지구 좌표계로 변환 (수직 성분만 추출)
-// float acc_z_earth = 2.0f*(q1*q3 - q0*q2)*ax + 2.0f*(q0*q1 + q2*q3)*ay + (q0*q0 - q1*q1 - q2*q2 + q3*q3)*az;
-
-// // 2. 중력 가속도(1.0G) 제거 (단위가 m/s^2라면 9.81을 뺌)
-// // 센서값이 G 단위라면 1.0f를 뺌
-// acc_z_earth -= 1.0f; 
-
-// // 3. 고도 칼만 업데이트
-// auto& alti = Service::AltiKalman::get_instance();
-// alti.predict(acc_z_earth * 9.81f, dt); // m/s^2 단위로 변환해서 입력
-// if (baro_updated) {
-//     alti.update(current_baro_alt);
-// }
+} // namespace Filter

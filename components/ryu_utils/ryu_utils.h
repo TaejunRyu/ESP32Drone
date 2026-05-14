@@ -22,8 +22,4 @@ public:
 
 extern float Apply_DeadZone(float value, float zone);
 
-
-
-
-
 }

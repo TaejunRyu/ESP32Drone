@@ -46,9 +46,6 @@ class IST8310{
 
 
     private:
-        Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
-        std::array<float, 3> last_valid_mag ={};
-
         static inline constexpr float FILTER_ALPHA = 0.4f; 
 
         // IST8310 레지스터 정의
@@ -80,6 +77,8 @@ class IST8310{
         static inline constexpr float SCALE_Y       =  0.99f;
         static inline constexpr float SCALE_Z       =  1.03f;
 
+        Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어
+        std::array<float, 3> last_valid_mag ={};
         bool _initialized = false;
 };
 

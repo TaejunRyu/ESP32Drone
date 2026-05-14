@@ -28,6 +28,7 @@
 #include "ryu_mavlink.h"
 #include "ryu_businterface.h"
 #include "ryu_KalmanFilter.h"
+#include "ryu_AltiKalman.h"
 
 namespace Controller
 {
@@ -271,6 +272,7 @@ void Flight::flight_task(void *pvParameters)
         managed_mag.initialize();
 
     auto& kalman = Filter::KalmanFilter::get_instance();
+    auto& alti_kalman = Filter::AltitudeEstimator::get_instance();
 
     uint32_t loop_cnt = 0;
     int64_t  last_time = esp_timer_get_time();
@@ -299,10 +301,7 @@ void Flight::flight_task(void *pvParameters)
                 cur_acc.data[ii] = acc[ii];
                 cur_gyro.data[ii] = gyro[ii];
             }
-            // memcpy(cur_acc.data,acc,sizeof(float)*3);
-            // memcpy(cur_gyro.data,gyro,sizeof(float)*3);
         }
-
 
         if (loop_cnt % 8 == 0){// 50HZ
             if (managed_mag.get_bus_type() == Interface::BusType::SPI){ 
@@ -310,34 +309,29 @@ void Flight::flight_task(void *pvParameters)
                 for(size_t ii = 0 ; ii < 3 ; ++ii){ 
                     cur_mag.data[ii] = mag[ii];
                 }
-
-                // memcpy(cur_mag.data,mag,sizeof(float)*3);
-
             } else if (managed_mag.get_bus_type() == Interface::BusType::I2C){ 
                 auto [ret_mag, mag] = managed_mag.Managed_read_with_offset();
                 if(ret_mag == ESP_OK){
                     for(size_t ii = 0 ; ii < 3 ; ++ii){ 
                         cur_mag.data[ii] = mag[ii];
                     }
-
-                    // memcpy(cur_mag.data,mag.data(),sizeof(float)*3);
                 } 
                 ret_code = ret_mag;
             }
         }
 
-if (loop_cnt % 64 == 0) 
-    ESP_LOGI(TAG, "| AX : %8.5f | AY : %8.5f | AZ : %8.5f | GX : %8.5f | GY : %8.5f | GZ : %8.5f | MX : %8.5f | MY : %8.5f | MZ : %8.5f |",
-                    cur_acc.x,
-                    cur_acc.y,
-                    cur_acc.z,
-                    cur_gyro.x,
-                    cur_gyro.y,
-                    cur_gyro.z,
-                    cur_mag.x,
-                    cur_mag.y,
-                    cur_mag.z
-                    );
+// if (loop_cnt % 64 == 0) 
+//     ESP_LOGI(TAG, "| AX : %8.5f | AY : %8.5f | AZ : %8.5f | GX : %8.5f | GY : %8.5f | GZ : %8.5f | MX : %8.5f | MY : %8.5f | MZ : %8.5f |",
+//                     cur_acc.x,
+//                     cur_acc.y,
+//                     cur_acc.z,
+//                     cur_gyro.x,
+//                     cur_gyro.y,
+//                     cur_gyro.z,
+//                     cur_mag.x,
+//                     cur_mag.y,
+//                     cur_mag.z
+//                     );
 
 
         kalman.update(
@@ -374,7 +368,9 @@ if (loop_cnt % 64 == 0)
         cur_euler_deg.roll  = t_roll;
         cur_euler_deg.pitch = t_pitch;
         cur_euler_deg.yaw   = t_yaw;
+
         
+
 //if (loop_cnt % 16 == 0) ESP_LOGI(TAG, "roll_deg: %8.3f pitch_deg: %8.3f yaw_deg: %8.3f", cur_euler_deg.roll,cur_euler_deg.pitch,cur_euler_deg.yaw);
         
         constexpr float TARGET_TRUE_NORTH = 7.7f; 
@@ -389,6 +385,10 @@ if (loop_cnt % 64 == 0)
         cur_gyro.x = cur_gyro.x - kalman.gyro_x_err * ENV::RAD_TO_DEG;
         cur_gyro.y = cur_gyro.y - kalman.gyro_y_err * ENV::RAD_TO_DEG;
         cur_gyro.z = cur_gyro.z - kalman.gyro_z_err * ENV::RAD_TO_DEG;
+
+        alti_kalman.predict(cur_acc.z,cur_euler_deg.roll,cur_euler_deg.pitch,dt);     
+
+
 
 // if (loop_cnt % 16 == 0) 
 //         ESP_LOGI(TAG, "roll_speed_err : %8.5f pitch_speed_err: %8.5f yaw_speed_err: %8.5f cur_gyro x: %8.5f cur_gyro y: %8.5f cur_gyro z: %8.5f", 
@@ -412,7 +412,10 @@ if (loop_cnt % 64 == 0)
         portENTER_CRITICAL(&ENV::g_attitude_mux);
         ENV::g_attitude = m_attitude;
         portEXIT_CRITICAL(&ENV::g_attitude_mux);
+
         
+
+
         // 일시에 g_sys를 가져온다.
         ENV::sys_t m_sys = ENV::g_sys;
 
@@ -453,26 +456,25 @@ if (loop_cnt % 64 == 0)
             static float    cur_alt{0.0f}, 
                             cur_climb_rate{0.0f};
 
-            static float estimated_alt = 0.0f;        // 400Hz로 부드럽게 추정되는 현재 고도 (PID 입력용)
-            static float estimated_climb_rate = 0.0f; // 400Hz로 부드럽게 추정되는 현재 상승률 (PID 입력용)
+            float estimated_alt = 0.0f;        // 400Hz로 부드럽게 추정되는 현재 고도 (PID 입력용)
+            float estimated_climb_rate = 0.0f; // 400Hz로 부드럽게 추정되는 현재 상승률 (PID 입력용)
                             
-            // [수정] 1. 중력가속도가 차감된 순수 수직 가속도 계산 (Z축 Up이 플러스인 시스템 기준)
-            // m_attitude.roll과 pitch 각도(라디안)를 이용하여 물리적 틸트 보정을 가합니다.
-            float cos_roll = cosf(cur_euler_deg.roll * ENV::DEG_TO_RAD);
-            float cos_pitch = cosf(cur_euler_deg.pitch * ENV::DEG_TO_RAD);
+            // // [수정] 1. 중력가속도가 차감된 순수 수직 가속도 계산 (Z축 Up이 플러스인 시스템 기준)
+            // // m_attitude.roll과 pitch 각도(라디안)를 이용하여 물리적 틸트 보정을 가합니다.
+            // float cos_roll = cosf(cur_euler_deg.roll * ENV::DEG_TO_RAD);
+            // float cos_pitch = cosf(cur_euler_deg.pitch * ENV::DEG_TO_RAD);
             
-            // 기체가 기울어지면 센서에 찍히는 중력 성분이 분산되므로 이를 복원하여 1.0G(9.8)를 뺍니다.
-            // 만약 cur_acc.z 단위가 G단위라면 1.0f를 빼고, m/s^2 단위라면 9.80665f를 빼야 합니다.
-            float pure_vertical_accel = (cur_acc.z / (cos_roll * cos_pitch)) - 1.0f; 
+            // // 기체가 기울어지면 센서에 찍히는 중력 성분이 분산되므로 이를 복원하여 1.0G(9.8)를 뺍니다.
+            // // 만약 cur_acc.z 단위가 G단위라면 1.0f를 빼고, m/s^2 단위라면 9.80665f를 빼야 합니다.
+            // float pure_vertical_accel = (cur_acc.z / (cos_roll * cos_pitch)) - 1.0f; 
             
-            // G단위를 m/s^2 스케일로 변환하여 적분 처리 (BMP388 고도 단위인 미터(m)와 스케일 일치)
-            pure_vertical_accel *= 9.80665f; 
+            // // G단위를 m/s^2 스케일로 변환하여 적분 처리 (BMP388 고도 단위인 미터(m)와 스케일 일치)
+            // pure_vertical_accel *= 9.80665f; 
 
-            // 가속도를 통한 고도/상승률 초고속 적분 추정 (Drift 방지를 위해 임계치 클램핑)
-            if (fabsf(pure_vertical_accel) < 0.2f) pure_vertical_accel = 0.0f; // 진동 노이즈 데드밴드 처리
-            estimated_alt += estimated_climb_rate * dt; //+ 0.5f * pure_vertical_accel * dt * dt;
-            estimated_climb_rate += pure_vertical_accel * dt;
-
+            // // 가속도를 통한 고도/상승률 초고속 적분 추정 (Drift 방지를 위해 임계치 클램핑)
+            // if (fabsf(pure_vertical_accel) < 0.2f) pure_vertical_accel = 0.0f; // 진동 노이즈 데드밴드 처리
+            // estimated_alt += estimated_climb_rate * dt; //+ 0.5f * pure_vertical_accel * dt * dt;
+            // estimated_climb_rate += pure_vertical_accel * dt;
 
             if (loop_cnt % 20 == 2){ //20HZ
                 // bmp388에서 읽어오는 변수 (현재 고도와 상승률)
@@ -480,14 +482,18 @@ if (loop_cnt % 64 == 0)
                 float temp_alt{0.0f},temp_rate{0.0f};
                 auto err = bmp388_main.Managed_get_relative_altitude(&temp_alt,&temp_rate);
                 if (err == ESP_OK){
-                    cur_alt        = temp_alt;                    
-                    ENV::g_altitude.current =temp_alt;
-                    cur_climb_rate = temp_rate;
+                    alti_kalman.update_baro(temp_alt);
                     // [안전화] 가속도 적분치와 실제 기압계 데이터 상보필터(Complementary Filter) 융합
-                    estimated_alt = (estimated_alt * 0.95f) + (temp_alt * 0.05f);
-                    estimated_climb_rate = (estimated_climb_rate * 0.90f) + (temp_rate * 0.10f);
+                    // estimated_alt = (estimated_alt * 0.95f) + (temp_alt * 0.05f);
+                    // estimated_climb_rate = (estimated_climb_rate * 0.90f) + (temp_rate * 0.10f);
                 }
  
+                alti_kalman.get_altitude_states(&estimated_alt,&estimated_climb_rate);
+                cur_alt        = estimated_alt;                    
+                cur_climb_rate = estimated_climb_rate;
+                ENV::g_altitude.current =temp_alt;
+    
+                    
                 // 비정상적인 요인 제한( 고도제한 )
                 static float saved_cur_alt={0.0f};
                 if ( cur_alt < 500.0f && cur_alt > 0)
@@ -520,19 +526,19 @@ if (loop_cnt % 64 == 0)
                     last_alt_hold_state = ENV::flight_hold_mode::MODE_USER_HOLD_MODE ;
                 }
 
-                // &&&&&&&&&&&&&&&메인 루프 내부 테스트용 코드&&&&&&&&&&&&&&&&(테스트후 삭제)
-                static float mock_time = 0.0f;
-                mock_time += 0.025f;
-                // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
-                float cur_alt = target_alt + 0.5f * sinf(mock_time); 
-                // &&&&&&77&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+                // // &&&&&&&&&&&&&&&메인 루프 내부 테스트용 코드&&&&&&&&&&&&&&&&(테스트후 삭제)
+                // static float mock_time = 0.0f;
+                // mock_time += 0.025f;
+                // // 고도가 0m -> 0.5m -> 0m -> -0.5m 로 부드럽게 출렁이도록 가짜 데이터 주입
+                // float cur_alt = target_alt + 0.5f * sinf(mock_time); 
+                // // &&&&&&77&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
-                // Outer Loop: 고도 유지 (P 제어 위주)
-                float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, 0.05f, false);
+                    // Outer Loop: 고도 유지 (P 제어 위주)
+                float target_climb_rate = pid.run_pid_angle(&pid.pid_alt_pos, target_alt,cur_alt, dt, false);
                 target_climb_rate       = std::clamp(target_climb_rate, -1.5f, 1.5f);
 
                 // Inner Loop: 수직 속도 유지 (PI 제어 위주)
-                alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate, 0.05f);
+                alt_throttle_offset = pid.run_pid_rate(&pid.pid_alt_rate, target_climb_rate, cur_climb_rate,dt);
                 alt_throttle_offset = std::clamp(alt_throttle_offset, -150.0f, 150.0f);
 
             } else {
@@ -644,9 +650,9 @@ if (loop_cnt % 64 == 0)
             m3 = std::clamp(m3, 1050.0f, 2000.0f);
             m4 = std::clamp(m4, 1050.0f, 2000.0f);
 
-// if (loop_cnt % 16 == 0) 
-//         ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_roll: %8.3f| out_pitch: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
-//                                          alt_throttle_offset,base_pwm,out_roll,out_pitch,out_yaw,m1, m2, m3, m4);
+//if (loop_cnt % 16 == 0) 
+        ESP_LOGI(TAG, "| alt_throttle_offset : %8.3f | base: %8.3f| out_roll: %8.3f| out_pitch: %8.3f| out_yaw: %8.3f| m1: %8.3f| m2: %8.3f| m3: %8.3f| m4: %8.3f|", 
+                                         alt_throttle_offset,base_pwm,out_roll,out_pitch,out_yaw,m1, m2, m3, m4);
 
             motor.update_compare_value({m1,m2,m3,m4});
         }else{

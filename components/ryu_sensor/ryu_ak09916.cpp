@@ -15,16 +15,6 @@ namespace Sensor
 
 esp_err_t AK09916::deinitialize()
 {
-    // esp_err_t err = ESP_FAIL;
-    // if(_dev_handle != nullptr){
-    //     err = i2c_master_bus_rm_device(_dev_handle);
-    //     if (err != ESP_OK) return err;
-    //     _dev_handle = nullptr;
-    // }
-    // this->_initialized = false;
-    // ESP_LOGI(TAG,"Deinitialized sucessfully.");    
-    // return err;
-
     // 1. 상태 체크
     if (!_initialized) {
         return ESP_OK;
@@ -45,21 +35,7 @@ esp_err_t AK09916::initialize()
     if(_initialized){
         return ESP_OK;
     } 
-    //삭제==============================================================
-    // _bus_handle = Driver::I2C::get_instance().get_bus_handle();
-
-    // // AK09916 디바이스 추가 (I2C 버스에 직접 연결된 것처럼 동작)
-    // i2c_device_config_t mag_cfg = {};
-    // mag_cfg.dev_addr_length = I2C_ADDR_BIT_LEN_7;
-    // mag_cfg.device_address  = ADDR;
-    // mag_cfg.scl_speed_hz    = Driver::I2C::I2C_SPEED;;
-    // esp_err_t err = i2c_master_bus_add_device(_bus_handle, &mag_cfg, &_dev_handle);
-    // if (err != ESP_OK) {
-    //     ESP_LOGE(TAG, "Bus 추가 실패");
-    //     return err;
-    // }
-    //=================================================================== 끝
-    
+   
     if(_bus == nullptr) return ESP_FAIL; // 인터페이스 주입 확인
 
     // 3. WHO_AM_I 확인 (AK09916의 ID는 0x09)
@@ -241,6 +217,5 @@ esp_err_t AK09916::init_bus(Interface::BusInterface* bus) {
     
     return ESP_OK;
 }
-
 
 }// namespace Sensor

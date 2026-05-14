@@ -7,6 +7,10 @@
 #include <driver/uart.h>
 
 
+namespace Controller{
+    class Flight;
+}
+
 
 namespace ENV {
 
@@ -25,21 +29,32 @@ inline constexpr  float DEG_TO_RAD = (M_PI/180.0f);
 
 
 // template <typename T>
-// struct Vector3 {
-//     T data[3];
+// class Vector3 {
+//     protected:
+//         T data[3];
 // };
 
-// struct sensor_data_t : public Vector3<float> {
+// class sensor_data_t : protected Vector3<float> {
+
 //     float& x = data[0]; // 이름 부여
 //     float& y = data[1];
 //     float& z = data[2];
+//     uint64_t read_time{};
+
+//     friend class Flight;
+
 // };
 
-// struct euler_data_t : public Vector3<float> {
+
+// class euler_data_t : public Vector3<float> {
 //     float& roll     = data[0]; // 다른 이름 부여
 //     float& pitch    = data[1];
 //     float& yaw      = data[2];
+//     uint64_t read_time{};
+
+//     friend class Flight;
 // };
+
 
 struct sensor_data_t{
      union {

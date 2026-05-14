@@ -28,19 +28,6 @@ class AK09916{
         Interface::BusInterface* get_bus(){ return _bus;};    
 
         static inline constexpr uint8_t ADDR       =    0x0C;
-        static inline constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
-
-        static inline constexpr uint8_t HXL        =    0x11;// 데이터 시작 (X-axis Low)
-        static inline constexpr uint8_t CNTL2      =    0x31;// 모드 설정 (100Hz 등)
-        static inline constexpr uint8_t CNTL3      =    0x32;// 소프트 리셋
-        static inline constexpr uint8_t WHO_AM_I   =    0x01;// ID 확인용 (값: 0x09)
-
-        static inline constexpr float SCALE_X      =   0.91f;
-        static inline constexpr float SCALE_Y      =   1.07f;
-        static inline constexpr float SCALE_Z      =   1.04f;
-        static inline constexpr float MAG_OFFSET_X =   91.50f;
-        static inline constexpr float MAG_OFFSET_Y =   176.00f;
-        static inline constexpr float MAG_OFFSET_Z =   -170.50f;
 
         esp_err_t  deinitialize();
         esp_err_t initialize();
@@ -52,6 +39,18 @@ class AK09916{
         esp_err_t init_bus(Interface::BusInterface *bus);
         
     private:
+        static inline constexpr uint8_t STAT1      =    0x10;    // 데이터의 준비 체크
+        static inline constexpr uint8_t HXL        =    0x11;// 데이터 시작 (X-axis Low)
+        static inline constexpr uint8_t CNTL2      =    0x31;// 모드 설정 (100Hz 등)
+        static inline constexpr uint8_t CNTL3      =    0x32;// 소프트 리셋
+        static inline constexpr uint8_t WHO_AM_I   =    0x01;// ID 확인용 (값: 0x09)
+
+        static inline constexpr float SCALE_X      =   0.91f;
+        static inline constexpr float SCALE_Y      =   1.07f;
+        static inline constexpr float SCALE_Z      =   1.04f;
+        static inline constexpr float MAG_OFFSET_X =   91.50f;
+        static inline constexpr float MAG_OFFSET_Y =   176.00f;
+        static inline constexpr float MAG_OFFSET_Z =   -170.50f;
         Interface::BusInterface* _bus = nullptr; // 하드웨어 추상화 레이어       
         bool _initialized = false;
 };
